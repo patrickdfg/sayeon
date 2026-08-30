@@ -29,7 +29,8 @@
   .wrap { max-width: 780px; margin: 0 auto; padding: 22px var(--pad) 40px; }
   .dim { opacity: .6; }
 
-  h1.head { font-size: 30px; font-weight: 700; margin: 0 0 16px; letter-spacing: -.01em; }
+  h1.head { font-size: 30px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  .headrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 16px; }
 
   .topbar { display: flex; gap: 8px; flex-wrap: wrap; }
   .topbtn {
@@ -37,6 +38,7 @@
     background: var(--panel); color: var(--text); border: 0;
     border-radius: 999px; padding: 10px 18px;
     font-size: 15px; font-family: inherit; cursor: pointer; min-height: 44px;
+    text-decoration: none;
   }
 
   .total { opacity: .6; font-size: 15px; margin: 16px 0 10px; }
@@ -181,7 +183,10 @@
 </div>
 
 <div class="wrap">
-  <h1 class="head">2026년 성령 사연</h1>
+  <div class="headrow">
+    <h1 class="head">2026년 성령 사연</h1>
+    <a class="topbtn" href="stones/">🪨 월명동 돌·나무</a>
+  </div>
   <div class="topbar">
     <button class="topbtn" id="openlist">📋 목록</button>
     <button class="topbtn" id="opensettings">⚙ 설정</button>
