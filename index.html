@@ -741,6 +741,7 @@ function loadData() {
       return;
     }
     if (!SAYEON.length) { showLoadError("(내용이 비어 있음)"); return; }
+    SAYEON.sort(function (a, b) { return (b.no || 0) - (a.no || 0); });
     buildList();
     render();
   };
