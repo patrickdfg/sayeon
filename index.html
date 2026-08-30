@@ -31,6 +31,7 @@
 
   h1.head { font-size: 30px; font-weight: 700; margin: 0 0 16px; letter-spacing: -.01em; }
 
+  .topbar { display: flex; gap: 8px; flex-wrap: wrap; }
   .topbtn {
     display: inline-flex; align-items: center; gap: 8px;
     background: var(--panel); color: var(--text); border: 0;
@@ -87,18 +88,11 @@
   .navbtn .v { display: block; font-size: 17px; word-break: keep-all; }
   .navbtn.left { text-align: left; }
   .navbtn.right { text-align: right; }
+  .navbtn.mid { flex: 0 0 84px; text-align: center; font-size: 15px; }
   .navbtn:disabled { opacity: .3; cursor: default; }
 
   footer { opacity: .6; font-size: 14px; text-align: center; margin-top: 30px; }
   .warn { color: #d8b45f; font-size: 13px; text-align: center; margin-top: 12px; display: none; }
-
-  .fab {
-    position: fixed; right: 18px; bottom: 22px;
-    width: 62px; height: 62px; border-radius: 50%;
-    background: var(--green); color: #14180f; border: 0;
-    font-size: 24px; cursor: pointer; z-index: 20;
-    box-shadow: 0 4px 14px rgba(0,0,0,.35);
-  }
 
   /* 공통 모달 */
   .modal {
@@ -156,7 +150,11 @@
 
 <div class="wrap">
   <h1 class="head">2026년 성령 사연</h1>
-  <button class="topbtn" id="opensettings">⚙ 설정</button>
+  <div class="topbar">
+    <button class="topbtn" id="openlist">📋 목록</button>
+    <button class="topbtn" id="opensettings">⚙ 설정</button>
+    <button class="topbtn" id="opensearch">🔍 검색</button>
+  </div>
 
   <div class="total" id="total"></div>
   <hr class="sep">
@@ -175,6 +173,7 @@
 
   <div class="nav">
     <button class="navbtn left" id="prev"><span class="k">이전</span><span class="v" id="prevT"></span></button>
+    <button class="navbtn mid" id="navlist">목록</button>
     <button class="navbtn right" id="next"><span class="k">다음</span><span class="v" id="nextT"></span></button>
   </div>
 
@@ -182,7 +181,16 @@
   <div class="warn" id="warn">이 브라우저에서는 읽어주기를 지원하지 않습니다.</div>
 </div>
 
-<button class="fab" id="fab" aria-label="검색">🔍</button>
+<!-- 목록 -->
+<div class="modal" id="listmodal">
+  <div class="inner">
+    <div class="top">
+      <h2>목록</h2>
+      <button class="closebtn" id="closelist">닫기</button>
+    </div>
+    <div id="listresults"></div>
+  </div>
+</div>
 
 <!-- 설정 -->
 <div class="modal" id="settings">
@@ -190,6 +198,14 @@
     <div class="top">
       <h2>설정</h2>
       <button class="closebtn" id="closeset">닫기</button>
+    </div>
+
+    <div class="set">
+      <div class="name">읽기</div>
+      <div class="opts" id="autoOpts">
+        <button class="opt">다음페이지 자동읽기</button>
+        <button class="opt">현재페이지만 읽기</button>
+      </div>
     </div>
 
     <div class="set">
@@ -298,8 +314,8 @@ var THEMES = [
   { k: "세피아", bg: "#f3e9d2", text: "#3a2f1b" },
   { k: "흰색", bg: "#ffffff", text: "#1a1a1a" }
 ];
-var DEF = { size: 16, lh: 1.95, pad: 18, font: 0, bg: "#1b2018", text: "#e9ece4" };
-var cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text };
+var DEF = { size: 16, lh: 1.95, pad: 18, font: 0, bg: "#1b2018", text: "#e9ece4", autoNext: true };
+var cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoNext: DEF.autoNext };
 
 function $(id) { return document.getElementById(id); }
 function setVar(n, v) { document.documentElement.style.setProperty(n, v); }
@@ -320,6 +336,7 @@ function applyCfg() {
   $("cBgHex").textContent = cfg.bg;
   markSel("fontOpts", cfg.font);
   markSel("themeOpts", themeIndex());
+  markSel("autoOpts", cfg.autoNext ? 0 : 1);
 }
 
 function themeIndex() {
@@ -365,8 +382,8 @@ function numOf(s, i) { return (s && s.no) ? s.no : (i + 1); }
 function shortTitle(s, i) { return s.short ? s.short : (numOf(s, i) + "편"); }
 function fullTitle(s, i) { return s.title || (numOf(s, i) + "편"); }
 
-function render() {
-  stopSpeak();
+function render(keepSpeaking) {
+  if (!keepSpeaking) stopSpeak();
   var s = SAYEON[idx];
   $("total").textContent = "총 " + TOTAL + "개 항목 (현재 " + SAYEON.length + "개 수록)";
   $("ctitle").textContent = s.title || "";
@@ -475,7 +492,16 @@ function highlight(pi) {
 }
 
 function speakNext() {
-  if (qi >= queue.length) { stopSpeak(); return; }
+  if (qi >= queue.length) {
+    if (speaking && cfg.autoNext && idx < SAYEON.length - 1) {
+      idx++;
+      render(true);
+      startSpeak();
+    } else {
+      stopSpeak();
+    }
+    return;
+  }
   var item = queue[qi];
   var u = new SpeechSynthesisUtterance(item.text);
   u.lang = "ko-KR";
@@ -564,8 +590,24 @@ function runSearch() {
   }
 }
 
+function buildList() {
+  var box = $("listresults");
+  box.innerHTML = "";
+  for (var i = 0; i < SAYEON.length; i++) {
+    var btn = document.createElement("button");
+    btn.className = "hit";
+    btn.textContent = fullTitle(SAYEON[i], i);
+    (function (t) { btn.onclick = function () { idx = t; closeAll(); render(); }; })(i);
+    box.appendChild(btn);
+  }
+}
+
 function openModal(id) { $(id).className = "modal open"; }
-function closeAll() { $("search").className = "modal"; $("settings").className = "modal"; }
+function closeAll() {
+  $("search").className = "modal";
+  $("settings").className = "modal";
+  $("listmodal").className = "modal";
+}
 
 /* ===== 이벤트 ===== */
 $("prev").onclick = function () { go(-1); };
@@ -574,9 +616,13 @@ $("speak").onclick = function () { if (speaking) { stopSpeak(); } else { startSp
 
 $("opensettings").onclick = function () { openModal("settings"); };
 $("closeset").onclick = closeAll;
-$("fab").onclick = function () { openModal("search"); $("q").focus(); };
+$("opensearch").onclick = function () { openModal("search"); $("q").focus(); };
 $("closeq").onclick = closeAll;
 $("q").oninput = runSearch;
+
+$("openlist").onclick = function () { openModal("listmodal"); };
+$("navlist").onclick = function () { openModal("listmodal"); };
+$("closelist").onclick = closeAll;
 
 $("fsPlus").onclick = function () { cfg.size = Math.min(48, cfg.size + 2); applyCfg(); };
 $("fsMinus").onclick = function () { cfg.size = Math.max(12, cfg.size - 2); applyCfg(); };
@@ -587,9 +633,15 @@ $("padMinus").onclick = function () { cfg.pad = Math.max(0, cfg.pad - 6); applyC
 $("cText").oninput = function () { cfg.text = $("cText").value; applyCfg(); };
 $("cBg").oninput = function () { cfg.bg = $("cBg").value; applyCfg(); };
 $("resetAll").onclick = function () {
-  cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text };
+  cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoNext: DEF.autoNext };
   applyCfg();
 };
+
+(function () {
+  var bs = $("autoOpts").getElementsByTagName("button");
+  bs[0].onclick = function () { cfg.autoNext = true; applyCfg(); };
+  bs[1].onclick = function () { cfg.autoNext = false; applyCfg(); };
+})();
 
 document.onkeydown = function (e) {
   if (e.keyCode === 37) go(-1);
@@ -621,7 +673,9 @@ function showLoadError(msg) {
   $("prev").disabled = true;
   $("next").disabled = true;
   $("speak").disabled = true;
-  $("fab").style.display = "none";
+  $("openlist").disabled = true;
+  $("navlist").disabled = true;
+  $("opensearch").disabled = true;
 }
 
 function loadData() {
@@ -639,6 +693,7 @@ function loadData() {
       return;
     }
     if (!SAYEON.length) { showLoadError("(내용이 비어 있음)"); return; }
+    buildList();
     render();
   };
   xhr.onerror = function () { showLoadError("(연결 실패)"); };
