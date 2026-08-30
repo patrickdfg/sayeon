@@ -144,9 +144,39 @@
   }
   .hit b { color: var(--green); }
   .hit .snip { display: block; opacity: .6; font-size: 14px; margin-top: 4px; line-height: 1.6; }
+
+  /* 잠금화면 */
+  .lock {
+    position: fixed; inset: 0; z-index: 50;
+    background: var(--bg); color: var(--text);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .lock.hidden { display: none; }
+  .lockbox { width: 100%; max-width: 300px; text-align: center; }
+  .locktitle { font-size: 18px; margin-bottom: 18px; }
+  .lockbox input {
+    width: 100%; background: var(--panel); color: var(--text); border: 0;
+    border-radius: 8px; padding: 14px; font-size: 22px; text-align: center;
+    letter-spacing: .4em; font-family: inherit; margin-bottom: 12px;
+  }
+  .lockbtn {
+    width: 100%; background: var(--green); color: #14180f; border: 0;
+    border-radius: 8px; padding: 14px; font-size: 16px; font-weight: 700;
+    cursor: pointer; font-family: inherit; min-height: 46px;
+  }
+  .lockwarn { color: #d8837f; font-size: 14px; margin-top: 12px; display: none; }
 </style>
 </head>
 <body>
+
+<div class="lock" id="lock">
+  <div class="lockbox">
+    <div class="locktitle">비밀번호를 입력하세요</div>
+    <input id="pw" type="password" inputmode="numeric" autocomplete="off" placeholder="••••">
+    <button class="lockbtn" id="pwok">확인</button>
+    <div class="lockwarn" id="pwwarn">비밀번호가 틀렸습니다.</div>
+  </div>
+</div>
 
 <div class="wrap">
   <h1 class="head">2026년 성령 사연</h1>
@@ -700,9 +730,34 @@ function loadData() {
   try { xhr.send(null); } catch (e) { showLoadError("(파일을 직접 열면 브라우저가 막습니다)"); }
 }
 
+/* ===== 잠금화면 ===== */
+var PASSCODE = "7125";
+
+function tryUnlock() {
+  if ($("pw").value === PASSCODE) {
+    $("lock").className = "lock hidden";
+    try { localStorage.setItem("sayeon_unlocked", "1"); } catch (e) {}
+    loadData();
+  } else {
+    $("pwwarn").style.display = "block";
+    $("pw").value = "";
+    $("pw").focus();
+  }
+}
+$("pwok").onclick = tryUnlock;
+$("pw").onkeydown = function (e) { if (e.keyCode === 13) tryUnlock(); };
+
 buildOpts();
 applyCfg();
-loadData();
+
+var unlocked = false;
+try { unlocked = localStorage.getItem("sayeon_unlocked") === "1"; } catch (e) {}
+if (unlocked) {
+  $("lock").className = "lock hidden";
+  loadData();
+} else {
+  $("pw").focus();
+}
 </script>
 </body>
 </html>
