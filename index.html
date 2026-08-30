@@ -211,6 +211,8 @@
   <div class="warn" id="warn">이 브라우저에서는 읽어주기를 지원하지 않습니다.</div>
 </div>
 
+<audio id="player"></audio>
+
 <!-- 목록 -->
 <div class="modal" id="listmodal">
   <div class="inner">
@@ -521,17 +523,23 @@ function highlight(pi) {
   }
 }
 
-function speakNext() {
-  if (qi >= queue.length) {
-    if (speaking && cfg.autoNext && idx < SAYEON.length - 1) {
-      idx++;
-      render(true);
-      startSpeak();
-    } else {
-      stopSpeak();
-    }
-    return;
+var player = $("player");
+
+function advanceOrStop() {
+  if (speaking && cfg.autoNext && idx < SAYEON.length - 1) {
+    idx++;
+    render(true);
+    startSpeak();
+  } else {
+    stopSpeak();
   }
+}
+
+player.onended = advanceOrStop;
+player.onerror = advanceOrStop;
+
+function speakNext() {
+  if (qi >= queue.length) { advanceOrStop(); return; }
   var item = queue[qi];
   var u = new SpeechSynthesisUtterance(item.text);
   u.lang = "ko-KR";
@@ -546,7 +554,19 @@ function speakNext() {
 
 function startSpeak() {
   var s = SAYEON[idx];
-  if (!s.paragraphs || !s.paragraphs.length) return;
+  speaking = true;
+  $("speak").textContent = "■ 정지";
+  $("speak").className = "speakbtn on";
+
+  if (s.audio) {
+    if (synth) synth.cancel();
+    player.src = s.audio;
+    player.currentTime = 0;
+    player.play();
+    return;
+  }
+
+  if (!s.paragraphs || !s.paragraphs.length) { speaking = false; return; }
   queue = [];
   for (var i = 0; i < s.paragraphs.length; i++) {
     var it = s.paragraphs[i];
@@ -555,9 +575,6 @@ function startSpeak() {
   }
   if (s.quote) queue.push({ pi: -1, text: s.quote });
   qi = 0;
-  speaking = true;
-  $("speak").textContent = "■ 정지";
-  $("speak").className = "speakbtn on";
   synth.cancel();
   speakNext();
 }
@@ -565,6 +582,7 @@ function startSpeak() {
 function stopSpeak() {
   speaking = false;
   if (synth) synth.cancel();
+  player.pause();
   queue = []; qi = 0;
   $("speak").textContent = "🔊 읽어주기";
   $("speak").className = "speakbtn";
