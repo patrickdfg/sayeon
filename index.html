@@ -54,6 +54,8 @@
     font-family: inherit; cursor: pointer; white-space: nowrap; min-height: 40px;
   }
   .speakbtn.on { background: #14180f; color: var(--green); }
+  .speakbtn.human { background: var(--gold); color: #2a2200; }
+  .speakbtn.human.on { background: #2a2200; color: var(--gold); }
   .card-body { padding: 20px 2px 24px; }
   .sub { opacity: .6; font-style: italic; font-size: 15px; margin-bottom: 14px; line-height: 1.7; }
   .linkbtn {
@@ -417,6 +419,7 @@ function fullTitle(s, i) { return s.title || (numOf(s, i) + "편"); }
 function render(keepSpeaking) {
   if (!keepSpeaking) stopSpeak();
   var s = SAYEON[idx];
+  updateSpeakBtn();
   $("total").textContent = "총 " + TOTAL + "개 항목 (현재 " + SAYEON.length + "개 수록)";
   $("ctitle").textContent = s.title || "";
   var sub = $("csub");
@@ -525,6 +528,14 @@ function highlight(pi) {
 
 var player = $("player");
 
+function updateSpeakBtn() {
+  var s = SAYEON[idx];
+  var human = !!(s && s.audio);
+  var btn = $("speak");
+  btn.className = "speakbtn" + (human ? " human" : "") + (speaking ? " on" : "");
+  btn.textContent = speaking ? "■ 정지" : ((human ? "🎙️" : "🤖") + " 읽어주기");
+}
+
 function advanceOrStop() {
   if (speaking && cfg.autoNext && idx < SAYEON.length - 1) {
     idx++;
@@ -555,8 +566,7 @@ function speakNext() {
 function startSpeak() {
   var s = SAYEON[idx];
   speaking = true;
-  $("speak").textContent = "■ 정지";
-  $("speak").className = "speakbtn on";
+  updateSpeakBtn();
 
   if (s.audio) {
     if (synth) synth.cancel();
@@ -584,8 +594,7 @@ function stopSpeak() {
   if (synth) synth.cancel();
   player.pause();
   queue = []; qi = 0;
-  $("speak").textContent = "🔊 읽어주기";
-  $("speak").className = "speakbtn";
+  updateSpeakBtn();
   var ps = document.querySelectorAll(".para");
   for (var i = 0; i < ps.length; i++) { ps[i].className = "para"; }
 }
