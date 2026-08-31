@@ -182,7 +182,7 @@
   </div>
 </div>
 
-<div class="wrap">
+<div class="wrap" id="wrap">
   <div class="headrow">
     <h1 class="head">2026년 성령 사연</h1>
     <a class="topbtn" href="stones/">🪨 월명동 돌·나무</a>
@@ -721,6 +721,34 @@ document.onkeydown = function (e) {
   if (e.keyCode === 39) go(1);
   if (e.keyCode === 27) closeAll();
 };
+
+/* ===== 스와이프로 이전/다음 이동 ===== */
+(function () {
+  var startX = 0, startY = 0, tracking = false;
+  var THRESHOLD = 60;
+
+  function anyModalOpen() {
+    return $("settings").className.indexOf("open") >= 0 ||
+      $("search").className.indexOf("open") >= 0 ||
+      $("listmodal").className.indexOf("open") >= 0;
+  }
+
+  $("wrap").addEventListener("touchstart", function (e) {
+    if (anyModalOpen() || !e.touches.length) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    tracking = true;
+  }, { passive: true });
+
+  $("wrap").addEventListener("touchend", function (e) {
+    if (!tracking || !e.changedTouches.length) return;
+    tracking = false;
+    var dx = e.changedTouches[0].clientX - startX;
+    var dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < THRESHOLD || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    if (dx < 0) { go(1); } else { go(-1); }
+  }, { passive: true });
+})();
 
 if (synth && typeof synth.onvoiceschanged !== "undefined") { synth.onvoiceschanged = pickVoice; }
 window.onbeforeunload = stopSpeak;
