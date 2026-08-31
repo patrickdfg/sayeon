@@ -741,7 +741,7 @@ footer.credit{
         <div class="set-label">읽기 속도</div>
         <div class="stepper">
           <button type="button" class="rnd" id="rateMinus" aria-label="느리게">−</button>
-          <span class="stepper-val" id="rateLabel">98%</span>
+          <span class="stepper-val" id="rateLabel">103%</span>
           <button type="button" class="rnd" id="ratePlus" aria-label="빠르게">+</button>
         </div>
       </div>
@@ -1199,9 +1199,9 @@ els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) rend
 })();
 
 // 읽기 속도
-let readRate = 0.98;
+let readRate = 1.03;
 (function(){
-  const MIN = 0.6, MAX = 1.8, STEP = 0.05, DEFAULT = 0.98;
+  const MIN = 0.6, MAX = 1.8, STEP = 0.05, DEFAULT = 1.03;
   const label = document.getElementById('rateLabel');
   const minusBtn = document.getElementById('rateMinus');
   const plusBtn = document.getElementById('ratePlus');
