@@ -818,7 +818,7 @@ function speakNextChunk(){
   if(koVoice) utter.voice = koVoice;
   utter.rate = 0.98;
   utter.onend = () => { readQueueIndex++; speakNextChunk(); };
-  utter.onerror = () => stopReading();
+  utter.onerror = () => { readQueueIndex++; speakNextChunk(); };
   speechSynthesis.speak(utter);
 }
 

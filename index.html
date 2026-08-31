@@ -271,6 +271,15 @@
     </div>
 
     <div class="set">
+      <div class="name">읽기 속도</div>
+      <div class="stepper">
+        <button class="rnd" id="rateMinus">−</button>
+        <span class="val" id="rateVal">105%</span>
+        <button class="rnd" id="ratePlus">+</button>
+      </div>
+    </div>
+
+    <div class="set">
       <div class="name">좌우 여백</div>
       <div class="stepper">
         <button class="rnd" id="padMinus">−</button>
@@ -353,8 +362,8 @@ var THEMES = [
   { k: "세피아", bg: "#f3e9d2", text: "#3a2f1b" },
   { k: "흰색", bg: "#ffffff", text: "#1a1a1a" }
 ];
-var DEF = { size: 16, lh: 1.95, pad: 18, font: 0, bg: "#1b2018", text: "#e9ece4", autoNext: true };
-var cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoNext: DEF.autoNext };
+var DEF = { size: 16, lh: 1.95, pad: 18, font: 0, bg: "#1b2018", text: "#e9ece4", autoNext: true, rate: 1.05 };
+var cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoNext: DEF.autoNext, rate: DEF.rate };
 
 function $(id) { return document.getElementById(id); }
 function setVar(n, v) { document.documentElement.style.setProperty(n, v); }
@@ -368,6 +377,7 @@ function applyCfg() {
   setVar("--text", cfg.text);
   $("fsVal").textContent = cfg.size + "px";
   $("lhVal").textContent = cfg.lh.toFixed(2);
+  $("rateVal").textContent = Math.round(cfg.rate * 100) + "%";
   $("padVal").textContent = cfg.pad + "px";
   $("cText").value = cfg.text;
   $("cBg").value = cfg.bg;
@@ -506,7 +516,6 @@ function go(delta) {
 
 /* ===== 읽어주기 ===== */
 var synth = window.speechSynthesis;
-var RATE = 1.2;            // 읽어주기 속도 (1 = 보통)
 var queue = [], qi = 0, speaking = false;
 
 if (!synth) { $("speak").disabled = true; $("warn").style.display = "block"; }
@@ -561,7 +570,7 @@ function speakNext() {
   u.lang = "ko-KR";
   var v = pickVoice();
   if (v) u.voice = v;
-  u.rate = RATE;
+  u.rate = cfg.rate;
   u.onstart = function () { highlight(item.pi); };
   u.onend = function () { qi++; if (speaking) speakNext(); };
   u.onerror = function () { qi++; if (speaking) speakNext(); };
@@ -690,12 +699,14 @@ $("fsPlus").onclick = function () { cfg.size = Math.min(48, cfg.size + 2); apply
 $("fsMinus").onclick = function () { cfg.size = Math.max(12, cfg.size - 2); applyCfg(); };
 $("lhPlus").onclick = function () { cfg.lh = Math.min(3.0, cfg.lh + 0.15); applyCfg(); };
 $("lhMinus").onclick = function () { cfg.lh = Math.max(1.2, cfg.lh - 0.15); applyCfg(); };
+$("ratePlus").onclick = function () { cfg.rate = Math.min(2.0, Math.round((cfg.rate + 0.05) * 100) / 100); applyCfg(); };
+$("rateMinus").onclick = function () { cfg.rate = Math.max(0.5, Math.round((cfg.rate - 0.05) * 100) / 100); applyCfg(); };
 $("padPlus").onclick = function () { cfg.pad = Math.min(80, cfg.pad + 6); applyCfg(); };
 $("padMinus").onclick = function () { cfg.pad = Math.max(0, cfg.pad - 6); applyCfg(); };
 $("cText").oninput = function () { cfg.text = $("cText").value; applyCfg(); };
 $("cBg").oninput = function () { cfg.bg = $("cBg").value; applyCfg(); };
 $("resetAll").onclick = function () {
-  cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoNext: DEF.autoNext };
+  cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoNext: DEF.autoNext, rate: DEF.rate };
   applyCfg();
 };
 
