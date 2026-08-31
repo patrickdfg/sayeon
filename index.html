@@ -49,15 +49,27 @@
     display: flex; align-items: center; justify-content: space-between;
     gap: 10px; padding: 14px 16px; border-radius: 4px;
   }
-  .card-head .t { font-size: 21px; font-weight: 600; }
+  .card-head .t {
+    font-size: 21px; font-weight: 600; flex: 1 1 auto; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .card-head-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
   .speakbtn {
     background: rgba(20,24,15,.14); color: #14180f; border: 0;
     border-radius: 999px; padding: 8px 14px; font-size: 15px;
     font-family: inherit; cursor: pointer; white-space: nowrap; min-height: 40px;
+    flex-shrink: 0;
   }
   .speakbtn.on { background: #14180f; color: var(--green); }
   .speakbtn.human { background: var(--gold); color: #2a2200; }
   .speakbtn.human.on { background: #2a2200; color: var(--gold); }
+  .speakbtn.readcount.done { background: #14180f; color: var(--green); }
+  @media (max-width: 420px) {
+    .card-head { gap: 6px; padding: 12px 12px; }
+    .card-head .t { font-size: 17px; }
+    .speakbtn { padding: 7px 10px; font-size: 12px; min-height: 34px; }
+    .card-head-actions { gap: 5px; }
+  }
   .card-body { padding: 20px 2px 24px; }
   .sub { opacity: .6; font-style: italic; font-size: 15px; margin-bottom: 14px; line-height: 1.7; }
   .linkbtn {
@@ -81,6 +93,25 @@
     color: var(--text); font-weight: 700; text-align: center;
     font-size: var(--size); line-height: var(--lh);
   }
+
+  /* 하이라이트 (문단을 드래그해서 칠하고, 칠한 부분을 다시 누르면 지워진다) */
+  mark.hl{ cursor:pointer; border-radius:3px; padding:.05em .1em; color:#2a2823; }
+  mark.hl-1{ background:#ffe08a; }
+  mark.hl-2{ background:#9fe0b8; }
+  mark.hl-3{ background:#a7c8f5; }
+  .hl-toolbar{
+    position:fixed; z-index:120; display:none; align-items:center; gap:6px;
+    background:var(--bg); border:1px solid var(--panel); border-radius:999px;
+    padding:6px; box-shadow:0 6px 20px rgba(0,0,0,.35);
+  }
+  .hl-swatch{
+    width:26px; height:26px; border-radius:50%; border:2px solid var(--bg);
+    box-shadow:0 0 0 1px rgba(255,255,255,.25); cursor:pointer; padding:0;
+  }
+  .hl-swatch.hl-1{background:#ffe08a;}
+  .hl-swatch.hl-2{background:#9fe0b8;}
+  .hl-swatch.hl-3{background:#a7c8f5;}
+  .hl-swatch:hover{transform:scale(1.1);}
 
   .nav { display: flex; gap: 12px; margin-top: 26px; }
   .navbtn {
@@ -199,7 +230,10 @@
   <div class="card">
     <div class="card-head">
       <div class="t"><span id="ctitle"></span></div>
-      <button class="speakbtn" id="speak">🔊 읽어주기</button>
+      <div class="card-head-actions">
+        <button class="speakbtn readcount" id="readCountBtn" type="button" aria-label="다 읽었으면 눌러서 기록">다 읽음</button>
+        <button class="speakbtn" id="speak">🔊 읽어주기</button>
+      </div>
     </div>
     <div class="card-body">
       <div class="sub" id="csub"></div>
@@ -219,6 +253,12 @@
 </div>
 
 <audio id="player"></audio>
+
+<div class="hl-toolbar" id="hlToolbar" role="menu" aria-label="하이라이트 색 선택">
+  <button type="button" class="hl-swatch hl-1" data-c="1" aria-label="노란색으로 칠하기"></button>
+  <button type="button" class="hl-swatch hl-2" data-c="2" aria-label="초록색으로 칠하기"></button>
+  <button type="button" class="hl-swatch hl-3" data-c="3" aria-label="파란색으로 칠하기"></button>
+</div>
 
 <!-- 목록 -->
 <div class="modal" id="listmodal">
@@ -423,6 +463,162 @@ function buildOpts() {
   }
 }
 
+/* ===== 하이라이트 (편별로 이 브라우저에만 저장, 3색) ===== */
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+/* ===== N독 (다 읽음) 카운트: 편별로 이 브라우저에만 저장 ===== */
+function readCountKey(epNum) { return "sayeonReadCount_" + epNum; }
+function getReadCount(epNum) {
+  return parseInt(localStorage.getItem(readCountKey(epNum)), 10) || 0;
+}
+function bumpReadCount(epNum) {
+  var n = getReadCount(epNum) + 1;
+  try { localStorage.setItem(readCountKey(epNum), String(n)); } catch (e) {}
+  return n;
+}
+
+function hlKey(epNum) { return "sayeonHl_" + epNum; }
+function getHighlights(epNum) {
+  try { return JSON.parse(localStorage.getItem(hlKey(epNum)) || "[]"); } catch (e) { return []; }
+}
+function setHighlights(epNum, list) {
+  try { localStorage.setItem(hlKey(epNum), JSON.stringify(list)); } catch (e) {}
+}
+// 한 줄(제목/인용문)짜리 텍스트에 하이라이트를 입혀 HTML 문자열로 만든다
+function renderTextWithHighlights(text, hls) {
+  if (!hls.length) return escapeHtml(text);
+  var sorted = hls.slice().sort(function (a, b) { return a.start - b.start; });
+  var out = "", pos = 0;
+  for (var i = 0; i < sorted.length; i++) {
+    var h = sorted[i];
+    if (h.start < pos) continue;
+    out += escapeHtml(text.slice(pos, h.start));
+    out += '<mark class="hl hl-' + h.color + '" data-pi="' + h.pi + '" data-start="' + h.start + '" data-end="' + h.end + '">' +
+      escapeHtml(text.slice(h.start, h.end)) + '</mark>';
+    pos = h.end;
+  }
+  out += escapeHtml(text.slice(pos));
+  return out;
+}
+// 줄바꿈(<br>)이 있는 문단: 오프셋은 줄들을 이어붙인(구분자 없는) 기준이며,
+// <br>은 글자를 차지하지 않는다는 점(브라우저의 Range 계산과 동일)을 그대로 따른다.
+function renderLinesWithHighlights(lines, hls) {
+  var sorted = hls.slice().sort(function (a, b) { return a.start - b.start; });
+  var htmlParts = [], pos = 0;
+  for (var li = 0; li < lines.length; li++) {
+    if (li > 0) htmlParts.push("<br>");
+    var lineText = lines[li];
+    var lineStart = pos, lineEnd = pos + lineText.length;
+    var out = "", cur = lineStart;
+    for (var i = 0; i < sorted.length; i++) {
+      var h = sorted[i];
+      if (h.end <= lineStart || h.start >= lineEnd) continue;
+      var s = Math.max(h.start, lineStart), e = Math.min(h.end, lineEnd);
+      if (s < cur) continue;
+      out += escapeHtml(lineText.slice(cur - lineStart, s - lineStart));
+      out += '<mark class="hl hl-' + h.color + '" data-pi="' + h.pi + '" data-start="' + h.start + '" data-end="' + h.end + '">' +
+        escapeHtml(lineText.slice(s - lineStart, e - lineStart)) + '</mark>';
+      cur = e;
+    }
+    out += escapeHtml(lineText.slice(cur - lineStart));
+    htmlParts.push(out);
+    pos = lineEnd;
+  }
+  return htmlParts.join("");
+}
+function paintHighlights() {
+  var s = SAYEON[idx];
+  var epNum = numOf(s, idx);
+  var hls = getHighlights(epNum);
+  var els = document.querySelectorAll("#body [data-pi]");
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i];
+    var pi = Number(el.getAttribute("data-pi"));
+    var mine = hls.filter(function (h) { return h.pi === pi; });
+    if (el.className === "quote") {
+      el.innerHTML = renderTextWithHighlights('"' + s.quote + '"', mine);
+    } else if (el.className === "phead") {
+      var item = s.paragraphs[pi];
+      el.innerHTML = renderTextWithHighlights(item.h, mine);
+    } else {
+      el.innerHTML = renderLinesWithHighlights(s.paragraphs[pi], mine);
+    }
+  }
+}
+function removeHighlightAt(markEl) {
+  var container = markEl.closest("[data-pi]");
+  if (!container) return;
+  var pi = Number(markEl.getAttribute("data-pi"));
+  var start = Number(markEl.getAttribute("data-start"));
+  var end = Number(markEl.getAttribute("data-end"));
+  var s = SAYEON[idx];
+  var epNum = numOf(s, idx);
+  var hls = getHighlights(epNum).filter(function (h) {
+    return !(h.pi === pi && h.start === start && h.end === end);
+  });
+  setHighlights(epNum, hls);
+  paintHighlights();
+}
+var pendingHl = null;
+function closestPi(node) {
+  var el = node.nodeType === 3 ? node.parentElement : node;
+  return el ? el.closest("[data-pi]") : null;
+}
+function offsetWithin(el, node, nodeOffset) {
+  var r = document.createRange();
+  r.selectNodeContents(el);
+  r.setEnd(node, nodeOffset);
+  return r.toString().length;
+}
+function showHlToolbar(range) {
+  var rect = range.getBoundingClientRect();
+  var tb = $("hlToolbar");
+  tb.style.display = "flex";
+  var tbWidth = tb.offsetWidth || 120;
+  var tbHeight = tb.offsetHeight || 40;
+  var left = rect.left + rect.width / 2 - tbWidth / 2;
+  left = Math.min(Math.max(8, left), window.innerWidth - tbWidth - 8);
+  var top = rect.bottom + 10;
+  top = Math.min(top, window.innerHeight - tbHeight - 8);
+  top = Math.max(8, top);
+  tb.style.left = left + "px";
+  tb.style.top = top + "px";
+}
+function hideHlToolbar() {
+  pendingHl = null;
+  if ($("hlToolbar")) $("hlToolbar").style.display = "none";
+}
+function applyPendingHighlight(color) {
+  if (!pendingHl) return;
+  var s = SAYEON[idx];
+  var epNum = numOf(s, idx);
+  var hls = getHighlights(epNum).filter(function (h) {
+    return h.pi !== pendingHl.pi || h.end <= pendingHl.start || h.start >= pendingHl.end;
+  });
+  hls.push({ pi: pendingHl.pi, start: pendingHl.start, end: pendingHl.end, color: color });
+  setHighlights(epNum, hls);
+  hideHlToolbar();
+  window.getSelection().removeAllRanges();
+  paintHighlights();
+}
+function evaluateSelection() {
+  var sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) { hideHlToolbar(); return; }
+  var range = sel.getRangeAt(0);
+  var startEl = closestPi(range.startContainer);
+  var endEl = closestPi(range.endContainer);
+  var bodyEl = $("body");
+  if (!startEl || startEl !== endEl || !bodyEl.contains(startEl)) { hideHlToolbar(); return; }
+  var start = offsetWithin(startEl, range.startContainer, range.startOffset);
+  var end = offsetWithin(startEl, range.endContainer, range.endOffset);
+  if (end <= start) { hideHlToolbar(); return; }
+  pendingHl = { pi: Number(startEl.getAttribute("data-pi")), start: start, end: end };
+  showHlToolbar(range);
+}
+
 /* ===== 뷰어 ===== */
 var TOTAL = 154;
 var idx = 0;
@@ -456,6 +652,12 @@ function render(keepSpeaking) {
     lk.style.display = "none";
   }
 
+  hideHlToolbar();
+  var epNum = numOf(s, idx);
+  var hls = getHighlights(epNum);
+  var rc = getReadCount(epNum);
+  $("readCountBtn").textContent = rc > 0 ? rc + "독" : "다 읽음";
+  $("readCountBtn").classList.toggle("done", rc > 0);
   var body = $("body");
   body.innerHTML = "";
 
@@ -475,7 +677,7 @@ function render(keepSpeaking) {
         var hd = document.createElement("div");
         hd.className = "phead";
         hd.setAttribute("data-pi", pi);
-        hd.appendChild(document.createTextNode(item.h));
+        hd.innerHTML = renderTextWithHighlights(item.h, hls.filter(function(h){ return h.pi === pi; }));
         body.appendChild(hd);
         continue;
       }
@@ -483,10 +685,7 @@ function render(keepSpeaking) {
       var p = document.createElement("p");
       p.className = "para";
       p.setAttribute("data-pi", pi);
-      for (var li = 0; li < lines.length; li++) {
-        if (li > 0) p.appendChild(document.createElement("br"));
-        p.appendChild(document.createTextNode(lines[li]));
-      }
+      p.innerHTML = renderLinesWithHighlights(lines, hls.filter(function(h){ return h.pi === pi; }));
       body.appendChild(p);
     }
   }
@@ -494,7 +693,8 @@ function render(keepSpeaking) {
   if (s.quote) {
     var qb = document.createElement("div");
     qb.className = "quote";
-    qb.textContent = '"' + s.quote + '"';
+    qb.setAttribute("data-pi", -1);
+    qb.innerHTML = renderTextWithHighlights('"' + s.quote + '"', hls.filter(function(h){ return h.pi === -1; }));
     body.appendChild(qb);
   }
 
@@ -680,10 +880,36 @@ function closeAll() {
   $("listmodal").className = "modal";
 }
 
+/* ===== 하이라이트 이벤트 ===== */
+$("body").addEventListener("click", function (e) {
+  var markEl = e.target.closest && e.target.closest("mark.hl");
+  if (markEl) removeHighlightAt(markEl);
+});
+$("hlToolbar").addEventListener("click", function (e) {
+  var b = e.target.closest && e.target.closest(".hl-swatch");
+  if (b) applyPendingHighlight(b.getAttribute("data-c"));
+});
+document.addEventListener("mouseup", function (e) {
+  if (e.target.closest && e.target.closest("#hlToolbar")) return;
+  evaluateSelection();
+});
+var hlSelectionDebounce = null;
+document.addEventListener("selectionchange", function () {
+  clearTimeout(hlSelectionDebounce);
+  hlSelectionDebounce = setTimeout(evaluateSelection, 250);
+});
+
 /* ===== 이벤트 ===== */
 $("prev").onclick = function () { go(-1); };
 $("next").onclick = function () { go(1); };
 $("speak").onclick = function () { if (speaking) { stopSpeak(); } else { startSpeak(); } };
+$("readCountBtn").onclick = function () {
+  var s = SAYEON[idx];
+  var epNum = numOf(s, idx);
+  var n = bumpReadCount(epNum);
+  $("readCountBtn").textContent = n + "독";
+  $("readCountBtn").classList.add("done");
+};
 
 $("opensettings").onclick = function () { openModal("settings"); };
 $("closeset").onclick = closeAll;
@@ -719,7 +945,7 @@ $("resetAll").onclick = function () {
 document.onkeydown = function (e) {
   if (e.keyCode === 37) go(-1);
   if (e.keyCode === 39) go(1);
-  if (e.keyCode === 27) closeAll();
+  if (e.keyCode === 27) { closeAll(); hideHlToolbar(); }
 };
 
 /* ===== 스와이프로 이전/다음 이동 ===== */
@@ -743,6 +969,8 @@ document.onkeydown = function (e) {
   $("wrap").addEventListener("touchend", function (e) {
     if (!tracking || !e.changedTouches.length) return;
     tracking = false;
+    var sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return; // 텍스트를 드래그해서 고르는 중이면 페이지 넘김을 막는다
     var dx = e.changedTouches[0].clientX - startX;
     var dy = e.changedTouches[0].clientY - startY;
     if (Math.abs(dx) < THRESHOLD || Math.abs(dx) < Math.abs(dy) * 1.4) return;
@@ -774,6 +1002,7 @@ function showLoadError(msg) {
   $("prev").disabled = true;
   $("next").disabled = true;
   $("speak").disabled = true;
+  $("readCountBtn").disabled = true;
   $("openlist").disabled = true;
   $("navlist").disabled = true;
   $("opensearch").disabled = true;
