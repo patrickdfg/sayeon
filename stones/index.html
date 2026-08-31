@@ -1117,9 +1117,14 @@ function showHlToolbar(range){
   const tb = els.hlToolbar;
   tb.style.display = 'flex';
   const tbWidth = tb.offsetWidth || 120;
+  const tbHeight = tb.offsetHeight || 40;
   let left = rect.left + rect.width / 2 - tbWidth / 2;
   left = Math.min(Math.max(8, left), window.innerWidth - tbWidth - 8);
-  const top = Math.max(8, rect.top - 44);
+  // 모바일 기본 선택 메뉴(복사/공유 등)가 선택 영역 위에 뜨므로,
+  // 겹치지 않게 팔레트는 선택 영역 아래에 둔다.
+  let top = rect.bottom + 10;
+  top = Math.min(top, window.innerHeight - tbHeight - 8);
+  top = Math.max(8, top);
   tb.style.left = left + 'px';
   tb.style.top = top + 'px';
 }
