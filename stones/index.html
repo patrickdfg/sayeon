@@ -1144,8 +1144,7 @@ els.hlToolbar.addEventListener('click', e => {
   if(b) applyPendingHighlight(b.dataset.c);
 });
 
-document.addEventListener('mouseup', e => {
-  if(e.target.closest('#hlToolbar')) return;
+function evaluateSelection(){
   const sel = window.getSelection();
   if(!sel || sel.rangeCount === 0 || sel.isCollapsed){ hideHlToolbar(); return; }
   const range = sel.getRangeAt(0);
@@ -1157,6 +1156,21 @@ document.addEventListener('mouseup', e => {
   if(end <= start){ hideHlToolbar(); return; }
   pendingHl = { si: Number(startEl.dataset.si), start, end };
   showHlToolbar(range);
+}
+
+// 데스크톱: 마우스를 놓는 순간 바로 반응한다
+document.addEventListener('mouseup', e => {
+  if(e.target.closest('#hlToolbar')) return;
+  evaluateSelection();
+});
+
+// 모바일: 손가락으로 문장을 고를 때는 mouseup이 안 오는 경우가 많아
+// selectionchange(선택이 실제로 바뀔 때마다 발생)로 감지한다. 드래그 중
+// 계속 발생하므로 살짝 멈췄을 때만 반응하도록 디바운스한다.
+let hlSelectionDebounce = null;
+document.addEventListener('selectionchange', () => {
+  clearTimeout(hlSelectionDebounce);
+  hlSelectionDebounce = setTimeout(evaluateSelection, 250);
 });
 
 function snippetFor(text, query){
