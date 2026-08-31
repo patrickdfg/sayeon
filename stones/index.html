@@ -794,14 +794,8 @@ function updateReadBtn(speaking){
 
 let readQueue = [];
 let readQueueIndex = 0;
-let readKeepAlive = null;
-
-function clearReadKeepAlive(){
-  if(readKeepAlive){ clearInterval(readKeepAlive); readKeepAlive = null; }
-}
 
 function stopReading(){
-  clearReadKeepAlive();
   readQueue = [];
   readQueueIndex = 0;
   if('speechSynthesis' in window) speechSynthesis.cancel();
@@ -836,14 +830,6 @@ function toggleReading(){
   readQueueIndex = 0;
   speechSynthesis.cancel();
   updateReadBtn(true);
-  // 안드로이드 크롬의 긴 발화 자동 정지 버그 완화용 keep-alive
-  clearReadKeepAlive();
-  readKeepAlive = setInterval(() => {
-    if(speechSynthesis.speaking){
-      speechSynthesis.pause();
-      speechSynthesis.resume();
-    }
-  }, 8000);
   speakNextChunk();
 }
 
