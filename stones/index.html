@@ -519,6 +519,43 @@ main{padding-top:28px;}
   text-align:center;
 }
 
+/* 하이라이트 (문단을 드래그해서 칠하고, 칠한 부분을 다시 누르면 지워진다) */
+mark.hl{
+  cursor:pointer;
+  border-radius:3px;
+  padding:.05em .1em;
+  color:#2a2823;
+}
+mark.hl-1{ background:#ffe08a; }
+mark.hl-2{ background:#9fe0b8; }
+mark.hl-3{ background:#a7c8f5; }
+
+.hl-toolbar{
+  position:fixed;
+  z-index:120;
+  display:none;
+  align-items:center;
+  gap:6px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding:6px;
+  box-shadow:var(--shadow);
+}
+.hl-swatch{
+  width:26px;
+  height:26px;
+  border-radius:50%;
+  border:2px solid var(--surface);
+  box-shadow:0 0 0 1px var(--border);
+  cursor:pointer;
+  padding:0;
+}
+.hl-swatch.hl-1{background:#ffe08a;}
+.hl-swatch.hl-2{background:#9fe0b8;}
+.hl-swatch.hl-3{background:#a7c8f5;}
+.hl-swatch:hover{transform:scale(1.1);}
+
 .pager{
   display:flex;
   justify-content:space-between;
@@ -694,6 +731,12 @@ footer.credit{
     <footer class="credit">사파이어 교육부 · 월명동 자연성전 돌·나무 이야기 자료실</footer>
   </main>
 
+  <div class="hl-toolbar" id="hlToolbar" role="menu" aria-label="하이라이트 색 선택">
+    <button type="button" class="hl-swatch hl-1" data-c="1" aria-label="노란색으로 칠하기"></button>
+    <button type="button" class="hl-swatch hl-2" data-c="2" aria-label="초록색으로 칠하기"></button>
+    <button type="button" class="hl-swatch hl-3" data-c="3" aria-label="파란색으로 칠하기"></button>
+  </div>
+
   <button type="button" class="fab" id="fabBtn" aria-haspopup="true" aria-expanded="false" aria-label="검색 및 목록 열기">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
   </button>
@@ -816,6 +859,7 @@ const els = {
   settingsModal: document.getElementById('settingsModal'),
   settingsBackdrop: document.getElementById('settingsBackdrop'),
   settingsClose: document.getElementById('settingsClose'),
+  hlToolbar: document.getElementById('hlToolbar'),
 };
 
 let current = 0;
@@ -825,15 +869,47 @@ function escapeHtml(s){
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function renderSections(sections){
-  let html = '';
-  for(const s of sections){
-    if(s.type === 'h') html += `<h3>${escapeHtml(s.text)}</h3>`;
-    else if(s.type === 'quote') html += `<blockquote>${escapeHtml(s.text)}</blockquote>`;
-    else if(s.type === 'li') html += `<p class="li">${escapeHtml(s.text)}</p>`;
-    else html += `<p>${escapeHtml(s.text)}</p>`;
+// ===== 하이라이트 (문단 드래그로 칠하기, 3색, 항목별로 이 브라우저에만 저장) =====
+function hlKey(itemNum){ return 'wmdHl_' + itemNum; }
+function getHighlights(itemNum){
+  try{ return JSON.parse(localStorage.getItem(hlKey(itemNum)) || '[]'); }catch(e){ return []; }
+}
+function setHighlights(itemNum, list){
+  try{ localStorage.setItem(hlKey(itemNum), JSON.stringify(list)); }catch(e){}
+}
+
+function sectionHtmlWithHighlights(text, hls){
+  if(!hls.length) return escapeHtml(text);
+  const sorted = hls.slice().sort((a,b) => a.start - b.start);
+  let out = '', pos = 0;
+  for(const h of sorted){
+    if(h.start < pos) continue; // 겹치는 항목은 이미 처리된 것으로 보고 건너뛴다
+    out += escapeHtml(text.slice(pos, h.start));
+    out += `<mark class="hl hl-${h.color}" data-si="${h.si}" data-start="${h.start}" data-end="${h.end}">${escapeHtml(text.slice(h.start, h.end))}</mark>`;
+    pos = h.end;
   }
+  out += escapeHtml(text.slice(pos));
+  return out;
+}
+
+function renderSections(sections, itemNum){
+  const hls = getHighlights(itemNum);
+  let html = '';
+  sections.forEach((s, si) => {
+    const mine = hls.filter(h => h.si === si);
+    const inner = sectionHtmlWithHighlights(s.text, mine);
+    if(s.type === 'h') html += `<h3 data-si="${si}">${inner}</h3>`;
+    else if(s.type === 'quote') html += `<blockquote data-si="${si}">${inner}</blockquote>`;
+    else if(s.type === 'li') html += `<p class="li" data-si="${si}">${inner}</p>`;
+    else html += `<p data-si="${si}">${inner}</p>`;
+  });
   return html;
+}
+
+function paintSections(){
+  const it = DATA[current];
+  const prose = els.card.querySelector('.prose');
+  if(prose) prose.innerHTML = renderSections(it.sections, it.num);
 }
 
 function renderGallery(images){
@@ -846,11 +922,17 @@ function renderGallery(images){
 
 function render(index){
   stopReading();
+  hideHlToolbar();
   current = index;
   const it = DATA[index];
+  const readCount = getReadCount(it.num);
   els.card.innerHTML = `
     <div class="card-title">
       <span class="num">${escapeHtml(it.num)}.</span><h2>${escapeHtml(it.title)}</h2>
+      <button type="button" class="read-btn" id="readCountBtn" aria-label="다 읽었으면 눌러서 기록">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <span id="readCountLabel">${readCount > 0 ? readCount + '독' : '다 읽음'}</span>
+      </button>
       <button type="button" class="read-btn" id="readBtn" aria-pressed="false" aria-label="이 항목 읽어주기">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M16 8.5a5 5 0 0 1 0 7"/><path d="M19 6a9 9 0 0 1 0 12"/></svg>
         <span id="readBtnLabel">읽어주기</span>
@@ -858,7 +940,7 @@ function render(index){
     </div>
     ${it.meta ? `<div class="card-meta">${escapeHtml(it.meta)}</div>` : ''}
     ${renderGallery(it.images)}
-    <div class="prose">${renderSections(it.sections)}</div>
+    <div class="prose">${renderSections(it.sections, it.num)}</div>
   `;
   els.prevBtn.disabled = index === 0;
   els.nextBtn.disabled = index === DATA.length - 1;
@@ -977,8 +1059,104 @@ function toggleReading(){
   beginReadCurrent();
 }
 
+// ===== N독 (다 읽음) 카운트: 항목별로 이 브라우저에만 저장 =====
+function readCountKey(itemNum){ return 'wmdReadCount_' + itemNum; }
+function getReadCount(itemNum){
+  return parseInt(localStorage.getItem(readCountKey(itemNum)), 10) || 0;
+}
+function bumpReadCount(itemNum){
+  const n = getReadCount(itemNum) + 1;
+  try{ localStorage.setItem(readCountKey(itemNum), String(n)); }catch(e){}
+  return n;
+}
+
 els.card.addEventListener('click', e => {
-  if(e.target.closest('#readBtn')) toggleReading();
+  if(e.target.closest('#readBtn')){ toggleReading(); return; }
+  if(e.target.closest('#readCountBtn')){
+    const it = DATA[current];
+    const n = bumpReadCount(it.num);
+    const label = document.getElementById('readCountLabel');
+    if(label) label.textContent = n + '독';
+    return;
+  }
+  const markEl = e.target.closest('mark.hl');
+  if(markEl){
+    removeHighlightAt(markEl);
+    return;
+  }
+});
+
+function removeHighlightAt(markEl){
+  const container = markEl.closest('[data-si]');
+  if(!container) return;
+  const si = Number(markEl.dataset.si);
+  const start = Number(markEl.dataset.start);
+  const end = Number(markEl.dataset.end);
+  const it = DATA[current];
+  let hls = getHighlights(it.num);
+  hls = hls.filter(h => !(h.si === si && h.start === start && h.end === end));
+  setHighlights(it.num, hls);
+  paintSections();
+}
+
+// ===== 문단을 드래그해서 하이라이트 =====
+let pendingHl = null;
+
+function closestSi(node){
+  const el = node.nodeType === 3 ? node.parentElement : node;
+  return el ? el.closest('[data-si]') : null;
+}
+function offsetWithin(el, node, nodeOffset){
+  const r = document.createRange();
+  r.selectNodeContents(el);
+  r.setEnd(node, nodeOffset);
+  return r.toString().length;
+}
+function showHlToolbar(range){
+  const rect = range.getBoundingClientRect();
+  const tb = els.hlToolbar;
+  tb.style.display = 'flex';
+  const tbWidth = tb.offsetWidth || 120;
+  let left = rect.left + rect.width / 2 - tbWidth / 2;
+  left = Math.min(Math.max(8, left), window.innerWidth - tbWidth - 8);
+  const top = Math.max(8, rect.top - 44);
+  tb.style.left = left + 'px';
+  tb.style.top = top + 'px';
+}
+function hideHlToolbar(){
+  pendingHl = null;
+  if(els.hlToolbar) els.hlToolbar.style.display = 'none';
+}
+function applyPendingHighlight(color){
+  if(!pendingHl) return;
+  const it = DATA[current];
+  let hls = getHighlights(it.num);
+  hls = hls.filter(h => h.si !== pendingHl.si || h.end <= pendingHl.start || h.start >= pendingHl.end);
+  hls.push({ si: pendingHl.si, start: pendingHl.start, end: pendingHl.end, color });
+  setHighlights(it.num, hls);
+  hideHlToolbar();
+  window.getSelection().removeAllRanges();
+  paintSections();
+}
+
+els.hlToolbar.addEventListener('click', e => {
+  const b = e.target.closest('.hl-swatch');
+  if(b) applyPendingHighlight(b.dataset.c);
+});
+
+document.addEventListener('mouseup', e => {
+  if(e.target.closest('#hlToolbar')) return;
+  const sel = window.getSelection();
+  if(!sel || sel.rangeCount === 0 || sel.isCollapsed){ hideHlToolbar(); return; }
+  const range = sel.getRangeAt(0);
+  const startEl = closestSi(range.startContainer);
+  const endEl = closestSi(range.endContainer);
+  if(!startEl || startEl !== endEl || !els.card.contains(startEl)){ hideHlToolbar(); return; }
+  const start = offsetWithin(startEl, range.startContainer, range.startOffset);
+  const end = offsetWithin(startEl, range.endContainer, range.endOffset);
+  if(end <= start){ hideHlToolbar(); return; }
+  pendingHl = { si: Number(startEl.dataset.si), start, end };
+  showHlToolbar(range);
 });
 
 function snippetFor(text, query){
@@ -1084,6 +1262,7 @@ els.drawerBackdrop.addEventListener('click', closeDrawer);
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape' && isDrawerOpen()) closeDrawer();
   if(e.key === 'Escape' && isSettingsOpen()) closeSettings();
+  if(e.key === 'Escape') hideHlToolbar();
 });
 
 els.topListBtn.addEventListener('click', () => { closeSettings(); openList(); });
@@ -1121,6 +1300,8 @@ els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) rend
   function onEnd(x, y){
     if(!tracking) return;
     tracking = false;
+    const sel = window.getSelection();
+    if(sel && !sel.isCollapsed) return; // 텍스트를 드래그해서 고르는 중이면 페이지 넘김을 막는다
     const dx = x - startX;
     const dy = y - startY;
     if(Math.abs(dx) < THRESHOLD || Math.abs(dx) < Math.abs(dy) * 1.4) return;
