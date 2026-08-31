@@ -184,6 +184,22 @@ header.top{
   border-radius:0 !important;
 }
 
+.topbtn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding:6px 14px;
+  font-size:.82rem;
+  color:var(--ink);
+  cursor:pointer;
+  white-space:nowrap;
+}
+.topbtn:hover{ border-color:var(--accent); color:var(--accent); }
+.topbtn:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
+
 .fab{
   position:fixed;
   right:22px;
@@ -325,6 +341,67 @@ header.top{
   font-size:.85rem;
 }
 
+/* 설정 모달 (목록 드로어와 같은 배경/패널 톤을 공유) */
+.modal-panel{
+  position:fixed;
+  left:0; right:0; top:0;
+  z-index:90;
+  max-width:920px;
+  margin:0 auto;
+  background:var(--surface);
+  border-bottom-left-radius:18px;
+  border-bottom-right-radius:18px;
+  box-shadow:var(--shadow);
+  transform:translateY(-100%);
+  transition:transform .22s ease;
+  display:flex;
+  flex-direction:column;
+  max-height:85vh;
+}
+.modal-panel.open{transform:translateY(0);}
+.modal-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:16px 20px 6px;
+}
+.modal-head h2{
+  flex:1;
+  margin:0;
+  font-size:1.1rem;
+}
+.modal-body{
+  overflow-y:auto;
+  padding:8px 20px 22px;
+}
+.set-row{margin-bottom:20px;}
+.set-row .set-label{
+  font-size:.82rem;
+  color:var(--muted);
+  margin-bottom:8px;
+}
+.opts{display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+.opt{
+  background:var(--surface-2);
+  color:var(--ink);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:9px 14px;
+  font-size:.86rem;
+  cursor:pointer;
+}
+.opt.sel{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:700;}
+.stepper{display:flex; align-items:center; gap:10px;}
+.rnd{
+  width:38px; height:38px; border-radius:50%; border:1px solid var(--border);
+  background:var(--surface-2); color:var(--ink); font-size:1.1rem; cursor:pointer;
+}
+.rnd:hover{border-color:var(--accent); color:var(--accent);}
+.stepper-val{
+  min-width:56px; text-align:center; font-weight:700; color:var(--accent-warm);
+  font-variant-numeric:tabular-nums; font-size:.92rem;
+}
+
 main{padding-top:28px;}
 
 .card{
@@ -463,6 +540,7 @@ main{padding-top:28px;}
 .pager button:hover{border-color:var(--accent);}
 .pager button:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
 .pager button.next{text-align:right;}
+.pager button.mid{flex:0 0 84px; text-align:center;}
 .pager button .lbl{display:block;color:var(--muted);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px;}
 .pager button:disabled{opacity:.35;cursor:default;}
 
@@ -590,6 +668,9 @@ footer.credit{
         <div class="brand-title">
           <h1>월명동 돌과 나무 이야기</h1>
           <a class="xlink" href="../">📖 성령 사연</a>
+          <button type="button" class="topbtn" id="topListBtn">📋 목록</button>
+          <button type="button" class="topbtn" id="topSettingsBtn">⚙ 설정</button>
+          <button type="button" class="topbtn" id="topSearchBtn">🔍 검색</button>
           <div class="font-ctrl" role="group" aria-label="글자 크기 조절">
             <span class="font-ctrl-label">글자</span>
             <button type="button" id="fontMinus" aria-label="글자 작게">−</button>
@@ -607,6 +688,7 @@ footer.credit{
     <div class="card" id="card"></div>
     <div class="pager">
       <button type="button" id="prevBtn"><span class="lbl">이전</span><span id="prevLabel"></span></button>
+      <button type="button" id="pagerListBtn" class="mid">목록</button>
       <button type="button" id="nextBtn" class="next"><span class="lbl">다음</span><span id="nextLabel"></span></button>
     </div>
     <footer class="credit">사파이어 교육부 · 월명동 자연성전 돌·나무 이야기 자료실</footer>
@@ -627,6 +709,50 @@ footer.credit{
       </button>
     </div>
     <div class="drawer-list" id="drawerList" role="listbox"></div>
+  </div>
+
+  <div class="drawer-backdrop" id="settingsBackdrop"></div>
+  <div class="modal-panel" id="settingsModal" role="dialog" aria-label="설정">
+    <div class="modal-head">
+      <h2>설정</h2>
+      <button type="button" class="drawer-close" id="settingsClose" aria-label="닫기">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="set-row">
+        <div class="set-label">테마</div>
+        <div class="opts" id="themeOpts">
+          <button type="button" class="opt" data-theme="light">라이트</button>
+          <button type="button" class="opt" data-theme="dark">다크</button>
+          <button type="button" class="opt" data-theme="system">시스템</button>
+        </div>
+      </div>
+      <div class="set-row">
+        <div class="set-label">글자 크기</div>
+        <div class="stepper">
+          <button type="button" class="rnd" id="setFontMinus" aria-label="글자 작게">−</button>
+          <span class="stepper-val" id="setFontSizeLabel">16px</span>
+          <button type="button" class="rnd" id="setFontPlus" aria-label="글자 크게">+</button>
+          <button type="button" class="opt" id="setFontReset">기본</button>
+        </div>
+      </div>
+      <div class="set-row">
+        <div class="set-label">읽기 속도</div>
+        <div class="stepper">
+          <button type="button" class="rnd" id="rateMinus" aria-label="느리게">−</button>
+          <span class="stepper-val" id="rateLabel">98%</span>
+          <button type="button" class="rnd" id="ratePlus" aria-label="빠르게">+</button>
+        </div>
+      </div>
+      <div class="set-row">
+        <div class="set-label">읽어주기</div>
+        <div class="opts" id="autoNextOpts">
+          <button type="button" class="opt" data-autonext="1">다음 항목 이어 읽기</button>
+          <button type="button" class="opt" data-autonext="0">현재 항목만 읽기</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -683,6 +809,13 @@ const els = {
   drawerBackdrop: document.getElementById('drawerBackdrop'),
   drawerClose: document.getElementById('drawerClose'),
   drawerList: document.getElementById('drawerList'),
+  topListBtn: document.getElementById('topListBtn'),
+  topSettingsBtn: document.getElementById('topSettingsBtn'),
+  topSearchBtn: document.getElementById('topSearchBtn'),
+  pagerListBtn: document.getElementById('pagerListBtn'),
+  settingsModal: document.getElementById('settingsModal'),
+  settingsBackdrop: document.getElementById('settingsBackdrop'),
+  settingsClose: document.getElementById('settingsClose'),
 };
 
 let current = 0;
@@ -733,6 +866,7 @@ function render(index){
   els.nextLabel.textContent = index < DATA.length - 1 ? `${DATA[index+1].num}. ${DATA[index+1].title}` : '';
   els.card.scrollIntoView({block:'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
   closeDrawer();
+  closeSettings();
 }
 
 // 읽어주기 (Web Speech API)
@@ -804,16 +938,31 @@ function stopReading(){
 
 function speakNextChunk(){
   if(readQueueIndex >= readQueue.length){
+    if(readAutoNext && current < DATA.length - 1){
+      const next = current + 1;
+      render(next);
+      beginReadCurrent();
+      return;
+    }
     stopReading();
     return;
   }
   const utter = new SpeechSynthesisUtterance(readQueue[readQueueIndex]);
   utter.lang = 'ko-KR';
   if(koVoice) utter.voice = koVoice;
-  utter.rate = 0.98;
+  utter.rate = readRate;
   utter.onend = () => { readQueueIndex++; speakNextChunk(); };
   utter.onerror = () => { readQueueIndex++; speakNextChunk(); };
   speechSynthesis.speak(utter);
+}
+
+function beginReadCurrent(){
+  const it = DATA[current];
+  readQueue = chunkText(buildReadText(it), 120);
+  readQueueIndex = 0;
+  speechSynthesis.cancel();
+  updateReadBtn(true);
+  speakNextChunk();
 }
 
 function toggleReading(){
@@ -825,12 +974,7 @@ function toggleReading(){
     stopReading();
     return;
   }
-  const it = DATA[current];
-  readQueue = chunkText(buildReadText(it), 120);
-  readQueueIndex = 0;
-  speechSynthesis.cancel();
-  updateReadBtn(true);
-  speakNextChunk();
+  beginReadCurrent();
 }
 
 els.card.addEventListener('click', e => {
@@ -883,12 +1027,12 @@ function renderList(hits, query){
   });
 }
 
-function openDrawer(){
+function openDrawer(focusSearch){
   els.drawer.classList.add('open');
   els.drawerBackdrop.classList.add('open');
   els.fab.setAttribute('aria-expanded', 'true');
   runSearch(els.search.value);
-  setTimeout(() => els.search.focus(), 200);
+  if(focusSearch !== false) setTimeout(() => els.search.focus(), 200);
 }
 
 function closeDrawer(){
@@ -900,6 +1044,16 @@ function closeDrawer(){
 
 function isDrawerOpen(){
   return els.drawer.classList.contains('open');
+}
+
+// 목록: 검색창은 비워 전체 목록 상태로 드로어를 연다 (검색창에 포커스는 주지 않는다)
+function openList(){
+  els.search.value = '';
+  openDrawer(false);
+}
+// 검색: 같은 드로어를 열고 바로 입력할 수 있게 검색창에 포커스한다
+function openSearch(){
+  openDrawer(true);
 }
 
 els.search.addEventListener('input', e => runSearch(e.target.value));
@@ -929,7 +1083,29 @@ els.drawerClose.addEventListener('click', closeDrawer);
 els.drawerBackdrop.addEventListener('click', closeDrawer);
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape' && isDrawerOpen()) closeDrawer();
+  if(e.key === 'Escape' && isSettingsOpen()) closeSettings();
 });
+
+els.topListBtn.addEventListener('click', () => { closeSettings(); openList(); });
+els.pagerListBtn.addEventListener('click', () => { closeSettings(); openList(); });
+els.topSearchBtn.addEventListener('click', () => { closeSettings(); openSearch(); });
+
+// 설정 모달
+function isSettingsOpen(){
+  return els.settingsModal.classList.contains('open');
+}
+function openSettings(){
+  closeDrawer();
+  els.settingsModal.classList.add('open');
+  els.settingsBackdrop.classList.add('open');
+}
+function closeSettings(){
+  els.settingsModal.classList.remove('open');
+  els.settingsBackdrop.classList.remove('open');
+}
+els.topSettingsBtn.addEventListener('click', () => { isSettingsOpen() ? closeSettings() : openSettings(); });
+els.settingsClose.addEventListener('click', closeSettings);
+els.settingsBackdrop.addEventListener('click', closeSettings);
 
 els.prevBtn.addEventListener('click', () => { if(current > 0) render(current - 1); });
 els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) render(current + 1); });
@@ -967,7 +1143,7 @@ els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) rend
   }, {passive:true});
 })();
 
-// 글자 크기 조절
+// 글자 크기 조절 (헤더의 빠른 조절 + 설정 모달의 조절이 같은 값을 공유한다)
 (function(){
   const MIN = 14, MAX = 26, STEP = 1, DEFAULT = 16;
   const root = document.documentElement;
@@ -975,14 +1151,19 @@ els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) rend
   const minusBtn = document.getElementById('fontMinus');
   const plusBtn = document.getElementById('fontPlus');
   const resetBtn = document.getElementById('fontReset');
+  const setSizeLabel = document.getElementById('setFontSizeLabel');
+  const setMinusBtn = document.getElementById('setFontMinus');
+  const setPlusBtn = document.getElementById('setFontPlus');
+  const setResetBtn = document.getElementById('setFontReset');
 
   function apply(size){
     size = Math.min(MAX, Math.max(MIN, size));
     root.style.setProperty('--content-size', size + 'px');
     sizeLabel.textContent = size + 'px';
+    setSizeLabel.textContent = size + 'px';
     localStorage.setItem('wmdFontSize', String(size));
-    minusBtn.disabled = size <= MIN;
-    plusBtn.disabled = size >= MAX;
+    minusBtn.disabled = setMinusBtn.disabled = size <= MIN;
+    plusBtn.disabled = setPlusBtn.disabled = size >= MAX;
   }
 
   const saved = parseInt(localStorage.getItem('wmdFontSize'), 10);
@@ -991,6 +1172,69 @@ els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) rend
   minusBtn.addEventListener('click', () => apply(parseInt(sizeLabel.textContent, 10) - STEP));
   plusBtn.addEventListener('click', () => apply(parseInt(sizeLabel.textContent, 10) + STEP));
   resetBtn.addEventListener('click', () => apply(DEFAULT));
+  setMinusBtn.addEventListener('click', () => apply(parseInt(sizeLabel.textContent, 10) - STEP));
+  setPlusBtn.addEventListener('click', () => apply(parseInt(sizeLabel.textContent, 10) + STEP));
+  setResetBtn.addEventListener('click', () => apply(DEFAULT));
+})();
+
+// 테마 (라이트 / 다크 / 시스템)
+(function(){
+  const root = document.documentElement;
+  const opts = [...document.querySelectorAll('#themeOpts .opt')];
+
+  function markSel(theme){
+    opts.forEach(b => b.classList.toggle('sel', b.dataset.theme === theme));
+  }
+  function apply(theme, save){
+    if(theme === 'light' || theme === 'dark') root.setAttribute('data-theme', theme);
+    else root.removeAttribute('data-theme');
+    markSel(theme);
+    if(save) localStorage.setItem('wmdTheme', theme);
+  }
+
+  const saved = localStorage.getItem('wmdTheme') || 'system';
+  apply(saved, false);
+
+  opts.forEach(b => b.addEventListener('click', () => apply(b.dataset.theme, true)));
+})();
+
+// 읽기 속도
+let readRate = 0.98;
+(function(){
+  const MIN = 0.6, MAX = 1.8, STEP = 0.05, DEFAULT = 0.98;
+  const label = document.getElementById('rateLabel');
+  const minusBtn = document.getElementById('rateMinus');
+  const plusBtn = document.getElementById('ratePlus');
+
+  function apply(rate){
+    rate = Math.min(MAX, Math.max(MIN, Math.round(rate * 100) / 100));
+    readRate = rate;
+    label.textContent = Math.round(rate * 100) + '%';
+    localStorage.setItem('wmdReadRate', String(rate));
+  }
+
+  const saved = parseFloat(localStorage.getItem('wmdReadRate'));
+  apply(Number.isFinite(saved) ? saved : DEFAULT);
+
+  minusBtn.addEventListener('click', () => apply(readRate - STEP));
+  plusBtn.addEventListener('click', () => apply(readRate + STEP));
+})();
+
+// 읽어주기: 다음 항목 이어 읽기 여부
+let readAutoNext = true;
+(function(){
+  const opts = [...document.querySelectorAll('#autoNextOpts .opt')];
+  function markSel(){
+    opts.forEach(b => b.classList.toggle('sel', (b.dataset.autonext === '1') === readAutoNext));
+  }
+  function apply(on, save){
+    readAutoNext = on;
+    markSel();
+    if(save) localStorage.setItem('wmdAutoNext', on ? '1' : '0');
+  }
+  const saved = localStorage.getItem('wmdAutoNext');
+  apply(saved === null ? true : saved === '1', false);
+  opts.forEach(b => b.addEventListener('click', () => apply(b.dataset.autonext === '1', true)));
 })();
 
 els.count.textContent = `총 ${DATA.length}개 항목`;
