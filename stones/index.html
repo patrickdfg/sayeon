@@ -103,12 +103,6 @@ header.top{
   gap:14px;
   flex-wrap:wrap;
 }
-.brand-title{
-  display:flex;
-  align-items:center;
-  gap:14px;
-  flex-wrap:wrap;
-}
 .brand h1{
   margin:0;
   font-size:1.35rem;
@@ -117,6 +111,7 @@ header.top{
 }
 /* 성령사연 / 월명동사연 / 말씀 이동 탭 */
 .tabs{ display:flex; gap:8px; flex-wrap:wrap; }
+.topbar{ display:flex; gap:8px; flex-wrap:wrap; }
 .tab{
   display:inline-flex;
   align-items:center;
@@ -146,54 +141,6 @@ header.top{
   font-variant-numeric:tabular-nums;
 }
 
-.font-ctrl{
-  display:inline-flex;
-  align-items:center;
-  gap:2px;
-  background:var(--surface-2);
-  border:1px solid var(--border);
-  border-radius:999px;
-  padding:4px;
-}
-.font-ctrl-label{
-  padding:0 8px 0 10px;
-  font-size:.78rem;
-  color:var(--muted);
-}
-.font-ctrl button{
-  width:28px;
-  height:28px;
-  border-radius:50%;
-  border:none;
-  background:var(--surface);
-  color:var(--ink);
-  font-size:1rem;
-  line-height:1;
-  cursor:pointer;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-.font-ctrl button:hover{color:var(--accent);}
-.font-ctrl button:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
-.font-ctrl button:disabled{opacity:.35; cursor:default; color:var(--ink);}
-.font-ctrl-size{
-  min-width:3.4em;
-  text-align:center;
-  font-size:.82rem;
-  font-weight:700;
-  color:var(--accent-warm);
-  font-variant-numeric:tabular-nums;
-}
-.font-ctrl-reset{
-  width:auto !important;
-  padding:0 12px;
-  margin-left:4px;
-  font-size:.78rem !important;
-  color:var(--muted);
-  border-left:1px solid var(--border) !important;
-  border-radius:0 !important;
-}
 
 .topbtn{
   display:inline-flex;
@@ -690,27 +637,20 @@ footer.credit{
 <div class="app" id="app" inert>
   <header class="top">
     <div class="top-inner">
-      <div class="brand">
-        <div class="brand-title">
-          <h1>월명동 돌과 나무 이야기</h1>
-          <button type="button" class="topbtn" id="topListBtn">📋 목록</button>
-          <button type="button" class="topbtn" id="topSettingsBtn">⚙ 설정</button>
-          <button type="button" class="topbtn" id="topSearchBtn">🔍 검색</button>
-          <div class="font-ctrl" role="group" aria-label="글자 크기 조절">
-            <span class="font-ctrl-label">글자</span>
-            <button type="button" id="fontMinus" aria-label="글자 작게">−</button>
-            <span class="font-ctrl-size" id="fontSizeLabel">16px</span>
-            <button type="button" id="fontPlus" aria-label="글자 크게">+</button>
-            <button type="button" id="fontReset" class="font-ctrl-reset">기본</button>
-          </div>
-        </div>
-        <span class="count" id="countLabel"></span>
-      </div>
       <nav class="tabs">
         <a class="tab" href="../">성령사연</a>
         <span class="tab on" aria-current="page">월명동사연</span>
         <a class="tab" href="../malsseum/">말씀</a>
       </nav>
+      <div class="brand">
+        <h1>월명동 돌과 나무 이야기</h1>
+        <span class="count" id="countLabel"></span>
+      </div>
+      <div class="topbar">
+        <button type="button" class="topbtn" id="topListBtn">📋 목록</button>
+        <button type="button" class="topbtn" id="topSettingsBtn">⚙ 설정</button>
+        <button type="button" class="topbtn" id="topSearchBtn">🔍 검색</button>
+      </div>
     </div>
   </header>
 
@@ -999,19 +939,26 @@ function updateReadBtn(speaking){
 
 let readQueue = [];
 let readQueueIndex = 0;
+// speechSynthesis.cancel() 은 읽던 발화의 onend/onerror 를 뒤늦게 부른다.
+// 그 콜백이 다음 항목을 이어 읽어 버리면 정지가 먹히지 않으므로,
+// 재생을 시작하거나 멈출 때마다 세션 번호를 올려 옛 콜백을 무시한다.
+let readSession = 0;
+let isReading = false;
 
 function stopReading(){
+  readSession++;
+  isReading = false;
   readQueue = [];
   readQueueIndex = 0;
   if('speechSynthesis' in window) speechSynthesis.cancel();
   updateReadBtn(false);
 }
 
-function speakNextChunk(){
+function speakNextChunk(session){
+  if(session !== readSession) return;
   if(readQueueIndex >= readQueue.length){
     if(readAutoNext && current < DATA.length - 1){
-      const next = current + 1;
-      render(next);
+      render(current + 1);
       beginReadCurrent();
       return;
     }
@@ -1022,18 +969,29 @@ function speakNextChunk(){
   utter.lang = 'ko-KR';
   if(koVoice) utter.voice = koVoice;
   utter.rate = readRate;
-  utter.onend = () => { readQueueIndex++; speakNextChunk(); };
-  utter.onerror = () => { readQueueIndex++; speakNextChunk(); };
+  utter.onend = () => {
+    if(session !== readSession) return;
+    readQueueIndex++;
+    speakNextChunk(session);
+  };
+  // 한 토막이 실패해도 전체를 멈추지 않고 다음 토막으로 넘어간다
+  utter.onerror = () => {
+    if(session !== readSession) return;
+    readQueueIndex++;
+    speakNextChunk(session);
+  };
   speechSynthesis.speak(utter);
 }
 
 function beginReadCurrent(){
-  const it = DATA[current];
-  readQueue = chunkText(buildReadText(it), 120);
+  readSession++;
+  const session = readSession;
+  isReading = true;
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+  readQueue = chunkText(buildReadText(DATA[current]), 120);
   readQueueIndex = 0;
-  speechSynthesis.cancel();
   updateReadBtn(true);
-  speakNextChunk();
+  speakNextChunk(session);
 }
 
 function toggleReading(){
@@ -1041,7 +999,7 @@ function toggleReading(){
     alert('이 브라우저에서는 읽어주기 기능을 지원하지 않습니다.');
     return;
   }
-  if(readQueue.length || speechSynthesis.speaking || speechSynthesis.pending){
+  if(isReading){
     stopReading();
     return;
   }
@@ -1329,14 +1287,10 @@ els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) rend
   }, {passive:true});
 })();
 
-// 글자 크기 조절 (헤더의 빠른 조절 + 설정 모달의 조절이 같은 값을 공유한다)
+// 글자 크기 조절 (설정 모달)
 (function(){
   const MIN = 14, MAX = 26, STEP = 1, DEFAULT = 16;
   const root = document.documentElement;
-  const sizeLabel = document.getElementById('fontSizeLabel');
-  const minusBtn = document.getElementById('fontMinus');
-  const plusBtn = document.getElementById('fontPlus');
-  const resetBtn = document.getElementById('fontReset');
   const setSizeLabel = document.getElementById('setFontSizeLabel');
   const setMinusBtn = document.getElementById('setFontMinus');
   const setPlusBtn = document.getElementById('setFontPlus');
@@ -1345,21 +1299,17 @@ els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) rend
   function apply(size){
     size = Math.min(MAX, Math.max(MIN, size));
     root.style.setProperty('--content-size', size + 'px');
-    sizeLabel.textContent = size + 'px';
     setSizeLabel.textContent = size + 'px';
     localStorage.setItem('wmdFontSize', String(size));
-    minusBtn.disabled = setMinusBtn.disabled = size <= MIN;
-    plusBtn.disabled = setPlusBtn.disabled = size >= MAX;
+    setMinusBtn.disabled = size <= MIN;
+    setPlusBtn.disabled = size >= MAX;
   }
 
   const saved = parseInt(localStorage.getItem('wmdFontSize'), 10);
   apply(Number.isFinite(saved) ? saved : DEFAULT);
 
-  minusBtn.addEventListener('click', () => apply(parseInt(sizeLabel.textContent, 10) - STEP));
-  plusBtn.addEventListener('click', () => apply(parseInt(sizeLabel.textContent, 10) + STEP));
-  resetBtn.addEventListener('click', () => apply(DEFAULT));
-  setMinusBtn.addEventListener('click', () => apply(parseInt(sizeLabel.textContent, 10) - STEP));
-  setPlusBtn.addEventListener('click', () => apply(parseInt(sizeLabel.textContent, 10) + STEP));
+  setMinusBtn.addEventListener('click', () => apply(parseInt(setSizeLabel.textContent, 10) - STEP));
+  setPlusBtn.addEventListener('click', () => apply(parseInt(setSizeLabel.textContent, 10) + STEP));
   setResetBtn.addEventListener('click', () => apply(DEFAULT));
 })();
 
