@@ -914,22 +914,49 @@ function render(index){
 // 읽어주기 (Web Speech API)
 // 기본은 구글 한국어 목소리(안드로이드의 '구글 여성1(시스템)')를 고른다.
 // 기기마다 쓸 수 있는 목소리가 달라 설정에서 직접 고를 수도 있다.
-const VOICE_KEY = 'wmdVoice';
+// 설정 값은 세 페이지(성령사연·월명동·말씀)가 같이 쓴다. 같은 주소라 저장소를 공유한다.
+// 기본은 구글 한국어 목소리(안드로이드의 '구글 여자1')를 고른다.
+const VOICE_KEY = 'siteVoice';
 let koVoice = null;
 let voiceName = null;
 try{ voiceName = localStorage.getItem(VOICE_KEY) || null; }catch(e){}
 
+// 'kok'(코카니어) 처럼 ko 로 시작만 하는 다른 언어가 섞이지 않게 정확히 걸러낸다
+function isKorean(v){
+  if(!v || !v.lang) return false;
+  const l = v.lang.toLowerCase().replace('_','-');
+  return l === 'ko' || l.startsWith('ko-');
+}
+
 function koVoices(){
   if(!('speechSynthesis' in window)) return [];
-  return speechSynthesis.getVoices()
-    .filter(v => v.lang && v.lang.toLowerCase().startsWith('ko'));
+  return speechSynthesis.getVoices().filter(isKorean);
 }
+
+function isGoogle(v){ return /google|구글/i.test(v.name) || /^ko-kr-x-/i.test(v.voiceURI || ''); }
+
+// 구글 목소리 코드 -> 안드로이드 설정에 보이는 이름
+const GOOGLE_LABEL = [
+  [/x-ism|standard-a|wavenet-a/i, '구글 여자1'],
+  [/x-kob|standard-b|wavenet-b/i, '구글 여자2'],
+  [/x-kod|standard-c|wavenet-c/i, '구글 남자1'],
+  [/x-koc|x-kof|standard-d|wavenet-d/i, '구글 남자2']
+];
+
+function voiceLabel(v, googleIndex){
+  if(!isGoogle(v)) return v.name;
+  const key = (v.voiceURI || '') + ' ' + v.name;
+  for(const [re, label] of GOOGLE_LABEL){ if(re.test(key)) return label; }
+  return googleIndex > 0 ? '구글 목소리 ' + (googleIndex + 1) : '구글 목소리';
+}
+
+function voiceId(v){ return v.voiceURI || v.name; }
 
 function pickVoice(){
   const vs = koVoices();
   if(!vs.length){ koVoice = null; return; }
-  koVoice = (voiceName && vs.find(v => v.name === voiceName))
-    || vs.find(v => /google|구글/i.test(v.name))
+  koVoice = (voiceName && vs.find(v => voiceId(v) === voiceName))
+    || vs.find(isGoogle)
     || vs[0];
 }
 
@@ -942,19 +969,34 @@ function buildVoiceOpts(){
     box.textContent = '이 기기에서 쓸 수 있는 한국어 목소리가 없습니다.';
     return;
   }
+  let gi = 0;
   for(const v of vs){
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'opt' + (koVoice && v.name === koVoice.name ? ' sel' : '');
-    b.textContent = v.name;
+    b.className = 'opt' + (koVoice && voiceId(v) === voiceId(koVoice) ? ' sel' : '');
+    b.textContent = voiceLabel(v, isGoogle(v) ? gi++ : -1);
     b.addEventListener('click', () => {
-      voiceName = v.name;
-      try{ localStorage.setItem(VOICE_KEY, v.name); }catch(e){}
+      voiceName = voiceId(v);
+      try{ localStorage.setItem(VOICE_KEY, voiceName); }catch(e){}
       pickVoice();
       buildVoiceOpts();
+      previewVoice();
     });
     box.appendChild(b);
   }
+}
+
+// 고른 목소리를 바로 짧게 들려준다
+function previewVoice(){
+  if(!('speechSynthesis' in window) || isReading) return;
+  try{
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance('안녕하세요. 이 목소리로 읽어 드립니다.');
+    u.lang = 'ko-KR';
+    if(koVoice) u.voice = koVoice;
+    u.rate = readRate;
+    speechSynthesis.speak(u);
+  }catch(e){}
 }
 
 if('speechSynthesis' in window){
@@ -1510,13 +1552,16 @@ let readRate = 0.90;
     rate = Math.min(MAX, Math.max(MIN, Math.round(rate * 100) / 100));
     readRate = rate;
     label.textContent = Math.round(rate * 100) + '%';
-    localStorage.setItem('wmdReadRate', String(rate));
+    localStorage.setItem('siteReadRate', String(rate));
   }
 
-  // 예전 기본값(1.03)이 그대로 저장돼 있던 경우는 새 기본값(90%)으로 옮긴다.
-  // 사용자가 직접 다른 값으로 바꿔 둔 경우는 그대로 존중한다.
-  const saved = parseFloat(localStorage.getItem('wmdReadRate'));
-  apply(Number.isFinite(saved) && saved !== 1.03 ? saved : DEFAULT);
+  // 세 페이지가 같이 쓰는 값. 예전 월명동 전용 값이 남아 있으면 한 번만 옮겨 온다.
+  let saved = parseFloat(localStorage.getItem('siteReadRate'));
+  if(!Number.isFinite(saved)){
+    const old = parseFloat(localStorage.getItem('wmdReadRate'));
+    if(Number.isFinite(old) && old !== 1.03) saved = old;
+  }
+  apply(Number.isFinite(saved) ? saved : DEFAULT);
 
   minusBtn.addEventListener('click', () => apply(readRate - STEP));
   plusBtn.addEventListener('click', () => apply(readRate + STEP));

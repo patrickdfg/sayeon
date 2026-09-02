@@ -455,6 +455,18 @@ var DEF = { size: 16, lh: 1.95, pad: 18, font: 0, bg: "#1b2018", text: "#e9ece4"
 var cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoNext: DEF.autoNext, rate: DEF.rate };
 
 function $(id) { return document.getElementById(id); }
+
+/* 읽기 속도는 세 페이지가 같이 쓴다 (같은 주소라 저장소를 공유한다) */
+var RATE_KEY = "siteReadRate";
+function loadSharedRate() {
+  try {
+    var r = parseFloat(localStorage.getItem(RATE_KEY));
+    if (isFinite(r) && r >= 0.5 && r <= 2.0) cfg.rate = r;
+  } catch (e) {}
+}
+function saveSharedRate() {
+  try { localStorage.setItem(RATE_KEY, String(cfg.rate)); } catch (e) {}
+}
 function setVar(n, v) { document.documentElement.style.setProperty(n, v); }
 
 function applyCfg() {
@@ -877,26 +889,52 @@ var queue = [], qi = 0, speaking = false;
 if (!synth) { $("speak").disabled = true; $("warn").style.display = "block"; }
 
 /* ===== 목소리 =====
-   기본은 구글 한국어 목소리(안드로이드의 '구글 여성1(시스템)')를 고른다.
-   기기마다 쓸 수 있는 목소리가 달라, 설정에서 직접 고를 수도 있게 해 둔다. */
-var VOICE_KEY = "malVoice";
+   설정 값은 세 페이지(성령사연·월명동·말씀)가 같이 쓴다. 같은 주소라 저장소를 공유한다.
+   기본은 구글 한국어 목소리(안드로이드의 '구글 여자1')를 고른다. */
+var VOICE_KEY = "siteVoice";
 var voiceName = null;
 try { voiceName = localStorage.getItem(VOICE_KEY) || null; } catch (e) {}
 
+// 'kok'(코카니어) 처럼 ko 로 시작만 하는 다른 언어가 섞이지 않게 정확히 걸러낸다
+function isKorean(v) {
+  if (!v || !v.lang) return false;
+  var l = v.lang.toLowerCase().replace("_", "-");
+  return l === "ko" || l.indexOf("ko-") === 0;
+}
+
 function koVoices() {
   if (!synth || !synth.getVoices) return [];
-  return synth.getVoices().filter(function (v) {
-    return v.lang && v.lang.toLowerCase().indexOf("ko") === 0;
-  });
+  return synth.getVoices().filter(isKorean);
 }
+
+function isGoogle(v) { return /google|구글/i.test(v.name) || /^ko-kr-x-/i.test(v.voiceURI || ""); }
+
+// 구글 목소리 코드 -> 안드로이드 설정에 보이는 이름
+var GOOGLE_LABEL = [
+  [/x-ism|standard-a|wavenet-a/i, "구글 여자1"],
+  [/x-kob|standard-b|wavenet-b/i, "구글 여자2"],
+  [/x-kod|standard-c|wavenet-c/i, "구글 남자1"],
+  [/x-koc|x-kof|standard-d|wavenet-d/i, "구글 남자2"]
+];
+
+function voiceLabel(v, googleIndex) {
+  if (!isGoogle(v)) return v.name;
+  var key = (v.voiceURI || "") + " " + v.name;
+  for (var i = 0; i < GOOGLE_LABEL.length; i++) {
+    if (GOOGLE_LABEL[i][0].test(key)) return GOOGLE_LABEL[i][1];
+  }
+  return googleIndex > 0 ? "구글 목소리 " + (googleIndex + 1) : "구글 목소리";
+}
+
+function voiceId(v) { return v.voiceURI || v.name; }
 
 function pickVoice() {
   var vs = koVoices(), i;
   if (!vs.length) return null;
   if (voiceName) {
-    for (i = 0; i < vs.length; i++) { if (vs[i].name === voiceName) return vs[i]; }
+    for (i = 0; i < vs.length; i++) { if (voiceId(vs[i]) === voiceName) return vs[i]; }
   }
-  for (i = 0; i < vs.length; i++) { if (/google|구글/i.test(vs[i].name)) return vs[i]; }
+  for (i = 0; i < vs.length; i++) { if (isGoogle(vs[i])) return vs[i]; }
   return vs[0];
 }
 
@@ -913,20 +951,36 @@ function buildVoiceOpts() {
     box.appendChild(d);
     return;
   }
-  var cur = pickVoice();
+  var cur = pickVoice(), gi = 0;
   for (var i = 0; i < vs.length; i++) {
+    var v = vs[i];
     var b = document.createElement("button");
-    b.className = (cur && vs[i].name === cur.name) ? "opt sel" : "opt";
-    b.textContent = vs[i].name;
+    b.className = (cur && voiceId(v) === voiceId(cur)) ? "opt sel" : "opt";
+    b.textContent = voiceLabel(v, isGoogle(v) ? gi++ : -1);
     (function (name) {
       b.onclick = function () {
         voiceName = name;
         try { localStorage.setItem(VOICE_KEY, name); } catch (e) {}
         buildVoiceOpts();
+        previewVoice();
       };
-    })(vs[i].name);
+    })(voiceId(v));
     box.appendChild(b);
   }
+}
+
+// 고른 목소리를 바로 짧게 들려준다
+function previewVoice() {
+  if (!synth || speaking) return;
+  try {
+    synth.cancel();
+    var u = new SpeechSynthesisUtterance("안녕하세요. 이 목소리로 읽어 드립니다.");
+    u.lang = "ko-KR";
+    var v = pickVoice();
+    if (v) u.voice = v;
+    u.rate = cfg.rate;
+    synth.speak(u);
+  } catch (e) {}
 }
 
 /* ===== 듣는 동안 화면이 꺼지지 않게 =====
@@ -1223,14 +1277,15 @@ $("fsPlus").onclick = function () { cfg.size = Math.min(48, cfg.size + 2); apply
 $("fsMinus").onclick = function () { cfg.size = Math.max(12, cfg.size - 2); applyCfg(); };
 $("lhPlus").onclick = function () { cfg.lh = Math.min(3.0, cfg.lh + 0.15); applyCfg(); };
 $("lhMinus").onclick = function () { cfg.lh = Math.max(1.2, cfg.lh - 0.15); applyCfg(); };
-$("ratePlus").onclick = function () { cfg.rate = Math.min(2.0, Math.round((cfg.rate + 0.05) * 100) / 100); applyCfg(); };
-$("rateMinus").onclick = function () { cfg.rate = Math.max(0.5, Math.round((cfg.rate - 0.05) * 100) / 100); applyCfg(); };
+$("ratePlus").onclick = function () { cfg.rate = Math.min(2.0, Math.round((cfg.rate + 0.05) * 100) / 100); saveSharedRate(); applyCfg(); };
+$("rateMinus").onclick = function () { cfg.rate = Math.max(0.5, Math.round((cfg.rate - 0.05) * 100) / 100); saveSharedRate(); applyCfg(); };
 $("padPlus").onclick = function () { cfg.pad = Math.min(80, cfg.pad + 6); applyCfg(); };
 $("padMinus").onclick = function () { cfg.pad = Math.max(0, cfg.pad - 6); applyCfg(); };
 $("cText").oninput = function () { cfg.text = $("cText").value; applyCfg(); };
 $("cBg").oninput = function () { cfg.bg = $("cBg").value; applyCfg(); };
 $("resetAll").onclick = function () {
   cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoNext: DEF.autoNext, rate: DEF.rate };
+  saveSharedRate();
   applyCfg();
 };
 
@@ -1348,6 +1403,7 @@ function tryUnlock() {
 $("pwok").onclick = tryUnlock;
 $("pw").onkeydown = function (e) { if (e.keyCode === 13) tryUnlock(); };
 
+loadSharedRate();
 buildOpts();
 buildVoiceOpts();
 applyCfg();
