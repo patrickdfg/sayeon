@@ -742,6 +742,10 @@ footer.credit{
         </div>
       </div>
       <div class="set-row">
+        <div class="set-label">목소리</div>
+        <div class="opts" id="voiceOpts"></div>
+      </div>
+      <div class="set-row">
         <div class="set-label">읽어주기</div>
         <div class="opts" id="autoNextOpts">
           <button type="button" class="opt" data-autonext="1">다음 항목 이어 읽기</button>
@@ -908,16 +912,78 @@ function render(index){
 }
 
 // 읽어주기 (Web Speech API)
+// 기본은 구글 한국어 목소리(안드로이드의 '구글 여성1(시스템)')를 고른다.
+// 기기마다 쓸 수 있는 목소리가 달라 설정에서 직접 고를 수도 있다.
+const VOICE_KEY = 'wmdVoice';
 let koVoice = null;
-function pickVoice(){
-  if(!('speechSynthesis' in window)) return;
-  const voices = speechSynthesis.getVoices();
-  koVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ko')) || null;
+let voiceName = null;
+try{ voiceName = localStorage.getItem(VOICE_KEY) || null; }catch(e){}
+
+function koVoices(){
+  if(!('speechSynthesis' in window)) return [];
+  return speechSynthesis.getVoices()
+    .filter(v => v.lang && v.lang.toLowerCase().startsWith('ko'));
 }
+
+function pickVoice(){
+  const vs = koVoices();
+  if(!vs.length){ koVoice = null; return; }
+  koVoice = (voiceName && vs.find(v => v.name === voiceName))
+    || vs.find(v => /google|구글/i.test(v.name))
+    || vs[0];
+}
+
+function buildVoiceOpts(){
+  const box = document.getElementById('voiceOpts');
+  if(!box) return;
+  const vs = koVoices();
+  box.innerHTML = '';
+  if(!vs.length){
+    box.textContent = '이 기기에서 쓸 수 있는 한국어 목소리가 없습니다.';
+    return;
+  }
+  for(const v of vs){
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'opt' + (koVoice && v.name === koVoice.name ? ' sel' : '');
+    b.textContent = v.name;
+    b.addEventListener('click', () => {
+      voiceName = v.name;
+      try{ localStorage.setItem(VOICE_KEY, v.name); }catch(e){}
+      pickVoice();
+      buildVoiceOpts();
+    });
+    box.appendChild(b);
+  }
+}
+
 if('speechSynthesis' in window){
   pickVoice();
-  speechSynthesis.onvoiceschanged = pickVoice;
+  buildVoiceOpts();
+  speechSynthesis.onvoiceschanged = () => { pickVoice(); buildVoiceOpts(); };
 }
+
+// 듣는 동안 화면이 꺼지지 않게 한다.
+// 화면 잠금은 탭이 보일 때만 걸 수 있고 화면이 꺼지면 저절로 풀리므로,
+// 다시 보이게 될 때 듣는 중이면 새로 건다.
+let wakeLock = null;
+function requestWakeLock(){
+  if(!('wakeLock' in navigator) || wakeLock) return;
+  try{
+    navigator.wakeLock.request('screen').then(wl => {
+      wakeLock = wl;
+      wl.addEventListener('release', () => { wakeLock = null; });
+    }).catch(()=>{});
+  }catch(e){}
+}
+function releaseWakeLock(){
+  if(!wakeLock) return;
+  try{ wakeLock.release(); }catch(e){}
+  wakeLock = null;
+}
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && isReading) requestWakeLock();
+});
 
 function buildReadText(it){
   const parts = [`${it.num}번, ${it.title}.`];
@@ -1034,6 +1100,7 @@ let isReading = false;
 function stopReading(){
   readSession++;
   isReading = false;
+  releaseWakeLock();
   readQueue = [];
   readQueueIndex = 0;
   if('speechSynthesis' in window) speechSynthesis.cancel();
@@ -1078,6 +1145,7 @@ function beginReadCurrent(){
   readSession++;
   const session = readSession;
   isReading = true;
+  requestWakeLock();
   if('speechSynthesis' in window) speechSynthesis.cancel();
   readQueue = chunkText(buildReadText(DATA[current]), 120);
   readQueueIndex = 0;

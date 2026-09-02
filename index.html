@@ -308,6 +308,11 @@
     </div>
 
     <div class="set">
+      <div class="name">목소리</div>
+      <div class="opts" id="voiceOpts"></div>
+    </div>
+
+    <div class="set">
       <div class="name">읽기</div>
       <div class="opts" id="autoOpts">
         <button class="opt">다음페이지 자동읽기</button>
@@ -750,13 +755,80 @@ var queue = [], qi = 0, speaking = false;
 
 if (!synth) { $("speak").disabled = true; $("warn").style.display = "block"; }
 
-function pickVoice() {
-  if (!synth || !synth.getVoices) return null;
-  var vs = synth.getVoices(), i;
-  for (i = 0; i < vs.length; i++) { if (vs[i].lang === "ko-KR") return vs[i]; }
-  for (i = 0; i < vs.length; i++) { if (vs[i].lang && vs[i].lang.indexOf("ko") === 0) return vs[i]; }
-  return null;
+/* ===== 목소리 =====
+   기본은 구글 한국어 목소리(안드로이드의 '구글 여성1(시스템)')를 고른다.
+   기기마다 쓸 수 있는 목소리가 달라, 설정에서 직접 고를 수도 있게 해 둔다. */
+var VOICE_KEY = "sayeonVoice";
+var voiceName = null;
+try { voiceName = localStorage.getItem(VOICE_KEY) || null; } catch (e) {}
+
+function koVoices() {
+  if (!synth || !synth.getVoices) return [];
+  return synth.getVoices().filter(function (v) {
+    return v.lang && v.lang.toLowerCase().indexOf("ko") === 0;
+  });
 }
+
+function pickVoice() {
+  var vs = koVoices(), i;
+  if (!vs.length) return null;
+  if (voiceName) {
+    for (i = 0; i < vs.length; i++) { if (vs[i].name === voiceName) return vs[i]; }
+  }
+  for (i = 0; i < vs.length; i++) { if (/google|구글/i.test(vs[i].name)) return vs[i]; }
+  return vs[0];
+}
+
+function buildVoiceOpts() {
+  var box = $("voiceOpts");
+  if (!box) return;
+  var vs = koVoices();
+  box.innerHTML = "";
+  if (!vs.length) {
+    var d = document.createElement("div");
+    d.className = "dim";
+    d.style.fontSize = "14px";
+    d.textContent = "이 기기에서 쓸 수 있는 한국어 목소리가 없습니다.";
+    box.appendChild(d);
+    return;
+  }
+  var cur = pickVoice();
+  for (var i = 0; i < vs.length; i++) {
+    var b = document.createElement("button");
+    b.className = (cur && vs[i].name === cur.name) ? "opt sel" : "opt";
+    b.textContent = vs[i].name;
+    (function (name) {
+      b.onclick = function () {
+        voiceName = name;
+        try { localStorage.setItem(VOICE_KEY, name); } catch (e) {}
+        buildVoiceOpts();
+      };
+    })(vs[i].name);
+    box.appendChild(b);
+  }
+}
+
+/* ===== 듣는 동안 화면이 꺼지지 않게 =====
+   화면 잠금은 탭이 보이는 동안에만 걸 수 있고, 화면이 꺼지면 저절로 풀린다.
+   그래서 다시 보이게 될 때 듣는 중이면 잠금을 새로 건다. */
+var wakeLock = null;
+function requestWakeLock() {
+  if (!("wakeLock" in navigator) || wakeLock) return;
+  try {
+    navigator.wakeLock.request("screen").then(function (wl) {
+      wakeLock = wl;
+      wl.addEventListener("release", function () { wakeLock = null; });
+    }).catch(function () {});
+  } catch (e) {}
+}
+function releaseWakeLock() {
+  if (!wakeLock) return;
+  try { wakeLock.release(); } catch (e) {}
+  wakeLock = null;
+}
+document.addEventListener("visibilitychange", function () {
+  if (document.visibilityState === "visible" && speaking) requestWakeLock();
+});
 
 function highlight(pi) {
   var ps = document.querySelectorAll(".para");
@@ -873,6 +945,7 @@ function speakNext() {
 function startSpeak() {
   var s = SAYEON[idx];
   speaking = true;
+  requestWakeLock();
   updateSpeakBtn();
   showSeek();
   seekTime.textContent = "";
@@ -904,6 +977,7 @@ function startSpeak() {
 
 function stopSpeak() {
   speaking = false;
+  releaseWakeLock();
   if (synth) synth.cancel();
   player.pause();
   var silentAnchorS = document.getElementById("silentAnchor");
@@ -1081,7 +1155,9 @@ document.onkeydown = function (e) {
   }, { passive: true });
 })();
 
-if (synth && typeof synth.onvoiceschanged !== "undefined") { synth.onvoiceschanged = pickVoice; }
+if (synth && typeof synth.onvoiceschanged !== "undefined") {
+  synth.onvoiceschanged = function () { pickVoice(); buildVoiceOpts(); };
+}
 window.onbeforeunload = stopSpeak;
 
 function showLoadError(msg) {
@@ -1167,6 +1243,7 @@ $("pwok").onclick = tryUnlock;
 $("pw").onkeydown = function (e) { if (e.keyCode === 13) tryUnlock(); };
 
 buildOpts();
+buildVoiceOpts();
 applyCfg();
 
 var unlocked = false;
