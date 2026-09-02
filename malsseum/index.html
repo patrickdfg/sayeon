@@ -82,6 +82,10 @@
     .speakbtn { padding: 7px 10px; font-size: 12px; min-height: 34px; }
     .card-head-actions { gap: 5px; }
   }
+  .seekwrap { display: none; align-items: center; gap: 10px; padding: 10px 16px 0; }
+  .seekwrap.show { display: flex; }
+  .seekwrap input[type=range] { flex: 1; accent-color: var(--green); height: 4px; cursor: pointer; }
+  .seektime { font-size: 12px; opacity: .65; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .card-body { padding: 20px 2px 24px; }
   .sub { opacity: .6; font-style: italic; font-size: 15px; margin-bottom: 14px; line-height: 1.7; }
   .linkbtn {
@@ -268,6 +272,10 @@
         <button class="speakbtn readcount" id="readCountBtn" type="button" aria-label="다 읽었으면 눌러서 기록">다 읽음</button>
         <button class="speakbtn" id="speak">🔊 듣기</button>
       </div>
+    </div>
+    <div class="seekwrap" id="seekWrap">
+      <input type="range" id="seekRange" min="0" max="1000" value="0" step="1" aria-label="재생 위치">
+      <span class="seektime" id="seekTime"></span>
     </div>
     <div class="card-body">
       <div class="sub" id="csub"></div>
@@ -884,6 +892,69 @@ function highlight(pi) {
 
 var player = $("player");
 
+/* ===== 재생 위치 막대 (듣는 중 어디서든 이어 시작) ===== */
+var seekWrap = $("seekWrap"), seekRange = $("seekRange"), seekTime = $("seekTime");
+var seekDragging = false;
+function showSeek() { seekWrap.className = "seekwrap show"; }
+function hideSeek() { seekWrap.className = "seekwrap"; }
+function fmtTime(t) {
+  if (!isFinite(t) || t < 0) t = 0;
+  var m = Math.floor(t / 60), sec = Math.floor(t % 60);
+  return m + ":" + (sec < 10 ? "0" : "") + sec;
+}
+function updateSeekAudio() {
+  if (seekDragging) return;
+  var d = player.duration;
+  if (isFinite(d) && d > 0) {
+    seekRange.value = Math.round((player.currentTime / d) * 1000);
+    seekTime.textContent = fmtTime(player.currentTime) + " / " + fmtTime(d);
+  }
+}
+function updateSeekQueue() {
+  if (seekDragging) return;
+  var total = queue.length || 1;
+  seekRange.value = Math.round((qi / total) * 1000);
+  seekTime.textContent = (qi + 1) + " / " + total;
+}
+player.addEventListener("timeupdate", updateSeekAudio);
+player.addEventListener("loadedmetadata", updateSeekAudio);
+seekRange.addEventListener("input", function () { seekDragging = true; });
+seekRange.addEventListener("change", function () {
+  seekDragging = false;
+  var frac = Number(seekRange.value) / 1000;
+  var s = MAL[idx];
+  if (s && s.audio) {
+    var d = player.duration;
+    if (isFinite(d) && d > 0) player.currentTime = frac * d;
+  } else if (queue.length) {
+    var target = Math.min(queue.length - 1, Math.floor(frac * queue.length));
+    qi = target;
+    if (synth) synth.cancel();
+    if (speaking) speakNext();
+  }
+});
+
+/* ===== 잠금화면/미디어 컨트롤에 재생 정보를 알려 백그라운드 재생을 돕는다 ===== */
+function updateMediaSession(playing) {
+  if (!("mediaSession" in navigator)) return;
+  try {
+    var s = MAL[idx];
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: s.title || "",
+      artist: "2026년 말씀"
+    });
+    navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+    navigator.mediaSession.setActionHandler("play", function () { if (!speaking) startSpeak(); });
+    navigator.mediaSession.setActionHandler("pause", function () { if (speaking) stopSpeak(); });
+    navigator.mediaSession.setActionHandler("previoustrack", function () {
+      var was = speaking; go(-1); if (was) startSpeak();
+    });
+    navigator.mediaSession.setActionHandler("nexttrack", function () {
+      var was = speaking; go(1); if (was) startSpeak();
+    });
+  } catch (e) {}
+}
+
 function updateSpeakBtn() {
   var s = MAL[idx];
   var human = !!(s && s.audio);
@@ -913,7 +984,7 @@ function speakNext() {
   var v = pickVoice();
   if (v) u.voice = v;
   u.rate = cfg.rate;
-  u.onstart = function () { highlight(item.pi); };
+  u.onstart = function () { highlight(item.pi); updateSeekQueue(); };
   u.onend = function () { qi++; if (speaking) speakNext(); };
   u.onerror = function () { qi++; if (speaking) speakNext(); };
   synth.speak(u);
@@ -923,6 +994,9 @@ function startSpeak() {
   var s = MAL[idx];
   speaking = true;
   updateSpeakBtn();
+  showSeek();
+  seekTime.textContent = "";
+  updateMediaSession(true);
 
   if (s.audio) {
     if (synth) synth.cancel();
@@ -951,6 +1025,8 @@ function stopSpeak() {
   player.pause();
   queue = []; qi = 0;
   updateSpeakBtn();
+  hideSeek();
+  updateMediaSession(false);
   var ps = document.querySelectorAll(".para");
   for (var i = 0; i < ps.length; i++) { ps[i].className = "para"; }
 }
