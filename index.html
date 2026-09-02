@@ -32,6 +32,17 @@
   h1.head { font-size: 30px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
   .headrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 16px; }
 
+  /* 성령사연 / 월명동사연 / 말씀 이동 탭 */
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
+  .tab {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--panel); color: var(--text);
+    border: 0; border-radius: 999px; padding: 10px 18px;
+    font-size: 15px; font-family: inherit; text-decoration: none;
+    min-height: 44px; cursor: pointer;
+  }
+  .tab.on { background: var(--green); color: #14180f; font-weight: 700; cursor: default; }
+
   .topbar { display: flex; gap: 8px; flex-wrap: wrap; }
   .topbtn {
     display: inline-flex; align-items: center; gap: 8px;
@@ -216,8 +227,12 @@
 <div class="wrap" id="wrap">
   <div class="headrow">
     <h1 class="head">2026년 성령 사연</h1>
-    <a class="topbtn" href="stones/">🪨 월명동 돌·나무</a>
   </div>
+  <nav class="tabs">
+    <span class="tab on" aria-current="page">성령사연</span>
+    <a class="tab" href="stones/">월명동사연</a>
+    <a class="tab" href="malsseum/">말씀</a>
+  </nav>
   <div class="topbar">
     <button class="topbtn" id="openlist">📋 목록</button>
     <button class="topbtn" id="opensettings">⚙ 설정</button>
@@ -314,7 +329,7 @@
       <div class="name">읽기 속도</div>
       <div class="stepper">
         <button class="rnd" id="rateMinus">−</button>
-        <span class="val" id="rateVal">105%</span>
+        <span class="val" id="rateVal">90%</span>
         <button class="rnd" id="ratePlus">+</button>
       </div>
     </div>
@@ -402,7 +417,7 @@ var THEMES = [
   { k: "세피아", bg: "#f3e9d2", text: "#3a2f1b" },
   { k: "흰색", bg: "#ffffff", text: "#1a1a1a" }
 ];
-var DEF = { size: 16, lh: 1.95, pad: 18, font: 0, bg: "#1b2018", text: "#e9ece4", autoNext: true, rate: 1.05 };
+var DEF = { size: 16, lh: 1.95, pad: 18, font: 0, bg: "#1b2018", text: "#e9ece4", autoNext: true, rate: 0.90 };
 var cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoNext: DEF.autoNext, rate: DEF.rate };
 
 function $(id) { return document.getElementById(id); }

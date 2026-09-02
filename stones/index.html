@@ -115,20 +115,31 @@ header.top{
   font-weight:700;
   letter-spacing:.01em;
 }
-.xlink{
+/* 성령사연 / 월명동사연 / 말씀 이동 탭 */
+.tabs{ display:flex; gap:8px; flex-wrap:wrap; }
+.tab{
   display:inline-flex;
   align-items:center;
-  gap:6px;
+  justify-content:center;
   background:var(--surface-2);
   border:1px solid var(--border);
   border-radius:999px;
-  padding:6px 14px;
-  font-size:.82rem;
+  padding:8px 16px;
+  font-size:.86rem;
   color:var(--ink);
   text-decoration:none;
   white-space:nowrap;
+  cursor:pointer;
 }
-.xlink:hover{ border-color:var(--accent); color:var(--accent); }
+.tab:hover{ border-color:var(--accent); color:var(--accent); }
+.tab.on{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:var(--accent-ink);
+  font-weight:700;
+  cursor:default;
+}
+.tab.on:hover{ color:var(--accent-ink); }
 .brand .count{
   font-size:.82rem;
   color:var(--muted);
@@ -199,28 +210,6 @@ header.top{
 }
 .topbtn:hover{ border-color:var(--accent); color:var(--accent); }
 .topbtn:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
-
-.fab{
-  position:fixed;
-  right:22px;
-  bottom:26px;
-  z-index:60;
-  width:56px;
-  height:56px;
-  border-radius:50%;
-  border:none;
-  background:var(--accent);
-  color:var(--accent-ink);
-  box-shadow:var(--shadow);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-  transition:transform .15s ease;
-}
-.fab:hover{transform:scale(1.05);}
-.fab:focus-visible{outline:2px solid var(--focus); outline-offset:3px;}
-.fab svg{width:22px;height:22px;}
 
 .drawer-backdrop{
   position:fixed;
@@ -704,7 +693,6 @@ footer.credit{
       <div class="brand">
         <div class="brand-title">
           <h1>월명동 돌과 나무 이야기</h1>
-          <a class="xlink" href="../">📖 성령 사연</a>
           <button type="button" class="topbtn" id="topListBtn">📋 목록</button>
           <button type="button" class="topbtn" id="topSettingsBtn">⚙ 설정</button>
           <button type="button" class="topbtn" id="topSearchBtn">🔍 검색</button>
@@ -718,6 +706,11 @@ footer.credit{
         </div>
         <span class="count" id="countLabel"></span>
       </div>
+      <nav class="tabs">
+        <a class="tab" href="../">성령사연</a>
+        <span class="tab on" aria-current="page">월명동사연</span>
+        <a class="tab" href="../malsseum/">말씀</a>
+      </nav>
     </div>
   </header>
 
@@ -737,9 +730,6 @@ footer.credit{
     <button type="button" class="hl-swatch hl-3" data-c="3" aria-label="파란색으로 칠하기"></button>
   </div>
 
-  <button type="button" class="fab" id="fabBtn" aria-haspopup="true" aria-expanded="false" aria-label="검색 및 목록 열기">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-  </button>
   <div class="drawer-backdrop" id="drawerBackdrop"></div>
   <div class="drawer" id="drawer" role="dialog" aria-label="돌·나무 검색 및 목록">
     <div class="drawer-head">
@@ -784,7 +774,7 @@ footer.credit{
         <div class="set-label">읽기 속도</div>
         <div class="stepper">
           <button type="button" class="rnd" id="rateMinus" aria-label="느리게">−</button>
-          <span class="stepper-val" id="rateLabel">103%</span>
+          <span class="stepper-val" id="rateLabel">90%</span>
           <button type="button" class="rnd" id="ratePlus" aria-label="빠르게">+</button>
         </div>
       </div>
@@ -847,7 +837,6 @@ const els = {
   nextBtn: document.getElementById('nextBtn'),
   prevLabel: document.getElementById('prevLabel'),
   nextLabel: document.getElementById('nextLabel'),
-  fab: document.getElementById('fabBtn'),
   drawer: document.getElementById('drawer'),
   drawerBackdrop: document.getElementById('drawerBackdrop'),
   drawerClose: document.getElementById('drawerClose'),
@@ -1227,7 +1216,6 @@ function renderList(hits, query){
 function openDrawer(focusSearch){
   els.drawer.classList.add('open');
   els.drawerBackdrop.classList.add('open');
-  els.fab.setAttribute('aria-expanded', 'true');
   runSearch(els.search.value);
   if(focusSearch !== false) setTimeout(() => els.search.focus(), 200);
 }
@@ -1235,7 +1223,6 @@ function openDrawer(focusSearch){
 function closeDrawer(){
   els.drawer.classList.remove('open');
   els.drawerBackdrop.classList.remove('open');
-  els.fab.setAttribute('aria-expanded', 'false');
   activeResult = -1;
 }
 
@@ -1271,11 +1258,10 @@ els.search.addEventListener('keydown', e => {
     else if(buttons.length === 1) buttons[0].click();
   } else if(e.key === 'Escape'){
     closeDrawer();
-    els.fab.focus();
+    els.topSearchBtn.focus();
   }
 });
 
-els.fab.addEventListener('click', () => { isDrawerOpen() ? closeDrawer() : openDrawer(); });
 els.drawerClose.addEventListener('click', closeDrawer);
 els.drawerBackdrop.addEventListener('click', closeDrawer);
 document.addEventListener('keydown', e => {
@@ -1399,9 +1385,9 @@ els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) rend
 })();
 
 // 읽기 속도
-let readRate = 1.03;
+let readRate = 0.90;
 (function(){
-  const MIN = 0.6, MAX = 1.8, STEP = 0.05, DEFAULT = 1.03;
+  const MIN = 0.6, MAX = 1.8, STEP = 0.05, DEFAULT = 0.90;
   const label = document.getElementById('rateLabel');
   const minusBtn = document.getElementById('rateMinus');
   const plusBtn = document.getElementById('ratePlus');
@@ -1413,8 +1399,10 @@ let readRate = 1.03;
     localStorage.setItem('wmdReadRate', String(rate));
   }
 
+  // 예전 기본값(1.03)이 그대로 저장돼 있던 경우는 새 기본값(90%)으로 옮긴다.
+  // 사용자가 직접 다른 값으로 바꿔 둔 경우는 그대로 존중한다.
   const saved = parseFloat(localStorage.getItem('wmdReadRate'));
-  apply(Number.isFinite(saved) ? saved : DEFAULT);
+  apply(Number.isFinite(saved) && saved !== 1.03 ? saved : DEFAULT);
 
   minusBtn.addEventListener('click', () => apply(readRate - STEP));
   plusBtn.addEventListener('click', () => apply(readRate + STEP));
