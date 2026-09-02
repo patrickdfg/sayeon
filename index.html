@@ -442,16 +442,38 @@ var cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg
 
 function $(id) { return document.getElementById(id); }
 
-/* 읽기 속도는 세 페이지가 같이 쓴다 (같은 주소라 저장소를 공유한다) */
-var RATE_KEY = "siteReadRate";
-function loadSharedRate() {
-  try {
-    var r = parseFloat(localStorage.getItem(RATE_KEY));
-    if (isFinite(r) && r >= 0.5 && r <= 2.0) cfg.rate = r;
-  } catch (e) {}
+/* ===== 설정 저장 =====
+   글자·색·속도·목소리 같은 설정은 세 페이지(성령사연·월명동·말씀)가
+   한 곳에 모아 같이 쓴다. 같은 주소라 브라우저 저장소를 공유한다.
+   한 곳에서 바꾸면 나머지 두 곳에도 그대로 적용된다. */
+var SETTINGS_KEY = "siteSettings";
+function loadSettings() {
+  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }
+  catch (e) { return {}; }
 }
-function saveSharedRate() {
-  try { localStorage.setItem(RATE_KEY, String(cfg.rate)); } catch (e) {}
+function saveSettings(patch) {
+  var s = loadSettings(), k;
+  for (k in patch) { if (Object.prototype.hasOwnProperty.call(patch, k)) s[k] = patch[k]; }
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
+}
+// 저장해 둔 설정을 cfg 로 불러온다
+function loadCfg() {
+  var s = loadSettings();
+  if (typeof s.size === "number") cfg.size = s.size;
+  if (typeof s.lh === "number") cfg.lh = s.lh;
+  if (typeof s.pad === "number") cfg.pad = s.pad;
+  if (typeof s.font === "number" && FONTS[s.font]) cfg.font = s.font;
+  if (typeof s.bg === "string") cfg.bg = s.bg;
+  if (typeof s.text === "string") cfg.text = s.text;
+  if (typeof s.autoNext === "boolean") cfg.autoNext = s.autoNext;
+  if (typeof s.rate === "number" && s.rate >= 0.5 && s.rate <= 2.0) cfg.rate = s.rate;
+  if (typeof s.voice === "string") voiceName = s.voice;
+}
+function storeCfg() {
+  saveSettings({
+    size: cfg.size, lh: cfg.lh, pad: cfg.pad, font: cfg.font,
+    bg: cfg.bg, text: cfg.text, autoNext: cfg.autoNext, rate: cfg.rate
+  });
 }
 function setVar(n, v) { document.documentElement.style.setProperty(n, v); }
 
@@ -473,6 +495,7 @@ function applyCfg() {
   markSel("fontOpts", cfg.font);
   markSel("themeOpts", themeIndex());
   markSel("autoOpts", cfg.autoNext ? 0 : 1);
+  storeCfg();
 }
 
 function themeIndex() {
@@ -770,9 +793,7 @@ if (!synth) { $("speak").disabled = true; $("warn").style.display = "block"; }
 /* ===== 목소리 =====
    설정 값은 세 페이지(성령사연·월명동·말씀)가 같이 쓴다. 같은 주소라 저장소를 공유한다.
    기본은 구글 한국어 목소리(안드로이드의 '구글 여자1')를 고른다. */
-var VOICE_KEY = "siteVoice";
-var voiceName = null;
-try { voiceName = localStorage.getItem(VOICE_KEY) || null; } catch (e) {}
+var voiceName = null;   // 실제 값은 loadCfg() 가 채운다
 
 // 'kok'(코카니어) 처럼 ko 로 시작만 하는 다른 언어가 섞이지 않게 정확히 걸러낸다
 function isKorean(v) {
@@ -839,12 +860,19 @@ function buildVoiceOpts() {
     (function (name) {
       b.onclick = function () {
         voiceName = name;
-        try { localStorage.setItem(VOICE_KEY, name); } catch (e) {}
+        saveSettings({ voice: name });
         buildVoiceOpts();
         previewVoice();
       };
     })(voiceId(v));
     box.appendChild(b);
+  }
+  if (vs.length === 1) {
+    var note = document.createElement("div");
+    note.className = "dim";
+    note.style.cssText = "font-size:13px; line-height:1.7; flex-basis:100%; margin-top:4px;";
+    note.textContent = "이 기기에서는 브라우저가 목소리를 하나만 알려 줍니다. 안드로이드 설정 → 접근성 → 음성 출력(TTS) → 기본 엔진 설정에서 목소리를 바꾸면 여기에도 적용됩니다.";
+    box.appendChild(note);
   }
 }
 
@@ -1156,15 +1184,14 @@ $("fsPlus").onclick = function () { cfg.size = Math.min(48, cfg.size + 2); apply
 $("fsMinus").onclick = function () { cfg.size = Math.max(12, cfg.size - 2); applyCfg(); };
 $("lhPlus").onclick = function () { cfg.lh = Math.min(3.0, cfg.lh + 0.15); applyCfg(); };
 $("lhMinus").onclick = function () { cfg.lh = Math.max(1.2, cfg.lh - 0.15); applyCfg(); };
-$("ratePlus").onclick = function () { cfg.rate = Math.min(2.0, Math.round((cfg.rate + 0.05) * 100) / 100); saveSharedRate(); applyCfg(); };
-$("rateMinus").onclick = function () { cfg.rate = Math.max(0.5, Math.round((cfg.rate - 0.05) * 100) / 100); saveSharedRate(); applyCfg(); };
+$("ratePlus").onclick = function () { cfg.rate = Math.min(2.0, Math.round((cfg.rate + 0.05) * 100) / 100); applyCfg(); };
+$("rateMinus").onclick = function () { cfg.rate = Math.max(0.5, Math.round((cfg.rate - 0.05) * 100) / 100); applyCfg(); };
 $("padPlus").onclick = function () { cfg.pad = Math.min(80, cfg.pad + 6); applyCfg(); };
 $("padMinus").onclick = function () { cfg.pad = Math.max(0, cfg.pad - 6); applyCfg(); };
 $("cText").oninput = function () { cfg.text = $("cText").value; applyCfg(); };
 $("cBg").oninput = function () { cfg.bg = $("cBg").value; applyCfg(); };
 $("resetAll").onclick = function () {
   cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoNext: DEF.autoNext, rate: DEF.rate };
-  saveSharedRate();
   applyCfg();
 };
 
@@ -1213,6 +1240,8 @@ document.onkeydown = function (e) {
 if (synth && typeof synth.onvoiceschanged !== "undefined") {
   synth.onvoiceschanged = function () { pickVoice(); buildVoiceOpts(); };
 }
+// 안드로이드에서는 목록이 늦게 채워지고 onvoiceschanged 가 안 오는 기기도 있어 몇 번 더 확인한다
+[400, 1200, 3000].forEach(function (ms) { setTimeout(buildVoiceOpts, ms); });
 window.onbeforeunload = stopSpeak;
 
 function showLoadError(msg) {
@@ -1297,7 +1326,7 @@ function tryUnlock() {
 $("pwok").onclick = tryUnlock;
 $("pw").onkeydown = function (e) { if (e.keyCode === 13) tryUnlock(); };
 
-loadSharedRate();
+loadCfg();
 buildOpts();
 buildVoiceOpts();
 applyCfg();
