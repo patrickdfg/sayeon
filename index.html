@@ -247,7 +247,7 @@
       <div class="t"><span id="ctitle"></span></div>
       <div class="card-head-actions">
         <button class="speakbtn readcount" id="readCountBtn" type="button" aria-label="다 읽었으면 눌러서 기록">다 읽음</button>
-        <button class="speakbtn" id="speak">🔊 읽어주기</button>
+        <button class="speakbtn" id="speak">🔊 듣기</button>
       </div>
     </div>
     <div class="card-body">
@@ -762,7 +762,7 @@ function updateSpeakBtn() {
   var human = !!(s && s.audio);
   var btn = $("speak");
   btn.className = "speakbtn" + (human ? " human" : "") + (speaking ? " on" : "");
-  btn.textContent = speaking ? "■ 정지" : ((human ? "🎙️" : "🤖") + " 읽어주기");
+  btn.textContent = speaking ? "■ 정지" : ((human ? "🎙️" : "🤖") + " 듣기");
 }
 
 function advanceOrStop() {
