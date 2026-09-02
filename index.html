@@ -234,8 +234,12 @@
     <a class="tab" href="stones/">월명동사연</a>
     <a class="tab" href="malsseum/">말씀</a>
   </nav>
+  <nav class="tabs" id="yearTabs">
+    <button type="button" class="tab on" id="yearBtn2026" data-year="2026">2026</button>
+    <button type="button" class="tab" id="yearBtn2025" data-year="2025">2025</button>
+  </nav>
   <div class="headrow">
-    <h1 class="head">2026년 성령 사연</h1>
+    <h1 class="head" id="pageHead">2026년 성령 사연</h1>
   </div>
   <div class="topbar">
     <button class="topbtn" id="openlist">📋 목록</button>
@@ -410,7 +414,9 @@
    }
 */
 var SAYEON = [];
-var DATA_URL = "sayeon.json";
+var YEAR_URLS = { "2026": "sayeon.json", "2025": "sayeon2025.json" };
+var currentYear = "2026";
+var DATA_URL = YEAR_URLS[currentYear];
 
 /* ===== 설정 ===== */
 var FONTS = [
@@ -494,7 +500,7 @@ function escapeHtml(s) {
   });
 }
 /* ===== N독 (다 읽음) 카운트: 편별로 이 브라우저에만 저장 ===== */
-function readCountKey(epNum) { return "sayeonReadCount_" + epNum; }
+function readCountKey(epNum) { return "sayeonReadCount_" + currentYear + "_" + epNum; }
 function getReadCount(epNum) {
   return parseInt(localStorage.getItem(readCountKey(epNum)), 10) || 0;
 }
@@ -504,7 +510,7 @@ function bumpReadCount(epNum) {
   return n;
 }
 
-function hlKey(epNum) { return "sayeonHl_" + epNum; }
+function hlKey(epNum) { return "sayeonHl_" + currentYear + "_" + epNum; }
 function getHighlights(epNum) {
   try { return JSON.parse(localStorage.getItem(hlKey(epNum)) || "[]"); } catch (e) { return []; }
 }
@@ -655,7 +661,7 @@ function render(keepSpeaking) {
   if (!keepSpeaking) stopSpeak();
   var s = SAYEON[idx];
   updateSpeakBtn();
-  $("total").textContent = "총 " + TOTAL + "개 항목 (현재 " + SAYEON.length + "개 수록)";
+  $("total").textContent = currentYear + "년 · 총 " + SAYEON.length + "개 항목";
   $("ctitle").textContent = s.title || "";
   var sub = $("csub");
   sub.innerHTML = "";
@@ -1104,6 +1110,21 @@ function showLoadError(msg) {
   $("navlist").disabled = true;
   $("opensearch").disabled = true;
 }
+
+function switchYear(year) {
+  if (year === currentYear || !YEAR_URLS[year]) return;
+  stopSpeak();
+  currentYear = year;
+  DATA_URL = YEAR_URLS[year];
+  $("yearBtn2026").className = "tab" + (year === "2026" ? " on" : "");
+  $("yearBtn2025").className = "tab" + (year === "2025" ? " on" : "");
+  $("pageHead").textContent = year + "년 성령 사연";
+  document.title = year + "년 성령 사연";
+  SAYEON = [];
+  loadData();
+}
+$("yearBtn2026").onclick = function () { switchYear("2026"); };
+$("yearBtn2025").onclick = function () { switchYear("2025"); };
 
 function loadData() {
   $("total").textContent = "불러오는 중…";
