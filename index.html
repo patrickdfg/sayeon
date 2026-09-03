@@ -192,6 +192,26 @@
     border: 0; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;
     color: var(--text); font-family: inherit; font-size: 15px; cursor: pointer;
   }
+  /* 검색해서 찾은 낱말 */
+  mark.find { background: #ffd54a; color: #2a2823; border-radius: 2px; padding: 0; }
+  mark.find.cur { background: #ff9330; box-shadow: 0 0 0 2px rgba(255,147,48,.45); }
+  .findbar {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px;
+    z-index: 40; display: none; align-items: center; gap: 6px;
+    background: var(--bg); border: 1px solid var(--panel); border-radius: 999px;
+    padding: 6px 8px 6px 14px; box-shadow: 0 6px 20px rgba(0,0,0,.4);
+    max-width: calc(100% - 24px);
+  }
+  .findbar .w {
+    font-weight: 700; color: var(--green); max-width: 32vw;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px;
+  }
+  .findbar .c { opacity: .6; font-size: 13px; white-space: nowrap; }
+  .findbar button {
+    width: 36px; height: 36px; border: 0; border-radius: 50%;
+    background: var(--panel); color: var(--text);
+    font-size: 15px; cursor: pointer; font-family: inherit; flex: 0 0 auto;
+  }
   .searchsum { opacity: .6; font-size: 14px; margin: 0 0 12px; }
   .searchcat {
     font-size: 14px; font-weight: 700; color: var(--green);
@@ -283,6 +303,15 @@
 
   <footer>성령의 사연 자료실</footer>
   <div class="warn" id="warn">이 브라우저에서는 읽어주기를 지원하지 않습니다.</div>
+</div>
+
+
+<div class="findbar" id="findBar">
+  <span class="w" id="findWord"></span>
+  <span class="c" id="findCount"></span>
+  <button id="findPrev" aria-label="이전 낱말">▲</button>
+  <button id="findNext" aria-label="다음 낱말">▼</button>
+  <button id="findClose" aria-label="찾기 끝내기">✕</button>
 </div>
 
 <audio id="player"></audio>
@@ -628,6 +657,7 @@ function paintHighlights() {
       el.innerHTML = renderLinesWithHighlights(s.paragraphs[pi], mine);
     }
   }
+  applyFind();
 }
 function removeHighlightAt(markEl) {
   var container = markEl.closest("[data-pi]");
@@ -786,6 +816,7 @@ function render(keepSpeaking) {
   $("nextT").textContent = nx.disabled ? "" : shortTitle(SAYEON[idx + 1], idx + 1);
 
   window.scrollTo(0, 0);
+  applyFind();
 }
 
 function go(delta) {
@@ -1096,17 +1127,19 @@ var SEARCH_SOURCES = [
 
 // 검색 결과를 눌렀을 때: 같은 페이지면 바로 넘기고, 다른 페이지면 주소로 넘어간다
 function gotoHit(src, h) {
+  var kw = $("q").value.replace(/^\s+|\s+$/g, "");
   if (src.base === "" && src.year === currentYear) {
-    idx = h.idx; closeAll(); render(); return;
+    idx = h.idx; findQuery = kw; closeAll(); render(); return;
   }
   if (src.base === "") {           // 같은 성령사연인데 해가 다르다
     pendingJumpNo = h.item.no;
+    findQuery = kw;
     closeAll();
     switchYear(src.year);
     return;
   }
   location.href = src.base + "#n=" + encodeURIComponent(h.item.no) +
-    (src.year ? "&y=" + src.year : "");
+    (src.year ? "&y=" + src.year : "") + "&q=" + encodeURIComponent(kw);
 }
 
 
@@ -1123,12 +1156,112 @@ function jumpToNo(no) {
   return false;
 }
 function jumpToHashItem() {
+  var q = hashParam("q");
+  if (q) findQuery = q;
   var no = hashParam("n");
   if (no === null) return false;
   for (var i = 0; i < SAYEON.length; i++) {
     if (String(SAYEON[i].no) === String(no)) { idx = i; return true; }
   }
   return false;
+}
+
+var FIND_BOX = "body";   // 본문이 들어가는 칸
+/* ===== 찾은 낱말로 이동 =====
+   검색 결과를 눌러 들어오면 그 낱말을 노랗게 칠하고 첫 자리로 옮겨 준다.
+   여러 곳에 나오면 아래 막대의 ▲▼ 로 옮겨 다닐 수 있다.
+   칠하는 것은 글자를 늘리지 않으므로, 직접 칠한 하이라이트의 위치 계산에는 영향이 없다. */
+var findQuery = null, findMarks = [], findAt = -1;
+
+function clearFind() {
+  var box = document.getElementById(FIND_BOX);
+  if (box) {
+    var ms = box.querySelectorAll("mark.find");
+    for (var i = ms.length - 1; i >= 0; i--) {
+      var m = ms[i], p = m.parentNode;
+      while (m.firstChild) p.insertBefore(m.firstChild, m);
+      p.removeChild(m);
+      p.normalize();
+    }
+  }
+  findMarks = []; findAt = -1;
+  var bar = document.getElementById("findBar");
+  if (bar) bar.style.display = "none";
+}
+
+function applyFind() {
+  clearFind();
+  if (!findQuery) return;
+  var box = document.getElementById(FIND_BOX);
+  if (!box) return;
+  var needle = findQuery.replace(/\s+/g, "");
+  if (!needle) return;
+
+  // 글자만 이어 붙이고, 각 글자가 어느 텍스트 노드의 몇 번째인지 적어 둔다
+  var walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT, null);
+  var s = "", pos = [], node, i;
+  while ((node = walker.nextNode())) {
+    var t = node.nodeValue;
+    for (i = 0; i < t.length; i++) {
+      var ch = t.charAt(i);
+      if (ch === " " || ch === "\n" || ch === "\t" || ch === "\r") continue;
+      s += ch; pos.push({ node: node, at: i });
+    }
+  }
+
+  // 찾은 자리마다, 텍스트 노드별 구간으로 쪼개 둔다
+  var groups = [], from = 0, hit;
+  while ((hit = s.indexOf(needle, from)) >= 0) {
+    var piece = [], cur = null;
+    for (var k = hit; k < hit + needle.length; k++) {
+      var p = pos[k];
+      if (cur && cur.node === p.node && p.at === cur.end) cur.end = p.at + 1;
+      else { cur = { node: p.node, start: p.at, end: p.at + 1 }; piece.push(cur); }
+    }
+    groups.push(piece);
+    from = hit + needle.length;
+  }
+  if (!groups.length) return;
+
+  // 뒤에서부터 칠해야 앞쪽 글자 위치가 밀리지 않는다
+  for (var g = groups.length - 1; g >= 0; g--) {
+    var marks = [];
+    for (var q = groups[g].length - 1; q >= 0; q--) {
+      var seg = groups[g][q];
+      var tail = seg.node.splitText(seg.start);
+      if (seg.end - seg.start < tail.nodeValue.length) tail.splitText(seg.end - seg.start);
+      var mk = document.createElement("mark");
+      mk.className = "find";
+      tail.parentNode.insertBefore(mk, tail);
+      mk.appendChild(tail);
+      marks.unshift(mk);
+    }
+    findMarks.unshift(marks);
+  }
+
+  var bar = document.getElementById("findBar");
+  if (bar) {
+    bar.style.display = "flex";
+    document.getElementById("findWord").textContent = findQuery;
+  }
+  gotoFind(0);
+}
+
+function gotoFind(n) {
+  if (!findMarks.length) return;
+  if (n < 0) n = findMarks.length - 1;
+  if (n >= findMarks.length) n = 0;
+  findAt = n;
+  for (var i = 0; i < findMarks.length; i++) {
+    for (var j = 0; j < findMarks[i].length; j++) {
+      findMarks[i][j].className = (i === n) ? "find cur" : "find";
+    }
+  }
+  var el = findMarks[n][0];
+  try { el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+  catch (e) { el.scrollIntoView(); }
+  var c = document.getElementById("findCount");
+  if (c) c.textContent = (n + 1) + " / " + findMarks.length;
 }
 
 /* ===== 통합 검색 =====
@@ -1330,6 +1463,11 @@ $("q").oninput = runSearch;
 $("openlist").onclick = function () { openModal("listmodal"); };
 $("navlist").onclick = function () { openModal("listmodal"); };
 $("closelist").onclick = closeAll;
+
+$("findPrev").onclick = function () { gotoFind(findAt - 1); };
+$("findNext").onclick = function () { gotoFind(findAt + 1); };
+$("findClose").onclick = function () { findQuery = null; clearFind(); };
+
 
 $("fsPlus").onclick = function () { cfg.size = Math.min(48, cfg.size + 2); applyCfg(); };
 $("fsMinus").onclick = function () { cfg.size = Math.max(12, cfg.size - 2); applyCfg(); };
