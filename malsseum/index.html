@@ -1165,11 +1165,11 @@ function advanceOrStop() {
   if (speaking && cfg.autoMode === "next" && idx < MAL.length - 1) {
     idx++;
     render(true);
-    startSpeak();
+    setTimeout(function () { if (speaking) startSpeak(); }, 1000);
   } else if (speaking && cfg.autoMode === "prev" && idx > 0) {
     idx--;
     render(true);
-    startSpeak();
+    setTimeout(function () { if (speaking) startSpeak(); }, 1000);
   } else {
     stopSpeak();
   }
@@ -1192,6 +1192,28 @@ function speakNext() {
   synth.speak(u);
 }
 
+// 육성 녹음이 있는 편도, 이어 들을 때 몇 편인지 알 수 있게
+// 제목을 짧게 TTS로 먼저 읽고 나서 실제 녹음을 재생한다
+function speakTitleThenPlayAudio(s) {
+  if (!synth) { playAudioNow(s); return; }
+  var u = new SpeechSynthesisUtterance(s.title);
+  u.lang = "ko-KR";
+  var v = pickVoice();
+  if (v) u.voice = v;
+  u.rate = cfg.rate;
+  u.onend = function () { if (speaking) playAudioNow(s); };
+  u.onerror = function () { if (speaking) playAudioNow(s); };
+  synth.cancel();
+  synth.speak(u);
+}
+function playAudioNow(s) {
+  var silentAnchor = document.getElementById("silentAnchor");
+  if (silentAnchor) silentAnchor.pause();
+  player.src = s.audio;
+  player.currentTime = 0;
+  player.play();
+}
+
 function startSpeak() {
   var s = MAL[idx];
   speaking = true;
@@ -1203,17 +1225,13 @@ function startSpeak() {
 
   var silentAnchor = document.getElementById("silentAnchor");
   if (s.audio) {
-    if (synth) synth.cancel();
-    if (silentAnchor) silentAnchor.pause();
-    player.src = s.audio;
-    player.currentTime = 0;
-    player.play();
+    speakTitleThenPlayAudio(s);
     return;
   }
   if (silentAnchor) silentAnchor.play().catch(function () {});
 
   if (!s.paragraphs || !s.paragraphs.length) { speaking = false; return; }
-  queue = [];
+  queue = [{ pi: -2, text: s.title }];
   for (var i = 0; i < s.paragraphs.length; i++) {
     var it = s.paragraphs[i];
     if (it && it.hr) continue;
