@@ -722,6 +722,7 @@ footer.credit{
   <div class="findbar" id="findBar">
     <span class="w" id="findWord"></span>
     <span class="c" id="findCount"></span>
+    <button type="button" id="findBack" aria-label="검색 결과로 돌아가기">↩</button>
     <button type="button" id="findPrev" aria-label="이전 낱말">▲</button>
     <button type="button" id="findNext" aria-label="다음 낱말">▼</button>
     <button type="button" id="findClose" aria-label="찾기 끝내기">✕</button>
@@ -1514,6 +1515,13 @@ function gotoFind(n) {
 document.getElementById("findPrev").addEventListener("click", () => gotoFind(findAt - 1));
 document.getElementById("findNext").addEventListener("click", () => gotoFind(findAt + 1));
 document.getElementById("findClose").addEventListener("click", () => { findQuery = null; clearFind(); });
+// 찾던 낱말 그대로 검색 결과를 다시 펼친다
+document.getElementById("findBack").addEventListener("click", () => {
+  const kw = findQuery || '';
+  els.search.value = kw;
+  openDrawer(true);
+  runSearch(kw);
+});
 
 /* ===== 다른 카테고리도 같이 찾기 =====
    성령사연(2026·2025)·말씀 원본을 그때그때 받아서 함께 찾는다.

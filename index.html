@@ -309,6 +309,7 @@
 <div class="findbar" id="findBar">
   <span class="w" id="findWord"></span>
   <span class="c" id="findCount"></span>
+  <button id="findBack" aria-label="검색 결과로 돌아가기">↩</button>
   <button id="findPrev" aria-label="이전 낱말">▲</button>
   <button id="findNext" aria-label="다음 낱말">▼</button>
   <button id="findClose" aria-label="찾기 끝내기">✕</button>
@@ -1467,6 +1468,14 @@ $("closelist").onclick = closeAll;
 $("findPrev").onclick = function () { gotoFind(findAt - 1); };
 $("findNext").onclick = function () { gotoFind(findAt + 1); };
 $("findClose").onclick = function () { findQuery = null; clearFind(); };
+// 찾던 낱말 그대로 검색 결과를 다시 펼친다
+$("findBack").onclick = function () {
+  var kw = findQuery;
+  openModal("search");
+  $("q").value = kw || "";
+  runSearch();
+  $("q").focus();
+};
 
 
 $("fsPlus").onclick = function () { cfg.size = Math.min(48, cfg.size + 2); applyCfg(); };
