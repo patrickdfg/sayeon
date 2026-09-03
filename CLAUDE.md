@@ -60,6 +60,32 @@ JSON 항목에 `"audio": "audio/22.m4a"` 처럼 적어 두면 그 편은 사람 
   ffmpeg -i 원본.mp3 -vn -ac 1 -ar 44100 -b:a 48k audio/0802.mp3
   ```
 
+- **검색은 세 카테고리를 한 번에 찾는다.** 각 페이지가 다른 카테고리의 JSON 을
+  그때그때 받아서 찾으므로, 사연을 더 넣어도 검색 쪽은 손댈 것이 없다.
+  **단 월명동만 예외다.** `stones/index.html` 은 사진이 통째로 들어 있어 10MB 라
+  그대로 받아 쓸 수 없어서, 글자만 뽑아 둔 `stones/stones-search.json` 을 쓴다.
+  **월명동 항목을 고치거나 추가했으면 이 파일을 다시 만들어야 한다:**
+
+  ```python
+  import re, io, json
+  src = io.open('stones/index.html', encoding='utf-8').read()
+  data = json.loads(re.search(r'^const DATA = (\[.*?\]);\s*$', src, re.M|re.S).group(1))
+  out = [{'no': d['num'], 'title': d['title'], 'text': d.get('search','')} for d in data]
+  io.open('stones/stones-search.json','w',encoding='utf-8',newline='').write(
+      json.dumps(out, ensure_ascii=False, separators=(',',':')))
+  ```
+
+- **다른 카테고리 검색 결과로 넘어갈 때**는 주소 뒤에 `#n=편번호` 를 붙인다
+  (성령사연은 해가 둘이라 `#n=220&y=2025`). 각 페이지가 자료를 다 읽은 뒤
+  그 번호를 찾아 펼친다.
+
+- **HTML 을 파이썬으로 고칠 때는 끝나고 문법 검사를 하자.** 따옴표 안에 줄바꿈이
+  들어가 페이지 전체가 죽은 적이 있다.
+
+  ```bash
+  python -c "import re,io;s=re.findall(r'<script>(.*?)</script>',io.open('index.html',encoding='utf-8').read(),re.S)[0];io.open('chk.js','w',encoding='utf-8').write(s)" && node --check chk.js
+  ```
+
 - **암호**는 세 페이지 모두 `7125` (브라우저 안에서만 막는 것이라 진짜 보안은
   아니다). 성령사연과 말씀은 잠금 상태를 같이 쓰고(`sayeon_unlocked`),
   월명동은 따로 쓴다(`wmdUnlocked`).

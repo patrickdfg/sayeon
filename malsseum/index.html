@@ -211,6 +211,12 @@
     border: 0; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;
     color: var(--text); font-family: inherit; font-size: 15px; cursor: pointer;
   }
+  .searchsum { opacity: .6; font-size: 14px; margin: 0 0 12px; }
+  .searchcat {
+    font-size: 14px; font-weight: 700; color: var(--green);
+    margin: 18px 0 8px; padding-bottom: 4px;
+    border-bottom: 1px solid; border-color: rgba(147,196,165,.3);
+  }
   .hit b { color: var(--green); }
   .hit .snip { display: block; opacity: .6; font-size: 14px; margin-top: 4px; line-height: 1.6; }
 
@@ -408,7 +414,7 @@
 <div class="modal" id="search">
   <div class="inner">
     <div class="top">
-      <input id="q" type="search" placeholder="말씀 내용 검색">
+      <input id="q" type="search" placeholder="성령사연·월명동·말씀 전체 검색">
       <button class="closebtn" id="closeq">닫기</button>
     </div>
     <div id="results"></div>
@@ -1194,17 +1200,93 @@ function stopSpeak() {
 }
 
 /* ===== 검색 ===== */
-function flatText(s) {
-  var out = [];
-  if (s.paragraphs) {
-    for (var i = 0; i < s.paragraphs.length; i++) {
-      var it = s.paragraphs[i];
-      if (!it || it.hr) continue;
-      out.push(it.h ? it.h : linesOf(it).join(" "));
-    }
+/* 어느 페이지에서든 세 카테고리를 모두 찾는다 */
+var SEARCH_SOURCES = [
+  { label: "성령사연 2026", kind: "sayeon", url: "../sayeon.json", base: "../", year: "2026" },
+  { label: "성령사연 2025", kind: "sayeon", url: "../sayeon2025.json", base: "../", year: "2025" },
+  { label: "월명동사연", kind: "stones", url: "../stones/stones-search.json", base: "../stones/" },
+  { label: "말씀", kind: "sayeon", url: "malsseum.json", base: "",
+    local: function () { return MAL; } }
+];
+
+// 검색 결과를 눌렀을 때: 같은 페이지면 바로 넘기고, 다른 페이지면 주소로 넘어간다
+function gotoHit(src, h) {
+  if (src.base === "") { idx = h.idx; closeAll(); render(); return; }
+  location.href = src.base + "#n=" + encodeURIComponent(h.item.no) +
+    (src.year ? "&y=" + src.year : "");
+}
+
+
+/* 다른 카테고리의 검색 결과에서 넘어왔을 때 (#n=22&y=2025) 그 편을 펼쳐 준다 */
+function hashParam(name) {
+  var m = (location.hash || "").match(new RegExp("[#&]" + name + "=([^&]*)"));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function jumpToHashItem() {
+  var no = hashParam("n");
+  if (no === null) return false;
+  for (var i = 0; i < MAL.length; i++) {
+    if (String(MAL[i].no) === String(no)) { idx = i; return true; }
   }
-  if (s.quote) out.push(s.quote);
-  return out.join(" ");
+  return false;
+}
+
+/* ===== 통합 검색 =====
+   성령사연(2026·2025) · 월명동 · 말씀을 한 번에 찾는다.
+   각 카테고리의 원본 파일을 그때그때 받아서 찾으므로, 사연을 더 넣어도 여기는 손댈 것이 없다.
+   월명동만은 사진이 통째로 들어 있어 문서가 10MB 라, 글자만 뽑아 둔
+   stones/stones-search.json 을 쓴다. (월명동 내용을 고치면 이 파일도 다시 만들어야 한다) */
+var SEARCH_CACHE = {};
+
+// 띄어쓰기·줄바꿈을 무시하고 찾기 위해, 공백을 뺀 문자열과 원문 위치를 함께 만든다
+function squash(t) {
+  var s = "", map = [], i, ch;
+  for (i = 0; i < t.length; i++) {
+    ch = t.charAt(i);
+    if (ch === " " || ch === "\n" || ch === "\t" || ch === "\r") continue;
+    s += ch; map.push(i);
+  }
+  return { s: s, map: map };
+}
+
+// 한 항목의 본문을 통째 글자로 만든다
+function itemText(item, kind) {
+  if (kind === "stones") return item.text || "";
+  var out = [], ps = item.paragraphs || [], i, it, lines;
+  for (i = 0; i < ps.length; i++) {
+    it = ps[i];
+    if (!it || it.hr) continue;
+    if (it.h) { out.push(it.h); continue; }
+    lines = it.p ? it.p : it;
+    if (lines && lines.join) out.push(lines.join(" "));
+  }
+  if (item.quote) out.push(item.quote);
+  return out.join("\n");
+}
+
+function itemTitle(item, kind) {
+  if (kind === "stones") return item.no + ". " + item.title;
+  return item.title || (item.no + "편");
+}
+
+function fetchSource(src, done) {
+  // 지금 페이지에 이미 올라와 있는 자료면 다시 받지 않는다
+  if (src.local) {
+    var have = src.local();
+    if (have) { done(have); return; }
+  }
+  if (SEARCH_CACHE[src.url]) { done(SEARCH_CACHE[src.url]); return; }
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", src.url, true);
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4) return;
+    var list = [];
+    try { list = JSON.parse(xhr.responseText) || []; } catch (e) { list = []; }
+    SEARCH_CACHE[src.url] = list;
+    done(list);
+  };
+  xhr.onerror = function () { done([]); };
+  try { xhr.send(null); } catch (e) { done([]); }
 }
 
 function runSearch() {
@@ -1212,33 +1294,81 @@ function runSearch() {
   var box = $("results");
   box.innerHTML = "";
   if (!kw) return;
-  var found = 0;
-  for (var i = 0; i < MAL.length; i++) {
-    var s = MAL[i], text = flatText(s);
-    var at = text.indexOf(kw);
-    if (at < 0 && (s.title || "").indexOf(kw) < 0) continue;
-    found++;
-    var btn = document.createElement("button");
-    btn.className = "hit";
-    var b = document.createElement("b");
-    b.textContent = fullTitle(s, i);
-    btn.appendChild(b);
-    if (at >= 0) {
-      var from = Math.max(0, at - 20);
-      var snip = document.createElement("span");
-      snip.className = "snip";
-      snip.textContent = (from > 0 ? "…" : "") + text.substr(from, 70) + "…";
-      btn.appendChild(snip);
-    }
-    (function (t) { btn.onclick = function () { idx = t; closeAll(); render(); }; })(i);
-    box.appendChild(btn);
-  }
-  if (found === 0) {
+
+  var needle = squash(kw).s;
+  if (!needle) return;
+
+  var pending = SEARCH_SOURCES.length, total = 0, blocks = [];
+  var note = document.createElement("div");
+  note.className = "empty";
+  note.textContent = "찾는 중…";
+  box.appendChild(note);
+
+  SEARCH_SOURCES.forEach(function (src, si) {
+    fetchSource(src, function (list) {
+      var hits = [];
+      for (var i = 0; i < list.length; i++) {
+        var item = list[i];
+        var text = itemText(item, src.kind);
+        var title = itemTitle(item, src.kind);
+        var sq = squash(text);
+        var at = sq.s.indexOf(needle);
+        var inTitle = squash(title).s.indexOf(needle) >= 0;
+        if (at < 0 && !inTitle) continue;
+        var snip = "";
+        if (at >= 0) {
+          var pos = sq.map[at];
+          var from = Math.max(0, pos - 22);
+          snip = (from > 0 ? "…" : "") +
+            text.substr(from, 78).replace(/\s+/g, " ") + "…";
+        }
+        hits.push({ item: item, idx: i, title: title, snip: snip });
+      }
+      blocks[si] = { src: src, hits: hits };
+      total += hits.length;
+      if (--pending === 0) paintResults(blocks, total);
+    });
+  });
+}
+
+function paintResults(blocks, total) {
+  var box = $("results");
+  box.innerHTML = "";
+  if (!total) {
     var e = document.createElement("div");
     e.className = "empty";
     e.textContent = "검색 결과가 없습니다.";
     box.appendChild(e);
+    return;
   }
+  var sum = document.createElement("div");
+  sum.className = "searchsum";
+  sum.textContent = "모두 " + total + "곳에서 찾았습니다.";
+  box.appendChild(sum);
+
+  blocks.forEach(function (blk) {
+    if (!blk || !blk.hits.length) return;
+    var head = document.createElement("div");
+    head.className = "searchcat";
+    head.textContent = blk.src.label + " (" + blk.hits.length + ")";
+    box.appendChild(head);
+
+    blk.hits.forEach(function (h) {
+      var btn = document.createElement("button");
+      btn.className = "hit";
+      var b = document.createElement("b");
+      b.textContent = h.title;
+      btn.appendChild(b);
+      if (h.snip) {
+        var s = document.createElement("span");
+        s.className = "snip";
+        s.textContent = h.snip;
+        btn.appendChild(s);
+      }
+      btn.onclick = function () { gotoHit(blk.src, h); };
+      box.appendChild(btn);
+    });
+  });
 }
 
 function buildList() {
@@ -1408,6 +1538,7 @@ function loadData() {
     }
     if (!MAL.length) { showLoadError("(내용이 비어 있음)"); return; }
     idx = MAL.length - 1;
+    jumpToHashItem();
     buildList();
     render();
   };
