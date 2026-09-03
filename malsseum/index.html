@@ -367,8 +367,9 @@
     <div class="set">
       <div class="name">읽기</div>
       <div class="opts" id="autoOpts">
-        <button class="opt">다음페이지 자동읽기</button>
-        <button class="opt">현재페이지만 읽기</button>
+        <button class="opt">이전편 자동듣기</button>
+        <button class="opt">다음편 자동듣기</button>
+        <button class="opt">현재편만 듣기</button>
       </div>
     </div>
 
@@ -487,8 +488,8 @@ var THEMES = [
   { k: "세피아", bg: "#f3e9d2", text: "#3a2f1b" },
   { k: "흰색", bg: "#ffffff", text: "#1a1a1a" }
 ];
-var DEF = { size: 16, lh: 1.95, pad: 18, font: 0, bg: "#1b2018", text: "#e9ece4", autoNext: true, rate: 0.90 };
-var cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoNext: DEF.autoNext, rate: DEF.rate };
+var DEF = { size: 16, lh: 1.95, pad: 18, font: 0, bg: "#1b2018", text: "#e9ece4", autoMode: "prev", rate: 0.90 };
+var cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoMode: DEF.autoMode, rate: DEF.rate };
 
 function $(id) { return document.getElementById(id); }
 
@@ -515,14 +516,18 @@ function loadCfg() {
   if (typeof s.font === "number" && FONTS[s.font]) cfg.font = s.font;
   if (typeof s.bg === "string") cfg.bg = s.bg;
   if (typeof s.text === "string") cfg.text = s.text;
-  if (typeof s.autoNext === "boolean") cfg.autoNext = s.autoNext;
+  if (s.autoMode === "prev" || s.autoMode === "next" || s.autoMode === "off") {
+    cfg.autoMode = s.autoMode;
+  } else if (typeof s.autoNext === "boolean" && s.autoNext === false) {
+    cfg.autoMode = "off";
+  }
   if (typeof s.rate === "number" && s.rate >= 0.5 && s.rate <= 2.0) cfg.rate = s.rate;
   if (typeof s.voice === "string") voiceName = s.voice;
 }
 function storeCfg() {
   saveSettings({
     size: cfg.size, lh: cfg.lh, pad: cfg.pad, font: cfg.font,
-    bg: cfg.bg, text: cfg.text, autoNext: cfg.autoNext, rate: cfg.rate
+    bg: cfg.bg, text: cfg.text, autoMode: cfg.autoMode, rate: cfg.rate
   });
 }
 function setVar(n, v) { document.documentElement.style.setProperty(n, v); }
@@ -544,7 +549,7 @@ function applyCfg() {
   $("cBgHex").textContent = cfg.bg;
   markSel("fontOpts", cfg.font);
   markSel("themeOpts", themeIndex());
-  markSel("autoOpts", cfg.autoNext ? 0 : 1);
+  markSel("autoOpts", cfg.autoMode === "prev" ? 0 : cfg.autoMode === "next" ? 1 : 2);
   storeCfg();
 }
 
@@ -1157,8 +1162,12 @@ function updateSpeakBtn() {
 }
 
 function advanceOrStop() {
-  if (speaking && cfg.autoNext && idx < MAL.length - 1) {
+  if (speaking && cfg.autoMode === "next" && idx < MAL.length - 1) {
     idx++;
+    render(true);
+    startSpeak();
+  } else if (speaking && cfg.autoMode === "prev" && idx > 0) {
+    idx--;
     render(true);
     startSpeak();
   } else {
@@ -1588,14 +1597,15 @@ $("padMinus").onclick = function () { cfg.pad = Math.max(0, cfg.pad - 6); applyC
 $("cText").oninput = function () { cfg.text = $("cText").value; applyCfg(); };
 $("cBg").oninput = function () { cfg.bg = $("cBg").value; applyCfg(); };
 $("resetAll").onclick = function () {
-  cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoNext: DEF.autoNext, rate: DEF.rate };
+  cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoMode: DEF.autoMode, rate: DEF.rate };
   applyCfg();
 };
 
 (function () {
   var bs = $("autoOpts").getElementsByTagName("button");
-  bs[0].onclick = function () { cfg.autoNext = true; applyCfg(); };
-  bs[1].onclick = function () { cfg.autoNext = false; applyCfg(); };
+  bs[0].onclick = function () { cfg.autoMode = "prev"; applyCfg(); };
+  bs[1].onclick = function () { cfg.autoMode = "next"; applyCfg(); };
+  bs[2].onclick = function () { cfg.autoMode = "off"; applyCfg(); };
 })();
 
 document.onkeydown = function (e) {

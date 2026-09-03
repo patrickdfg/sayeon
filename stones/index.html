@@ -782,8 +782,9 @@ footer.credit{
       <div class="set-row">
         <div class="set-label">읽어주기</div>
         <div class="opts" id="autoNextOpts">
-          <button type="button" class="opt" data-autonext="1">다음 항목 이어 읽기</button>
-          <button type="button" class="opt" data-autonext="0">현재 항목만 읽기</button>
+          <button type="button" class="opt" data-automode="prev">이전 항목 이어 듣기</button>
+          <button type="button" class="opt" data-automode="next">다음 항목 이어 듣기</button>
+          <button type="button" class="opt" data-automode="off">현재 항목만 듣기</button>
         </div>
       </div>
     </div>
@@ -1210,8 +1211,13 @@ function stopReading(){
 function speakNextChunk(session){
   if(session !== readSession) return;
   if(readQueueIndex >= readQueue.length){
-    if(readAutoNext && current < DATA.length - 1){
+    if(readAutoMode === 'next' && current < DATA.length - 1){
       render(current + 1);
+      beginReadCurrent();
+      return;
+    }
+    if(readAutoMode === 'prev' && current > 0){
+      render(current - 1);
       beginReadCurrent();
       return;
     }
@@ -1826,21 +1832,24 @@ let readRate = 0.90;
   plusBtn.addEventListener('click', () => apply(readRate + STEP));
 })();
 
-// 읽어주기: 다음 항목 이어 읽기 여부
-let readAutoNext = true;
+// 읽어주기: 이전/다음 항목 이어 듣기 방향 (기본은 역순)
+let readAutoMode = 'prev';
 (function(){
   const opts = [...document.querySelectorAll('#autoNextOpts .opt')];
   function markSel(){
-    opts.forEach(b => b.classList.toggle('sel', (b.dataset.autonext === '1') === readAutoNext));
+    opts.forEach(b => b.classList.toggle('sel', b.dataset.automode === readAutoMode));
   }
-  function apply(on, save){
-    readAutoNext = on;
+  function apply(mode, save){
+    readAutoMode = mode;
     markSel();
-    if(save) saveSettings({ autoNext: on });
+    if(save) saveSettings({ autoMode: mode });
   }
-  const saved = loadSettings().autoNext;
-  apply(typeof saved === 'boolean' ? saved : true, false);
-  opts.forEach(b => b.addEventListener('click', () => apply(b.dataset.autonext === '1', true)));
+  const saved = loadSettings();
+  var initial = 'prev';
+  if(saved.autoMode === 'prev' || saved.autoMode === 'next' || saved.autoMode === 'off') initial = saved.autoMode;
+  else if(typeof saved.autoNext === 'boolean' && saved.autoNext === false) initial = 'off';
+  apply(initial, false);
+  opts.forEach(b => b.addEventListener('click', () => apply(b.dataset.automode, true)));
 })();
 
 els.count.textContent = `총 ${DATA.length}개 항목`;
