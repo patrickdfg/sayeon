@@ -1110,7 +1110,8 @@ function startSpeak() {
 
   var silentAnchor = document.getElementById("silentAnchor");
   if (s.audio) {
-    speakTitleThenPlayAudio(s);
+    // 육성 낭독은 녹음 자체가 "성령 사연 157" 하고 시작하므로 제목을 또 읽지 않는다
+    playAudioNow(s);
     return;
   }
   if (silentAnchor) silentAnchor.play().catch(function () {});
