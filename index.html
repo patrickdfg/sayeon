@@ -1059,6 +1059,38 @@ function advanceOrStop() {
   }
 }
 
+/* ===== 육성 낭독에 맞춰 문단 짚어 주기 =====
+   녹음마다 '몇 초에 어느 문단을 읽는지'를 audio/sync.json 에 미리 넣어 두었다.
+   (녹음을 받아쓴 뒤 원고에 시간을 맞춰 붙여 만든 것이다)
+   재생 위치를 보고 지금 읽고 있는 문단을 짚어 주며 따라 내려간다. */
+var SYNC = null, syncTimes = null, syncPi = -1;
+
+function loadSync() {
+  if (SYNC !== null) return;
+  SYNC = {};
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "audio/sync.json", true);
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4) return;
+    try { SYNC = JSON.parse(xhr.responseText) || {}; } catch (e) { SYNC = {}; }
+  };
+  try { xhr.send(null); } catch (e) {}
+}
+
+function startSyncFollow(s) {
+  syncTimes = (SYNC && SYNC[String(numOf(s, idx))]) || null;
+  syncPi = -1;
+}
+
+player.ontimeupdate = function () {
+  if (!speaking || !syncTimes) return;
+  var t = player.currentTime, pi = -1;
+  for (var i = 0; i < syncTimes.length; i++) {
+    if (t + 0.15 >= syncTimes[i]) pi = i; else break;
+  }
+  if (pi >= 0 && pi !== syncPi) { syncPi = pi; highlight(pi); }
+};
+
 player.onended = advanceOrStop;
 player.onerror = advanceOrStop;
 
@@ -1094,6 +1126,7 @@ function speakTitleThenPlayAudio(s) {
 function playAudioNow(s) {
   var silentAnchor = document.getElementById("silentAnchor");
   if (silentAnchor) silentAnchor.pause();
+  startSyncFollow(s);
   player.src = s.audio;
   player.currentTime = 0;
   player.play();
@@ -1132,6 +1165,7 @@ function startSpeak() {
 
 function stopSpeak() {
   speaking = false;
+  syncTimes = null; syncPi = -1;
   releaseWakeLock();
   if (synth) synth.cancel();
   player.pause();
@@ -1658,6 +1692,7 @@ $("pwok").onclick = tryUnlock;
 $("pw").onkeydown = function (e) { if (e.keyCode === 13) tryUnlock(); };
 
 loadCfg();
+loadSync();
 buildOpts();
 buildVoiceOpts();
 applyCfg();
