@@ -1078,12 +1078,15 @@ function loadSync() {
 }
 
 function startSyncFollow(s) {
-  syncTimes = (SYNC && SYNC[String(numOf(s, idx))]) || null;
+  syncTimes = null;
   syncPi = -1;
 }
 
 player.ontimeupdate = function () {
-  if (!speaking || !syncTimes) return;
+  if (!speaking) return;
+  // sync.json 이 늦게 도착할 수 있으므로, 아직 없으면 재생 중에도 다시 찾는다
+  if (!syncTimes && SYNC) syncTimes = SYNC[String(numOf(SAYEON[idx], idx))] || null;
+  if (!syncTimes) return;
   var t = player.currentTime, pi = -1;
   for (var i = 0; i < syncTimes.length; i++) {
     if (t + 0.15 >= syncTimes[i]) pi = i; else break;

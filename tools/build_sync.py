@@ -17,20 +17,22 @@ import align
 
 REPO = '..'          # tools/ 에서 실행한다
 CACHE = '../.seg_cache'          # 받아쓴 결과를 편별로 남겨 둔다 (다시 돌릴 때 아낀다)
-OUT = os.path.join(REPO, 'audio', 'sync.json')
-SOURCES = [('sayeon.json', REPO)]
+# (원고 파일, 기준 폴더, 결과 파일) — 성령사연과 말씀을 따로 관리한다
+SOURCES = [
+    ('sayeon.json', REPO, os.path.join(REPO, 'audio', 'sync.json')),
+    ('malsseum/malsseum.json', REPO, os.path.join(REPO, 'malsseum', 'audio', 'sync.json')),
+]
 
 
 def main(model_size='base'):
     os.makedirs(CACHE, exist_ok=True)
-    sync = {}
-    if os.path.exists(OUT):
-        sync = json.load(io.open(OUT, encoding='utf-8'))
-
     from faster_whisper import WhisperModel
     model = None
 
-    for src, base in SOURCES:
+    for src, base, out in SOURCES:
+        sync = {}
+        if os.path.exists(out):
+            sync = json.load(io.open(out, encoding='utf-8'))
         data = json.load(io.open(os.path.join(base, src), encoding='utf-8'))
         targets = [e for e in data if e.get('audio')]
         print('%s: 육성 %d편' % (src, len(targets)))
@@ -44,7 +46,8 @@ def main(model_size='base'):
                 print('  %s 편: 파일 없음' % no)
                 continue
 
-            seg_path = os.path.join(CACHE, '%s.json' % no)
+            tag = ('mal' if 'malsseum' in src else 'sa') + no
+            seg_path = os.path.join(CACHE, '%s.json' % tag)
             if os.path.exists(seg_path):
                 segs = json.load(io.open(seg_path, encoding='utf-8'))
             else:
