@@ -18,9 +18,12 @@ import align
 REPO = '..'          # tools/ 에서 실행한다
 CACHE = '../.seg_cache'          # 받아쓴 결과를 편별로 남겨 둔다 (다시 돌릴 때 아낀다)
 # (원고 파일, 기준 폴더, 결과 파일) — 성령사연과 말씀을 따로 관리한다
+MAL = os.path.join(REPO, 'malsseum')
 SOURCES = [
     ('sayeon.json', REPO, os.path.join(REPO, 'audio', 'sync.json')),
-    ('malsseum/malsseum.json', REPO, os.path.join(REPO, 'malsseum', 'audio', 'sync.json')),
+    # malsseum.json 의 "audio" 필드는 malsseum/ 폴더 기준 상대경로이므로
+    # base 도 malsseum/ 으로 줘야 실제 파일을 찾는다.
+    ('malsseum.json', MAL, os.path.join(MAL, 'audio', 'sync.json')),
 ]
 
 
@@ -46,7 +49,7 @@ def main(model_size='base'):
                 print('  %s 편: 파일 없음' % no)
                 continue
 
-            tag = ('mal' if 'malsseum' in src else 'sa') + no
+            tag = ('mal' if base == MAL else 'sa') + no
             seg_path = os.path.join(CACHE, '%s.json' % tag)
             if os.path.exists(seg_path):
                 segs = json.load(io.open(seg_path, encoding='utf-8'))
@@ -72,9 +75,9 @@ def main(model_size='base'):
             else:
                 print('  %s 편: 맞추지 못함' % no)
 
-    io.open(OUT, 'w', encoding='utf-8', newline='').write(
-        json.dumps(sync, ensure_ascii=False, separators=(',', ':')))
-    print('\n저장: %s (%d편)' % (OUT, len(sync)))
+        io.open(out, 'w', encoding='utf-8', newline='').write(
+            json.dumps(sync, ensure_ascii=False, separators=(',', ':')))
+        print('저장: %s (%d편)\n' % (out, len(sync)))
 
 
 if __name__ == '__main__':
