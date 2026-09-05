@@ -1069,7 +1069,8 @@ function loadSync() {
   if (SYNC !== null) return;
   SYNC = {};
   var xhr = new XMLHttpRequest();
-  xhr.open("GET", "audio/sync.json", true);
+  // 편을 새로 넣으면 시간 자료도 같이 바뀌므로, 캐시된 옛 파일을 쓰지 않게 한다
+  xhr.open("GET", "audio/sync.json?v=" + (new Date()).getTime(), true);
   xhr.onreadystatechange = function () {
     if (xhr.readyState !== 4) return;
     try { SYNC = JSON.parse(xhr.responseText) || {}; } catch (e) { SYNC = {}; }
