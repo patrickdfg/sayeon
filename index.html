@@ -12,7 +12,29 @@
 <link rel="icon" href="icons/icon-192.png?v=2">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script>
+/* 화면이 그려지기 전에 상태바 색을 정한다.
+   브라우저가 이 색을 보고 상태바 글자(시계·배터리) 색을 정하기 때문에,
+   나중에 바꾸면 글자가 안 보이는 일이 생긴다. */
+(function () {
+  try {
+    var s = JSON.parse(localStorage.getItem("siteSettings") || "{}");
+    if (s.bg) {
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute("content", s.bg);
+      // 아이폰: 배경이 밝으면 글자가 검은 기본 막대, 어두우면 흰 글자 막대
+      var hex = String(s.bg).replace("#", "");
+      if (hex.length === 6) {
+        var r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+        var light = (r*299 + g*587 + b*114) / 1000 > 140;
+        var ios = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+        if (ios) ios.setAttribute("content", light ? "default" : "black");
+      }
+    }
+  } catch (e) {}
+})();
+</script>
 <meta name="apple-mobile-web-app-title" content="2026년 성령 사연">
 <title>2026년 성령 사연</title>
 <style>
@@ -543,9 +565,17 @@ function setVar(n, v) { document.documentElement.style.setProperty(n, v); }
    설정에서 테마나 배경색을 바꾸면 상태바도 따라 바뀐다. */
 function syncThemeColor() {
   var meta = document.querySelector('meta[name="theme-color"]');
-  if (!meta) return;
   var bg = getComputedStyle(document.body).backgroundColor;
-  if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") meta.setAttribute("content", bg);
+  if (!bg || bg === "rgba(0, 0, 0, 0)" || bg === "transparent") return;
+  if (meta) meta.setAttribute("content", bg);
+
+  // 아이폰은 상태바 글자색을 따로 정해 줘야 한다.
+  // 배경이 밝으면 검은 글자(default), 어두우면 흰 글자(black).
+  var m = bg.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (!m) return;
+  var light = (m[1] * 299 + m[2] * 587 + m[3] * 114) / 1000 > 140;
+  var ios = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if (ios) ios.setAttribute("content", light ? "default" : "black");
 }
 
 function applyCfg() {
