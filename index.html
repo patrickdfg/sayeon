@@ -3,7 +3,17 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<!-- 홈 화면에 추가했을 때 앱처럼 보이게 -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1b2018">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="2026년 성령 사연">
 <title>2026년 성령 사연</title>
 <style>
   :root {
@@ -271,6 +281,7 @@
     <button class="topbtn" id="openlist">📋 목록</button>
     <button class="topbtn" id="opensettings">⚙ 설정</button>
     <button class="topbtn" id="opensearch">🔍 검색</button>
+    <button class="topbtn" id="installBtn" style="display:none">📲 앱 설치</button>
   </div>
 
   <div class="total" id="total"></div>
@@ -1677,6 +1688,42 @@ function loadData() {
   xhr.onerror = function () { showLoadError("(연결 실패)"); };
   try { xhr.send(null); } catch (e) { showLoadError("(파일을 직접 열면 브라우저가 막습니다)"); }
 }
+
+
+/* ===== 홈 화면에 추가 =====
+   안드로이드 크롬은 설치할 수 있을 때 beforeinstallprompt 를 보내 준다.
+   그때만 상단에 단추를 띄우고, 설치했거나 한 번 닫으면 다시 띄우지 않는다.
+   (아이폰은 이 신호가 없어서 install.html 안내로 대신한다) */
+(function () {
+  var deferred = null;
+  var btn = document.getElementById("installBtn");
+  if (!btn) return;
+
+  function hidden() {
+    try { return localStorage.getItem("installHidden") === "1"; } catch (e) { return false; }
+  }
+
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    deferred = e;
+    if (!hidden()) btn.style.display = "inline-flex";
+  });
+
+  btn.onclick = function () {
+    if (!deferred) return;
+    deferred.prompt();
+    deferred.userChoice.then(function () {
+      deferred = null;
+      btn.style.display = "none";
+      try { localStorage.setItem("installHidden", "1"); } catch (e) {}
+    });
+  };
+
+  window.addEventListener("appinstalled", function () {
+    btn.style.display = "none";
+    try { localStorage.setItem("installHidden", "1"); } catch (e) {}
+  });
+})();
 
 /* ===== 잠금화면 ===== */
 var PASSCODE = "7125";

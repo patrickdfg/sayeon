@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<!-- 홈 화면에 추가하는 방법 안내 — QR 을 찍으면 사이트로 바로 가지만,
+     아이콘을 홈 화면에 두려면 한 번은 직접 눌러 주어야 해서 그 방법을 적어 둔다.
+     인쇄해서 나눠 주기 좋도록 한 장에 담았다. -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>성령 사연 — 홈 화면에 추가하기</title>
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="theme-color" content="#1b2018">
+<style>
+  :root {
+    --bg: #1b2018; --text: #e9ece4; --green: #93c4a5;
+    --panel: rgba(140,150,130,.14);
+    --font: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--font);
+    -webkit-text-size-adjust: 100%; line-height: 1.75;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 28px 20px 56px; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -.01em; }
+  .sub { opacity: .6; font-size: 15px; margin: 0 0 26px; }
+
+  .qrbox { background: #fff; border-radius: 14px; padding: 16px; text-align: center; }
+  .qrbox img { width: 100%; max-width: 260px; height: auto; display: block; margin: 0 auto; }
+  .addr {
+    display: block; margin-top: 12px; word-break: break-all;
+    font-size: 14px; color: #2a2823; text-decoration: none;
+  }
+
+  .go {
+    display: block; text-align: center; margin: 20px 0 30px;
+    background: var(--green); color: #14180f; font-weight: 700;
+    border-radius: 10px; padding: 16px; font-size: 17px; text-decoration: none;
+  }
+
+  h2 { font-size: 17px; margin: 26px 0 10px; color: var(--green); }
+  ol { margin: 0; padding-left: 22px; }
+  li { margin-bottom: 8px; font-size: 15px; }
+  .note {
+    background: var(--panel); border-radius: 10px; padding: 14px 16px;
+    font-size: 14px; opacity: .9; margin-top: 26px;
+  }
+  kbd {
+    background: var(--panel); border-radius: 5px; padding: 2px 7px;
+    font-family: inherit; font-size: .95em;
+  }
+  @media print {
+    body { background: #fff; color: #000; }
+    .go { border: 1px solid #000; }
+    h2 { color: #000; }
+    .note { border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>성령 사연</h1>
+  <p class="sub">휴대폰 홈 화면에 아이콘으로 두고 보기</p>
+
+  <div class="qrbox">
+    <img src="icons/qr.png" alt="성령 사연 QR 코드">
+    <a class="addr" href="https://patrickdfg.github.io/sayeon/">patrickdfg.github.io/sayeon/</a>
+  </div>
+
+  <a class="go" href="./">성령 사연 열기 →</a>
+
+  <h2>안드로이드 (삼성·크롬)</h2>
+  <ol>
+    <li>위 QR을 찍거나 <kbd>성령 사연 열기</kbd>를 누릅니다.</li>
+    <li>화면 아래·위에 <kbd>앱 설치</kbd> 또는 <kbd>홈 화면에 추가</kbd> 안내가 뜨면 누릅니다.</li>
+    <li>안 뜨면 오른쪽 위 <kbd>⋮</kbd> → <kbd>홈 화면에 추가</kbd>를 누릅니다.</li>
+  </ol>
+
+  <h2>아이폰 (사파리)</h2>
+  <ol>
+    <li>위 QR을 찍거나 <kbd>성령 사연 열기</kbd>를 누릅니다.</li>
+    <li>화면 아래 가운데 <kbd>공유</kbd> 단추(⬆)를 누릅니다.</li>
+    <li>목록을 내려 <kbd>홈 화면에 추가</kbd>를 누르고 <kbd>추가</kbd>를 누릅니다.</li>
+  </ol>
+
+  <div class="note">
+    <b>암호는 7125</b> 입니다. 한 번 넣으면 그 기기에서는 다시 묻지 않습니다.<br>
+    아이폰은 홈 화면 아이콘으로 처음 열 때 암호를 한 번 더 물을 수 있습니다.
+  </div>
+</div>
+</body>
+</html>
