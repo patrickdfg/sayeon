@@ -548,6 +548,15 @@ function storeCfg() {
 }
 function setVar(n, v) { document.documentElement.style.setProperty(n, v); }
 
+/* 위 상태바 색을 지금 화면의 배경색에 맞춘다.
+   설정에서 테마나 배경색을 바꾸면 상태바도 따라 바뀐다. */
+function syncThemeColor() {
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) return;
+  var bg = getComputedStyle(document.body).backgroundColor;
+  if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") meta.setAttribute("content", bg);
+}
+
 function applyCfg() {
   setVar("--size", cfg.size + "px");
   setVar("--lh", String(cfg.lh));
@@ -567,6 +576,7 @@ function applyCfg() {
   markSel("themeOpts", themeIndex());
   markSel("autoOpts", cfg.autoMode === "prev" ? 0 : cfg.autoMode === "next" ? 1 : 2);
   storeCfg();
+  syncThemeColor();
 }
 
 function themeIndex() {

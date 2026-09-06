@@ -1828,6 +1828,15 @@ els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) rend
   setResetBtn.addEventListener('click', () => apply(DEFAULT));
 })();
 
+/* 위 상태바 색을 지금 화면의 배경색에 맞춘다.
+   설정에서 테마나 배경색을 바꾸면 상태바도 따라 바뀐다. */
+function syncThemeColor() {
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) return;
+  var bg = getComputedStyle(document.body).backgroundColor;
+  if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") meta.setAttribute("content", bg);
+}
+
 // 테마 (라이트 / 다크 / 시스템)
 (function(){
   const root = document.documentElement;
@@ -1840,6 +1849,7 @@ els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) rend
     if(theme === 'light' || theme === 'dark') root.setAttribute('data-theme', theme);
     else root.removeAttribute('data-theme');
     markSel(theme);
+    syncThemeColor();
     if(save) localStorage.setItem('wmdTheme', theme);
   }
 
@@ -1860,6 +1870,11 @@ els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) rend
     if(b.dataset.theme === 'light') saveSettings({ bg:'#ffffff', text:'#1a1a1a' });
     else if(b.dataset.theme === 'dark') saveSettings({ bg:'#1b2018', text:'#e9ece4' });
   }));
+  // '시스템' 을 골랐을 때 기기의 밝게/어둡게가 바뀌면 상태바 색도 따라간다
+  if(window.matchMedia){
+    window.matchMedia('(prefers-color-scheme: dark)')
+      .addEventListener('change', () => setTimeout(syncThemeColor, 50));
+  }
 })();
 
 // 읽기 속도

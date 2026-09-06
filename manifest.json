@@ -4,7 +4,7 @@
  "description": "성령사연 · 월명동사연 · 말씀 자료실",
  "start_url": "./",
  "scope": "./",
- "display": "fullscreen",
+ "display": "standalone",
  "orientation": "portrait",
  "background_color": "#1b2018",
  "theme_color": "#1b2018",
@@ -26,10 +26,5 @@
    "type": "image/png",
    "purpose": "maskable"
   }
- ],
- "display_override": [
-  "fullscreen",
-  "standalone",
-  "minimal-ui"
  ]
 }
