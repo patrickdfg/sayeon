@@ -6,7 +6,7 @@
 
 <!-- 홈 화면에 추가했을 때 앱처럼 보이게 -->
 <link rel="manifest" href="../manifest.json">
-<meta name="theme-color" content="#1256c4">
+<meta name="theme-color" content="#1b2018">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png?v=2">
 <link rel="icon" href="../icons/icon-192.png?v=2">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -75,6 +75,11 @@ body{
   font-family:"Noto Sans KR", "Malgun Gothic", sans-serif;
   min-height:100%;
   -webkit-font-smoothing:antialiased;
+  /* 전체화면으로 열면 상태바가 사라지므로 노치에 가리지 않게 안전 여백을 둔다 */
+  padding-top:env(safe-area-inset-top);
+  padding-left:env(safe-area-inset-left);
+  padding-right:env(safe-area-inset-right);
+  padding-bottom:env(safe-area-inset-bottom);
 }
 .eyebrow{
   font-family:"Noto Sans KR", sans-serif;
