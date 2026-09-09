@@ -25,12 +25,11 @@
     <p class="muted"><code>analytics-config.js</code>에 Supabase 주소와 anon key를 입력한 뒤 통계를 사용할 수 있습니다.</p>
   </section>
   <section id="login" class="card login hidden">
-    <h1>관리자 통계</h1><p class="muted">허가된 이메일로 받은 일회용 로그인 링크가 있어야 열람할 수 있습니다.</p>
-    <form id="loginForm">
-      <label for="email">관리자 이메일</label><input id="email" type="email" autocomplete="username" required>
-      <button type="submit" style="margin-top:18px;width:100%">로그인 링크 받기</button>
+    <h1>관리자 통계</h1><p class="muted">허가된 Google 계정만 통계를 열람할 수 있습니다.</p>
+    <div>
+      <button id="googleLogin" type="button" style="margin-top:18px;width:100%;background:#fff;color:#202124">Google 계정으로 로그인</button>
       <div id="loginMessage" class="message" role="alert"></div>
-    </form>
+    </div>
   </section>
   <section id="dashboard" class="hidden">
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><h1>자료실 통계</h1><div class="muted">개인정보 없이 익명 기기 기준으로 집계합니다.</div></div><button id="logout" class="secondary">로그아웃</button></div>
@@ -56,7 +55,7 @@
   function isoDate(d){return d.toISOString().slice(0,10)}
   function defaults(){var now=new Date(),before=new Date(now);before.setDate(before.getDate()-29);$("from").value=isoDate(before);$("to").value=isoDate(now)}
   async function request(path,options){options=options||{};options.headers=Object.assign({apikey:cfg.supabaseAnonKey,"Content-Type":"application/json"},options.headers||{});var r=await fetch(cfg.supabaseUrl.replace(/\/$/,"")+path,options);var body=await r.json().catch(function(){return null});if(!r.ok)throw new Error(body&&body.message?body.message:"요청을 처리하지 못했습니다.");return body}
-  async function sendLoginLink(email){var redirect=location.origin+location.pathname;return request("/auth/v1/otp?redirect_to="+encodeURIComponent(redirect),{method:"POST",body:JSON.stringify({email:email,create_user:true})})}
+  function googleLogin(){var redirect=location.origin+location.pathname;location.href=cfg.supabaseUrl.replace(/\/$/,"")+"/auth/v1/authorize?provider=google&redirect_to="+encodeURIComponent(redirect)}
   function sectionRow(s){return '<tr><td class="section-name">'+esc(names[s.section]||s.section)+'</td><td class="num">'+num(s.visitors)+'</td><td class="num">'+num(s.page_views)+'</td><td class="num">'+num(s.page_readers)+'</td><td class="num">'+num(s.completions)+'</td><td class="num">'+num(s.completion_readers)+'</td></tr>'}
   async function load(){
     $("dashMessage").textContent="불러오는 중…";
@@ -70,7 +69,7 @@
   }
   if(location.hash){var params=new URLSearchParams(location.hash.slice(1));var incoming=params.get("access_token");if(incoming){token=incoming;sessionStorage.setItem("sayeonAdminToken",token);history.replaceState(null,"",location.pathname)}}
   if(!configured){show("setup");return}defaults();if(token){show("dashboard");load()}else show("login");
-  $("loginForm").addEventListener("submit",async function(e){e.preventDefault();$("loginMessage").textContent="보내는 중…";try{await sendLoginLink($("email").value.trim().toLowerCase());$("loginMessage").style.color="var(--accent)";$("loginMessage").textContent="이메일을 확인해 로그인 링크를 눌러 주세요."}catch(err){$("loginMessage").textContent="로그인 링크를 보낼 수 없습니다. 관리자 이메일을 확인해 주세요."}});
+  $("googleLogin").onclick=googleLogin;
   $("refresh").onclick=load;$("logout").onclick=function(){token="";sessionStorage.removeItem("sayeonAdminToken");show("login")};
 })();
 </script>
