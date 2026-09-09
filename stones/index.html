@@ -537,6 +537,11 @@ main{padding-top:28px;}
   line-height:1.7;
   text-align:center;
 }
+.prose [data-si].reading{
+  background:color-mix(in srgb, var(--accent-ink) 18%, transparent);
+  border-radius:8px;
+  transition:background .2s ease;
+}
 
 /* 하이라이트 (문단을 드래그해서 칠하고, 칠한 부분을 다시 누르면 지워진다) */
 mark.hl{
@@ -892,6 +897,7 @@ const els = {
 
 let current = 0;
 let activeResult = -1;
+const RECORDED_AUDIO = {"1":"audio/1.mp3"};
 
 function escapeHtml(s){
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -954,6 +960,7 @@ function render(index){
   current = index;
   const it = DATA[index];
   const readCount = getReadCount(it.num);
+  const hasRecording = !!RECORDED_AUDIO[String(it.num)];
   SayeonAnalytics.trackPage('stones', it.num, it.title, null);
   els.card.innerHTML = `
     <div class="card-title">
@@ -964,7 +971,7 @@ function render(index){
       </button>
       <button type="button" class="read-btn" id="readBtn" aria-pressed="false" aria-label="이 항목 읽어주기">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M16 8.5a5 5 0 0 1 0 7"/><path d="M19 6a9 9 0 0 1 0 12"/></svg>
-        <span id="readBtnLabel">듣기</span>
+        <span id="readBtnLabel">${hasRecording ? '녹음 듣기' : '듣기'}</span>
       </button>
     </div>
     <div class="seekwrap" id="seekWrap">
@@ -1196,9 +1203,10 @@ function updateReadBtn(speaking){
   const btn = document.getElementById('readBtn');
   const label = document.getElementById('readBtnLabel');
   if(!btn || !label) return;
+  const human = !!RECORDED_AUDIO[String(DATA[current].num)];
   btn.classList.toggle('speaking', speaking);
   btn.setAttribute('aria-pressed', String(speaking));
-  label.textContent = speaking ? '정지' : '듣기';
+  label.textContent = speaking ? '정지' : (human ? '녹음 듣기' : '듣기');
 }
 
 // ===== 재생 위치 막대 (듣는 중 어디서든 이어 시작) =====
@@ -1216,9 +1224,21 @@ function updateSeekUI(){
   const range = document.getElementById('seekRange');
   const timeEl = document.getElementById('seekTime');
   if(!range || !timeEl) return;
+  const path = RECORDED_AUDIO[String(DATA[current].num)];
+  if(path && isFinite(recordedPlayer.duration) && recordedPlayer.duration > 0){
+    range.value = Math.round((recordedPlayer.currentTime / recordedPlayer.duration) * 1000);
+    timeEl.textContent = formatAudioTime(recordedPlayer.currentTime) + ' / ' + formatAudioTime(recordedPlayer.duration);
+    return;
+  }
   const total = readQueue.length || 1;
   range.value = Math.round((readQueueIndex / total) * 1000);
   timeEl.textContent = (readQueueIndex + 1) + ' / ' + total;
+}
+function formatAudioTime(seconds){
+  seconds = isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+  const minutes = Math.floor(seconds / 60);
+  seconds %= 60;
+  return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
 }
 els.card.addEventListener('input', e => {
   if(e.target && e.target.id === 'seekRange') seekDragging = true;
@@ -1226,6 +1246,11 @@ els.card.addEventListener('input', e => {
 els.card.addEventListener('change', e => {
   if(!e.target || e.target.id !== 'seekRange') return;
   seekDragging = false;
+  const path = RECORDED_AUDIO[String(DATA[current].num)];
+  if(path && isFinite(recordedPlayer.duration) && recordedPlayer.duration > 0){
+    recordedPlayer.currentTime = (Number(e.target.value) / 1000) * recordedPlayer.duration;
+    return;
+  }
   const total = readQueue.length;
   if(total <= 0) return;
   const frac = Number(e.target.value) / 1000;
@@ -1267,6 +1292,47 @@ let readQueueIndex = 0;
 // 재생을 시작하거나 멈출 때마다 세션 번호를 올려 옛 콜백을 무시한다.
 let readSession = 0;
 let isReading = false;
+const recordedPlayer = new Audio();
+recordedPlayer.preload = 'metadata';
+let recordedSync = {};
+let recordedSection = -1;
+fetch('audio/sync.json?v=' + Date.now())
+  .then(response => response.ok ? response.json() : {})
+  .then(data => { recordedSync = data || {}; })
+  .catch(() => {});
+
+function updateRecordedHighlight(){
+  const times = recordedSync[String(DATA[current].num)];
+  if(!times) return;
+  let section = -1;
+  for(let i = 0; i < times.length; i++){
+    if(recordedPlayer.currentTime + 0.15 >= times[i]) section = i;
+    else break;
+  }
+  if(section === recordedSection) return;
+  recordedSection = section;
+  const nodes = els.card.querySelectorAll('.prose [data-si]');
+  nodes.forEach(node => node.classList.toggle('reading', Number(node.dataset.si) === section));
+  if(section >= 0 && nodes[section]){
+    nodes[section].scrollIntoView({behavior:'smooth', block:'center'});
+  }
+}
+recordedPlayer.addEventListener('timeupdate', updateSeekUI);
+recordedPlayer.addEventListener('timeupdate', updateRecordedHighlight);
+recordedPlayer.addEventListener('loadedmetadata', updateSeekUI);
+recordedPlayer.addEventListener('ended', () => {
+  if(!isReading) return;
+  if(readAutoMode === 'next' && current < DATA.length - 1){
+    render(current + 1);
+    setTimeout(beginReadCurrent, 1000);
+  }else if(readAutoMode === 'prev' && current > 0){
+    render(current - 1);
+    setTimeout(beginReadCurrent, 1000);
+  }else{
+    stopReading();
+  }
+});
+recordedPlayer.addEventListener('error', () => { if(isReading) stopReading(); });
 
 function stopReading(){
   readSession++;
@@ -1274,6 +1340,10 @@ function stopReading(){
   releaseWakeLock();
   readQueue = [];
   readQueueIndex = 0;
+  recordedPlayer.pause();
+  if(recordedPlayer.currentSrc) recordedPlayer.currentTime = 0;
+  recordedSection = -1;
+  els.card.querySelectorAll('.prose [data-si].reading').forEach(node => node.classList.remove('reading'));
   if('speechSynthesis' in window) speechSynthesis.cancel();
   updateReadBtn(false);
   hideSeek();
@@ -1329,13 +1399,21 @@ function beginReadCurrent(){
   showSeek();
   updateSeekUI();
   updateMediaSession(true);
+  const recordedPath = RECORDED_AUDIO[String(DATA[current].num)];
+  if(recordedPath){
+    recordedPlayer.src = recordedPath;
+    recordedPlayer.playbackRate = readRate;
+    recordedPlayer.currentTime = 0;
+    recordedPlayer.play().catch(() => stopReading());
+    return;
+  }
   const silentAnchor = document.getElementById('silentAnchor');
   if(silentAnchor) silentAnchor.play().catch(()=>{});
   speakNextChunk(session);
 }
 
 function toggleReading(){
-  if(!('speechSynthesis' in window)){
+  if(!RECORDED_AUDIO[String(DATA[current].num)] && !('speechSynthesis' in window)){
     alert('이 브라우저에서는 읽어주기 기능을 지원하지 않습니다.');
     return;
   }
@@ -1919,6 +1997,7 @@ let readRate = 0.90;
   function apply(rate){
     rate = Math.min(MAX, Math.max(MIN, Math.round(rate * 100) / 100));
     readRate = rate;
+    recordedPlayer.playbackRate = rate;
     label.textContent = Math.round(rate * 100) + '%';
     saveSettings({ rate: rate });
   }

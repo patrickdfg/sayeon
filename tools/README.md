@@ -5,6 +5,7 @@
 | 파일 | 하는 일 |
 | --- | --- |
 | `make_tts.py` | 원고를 컴퓨터 목소리로 읽어 mp3 를 만들고 `sayeon.json` 에 연결 |
+| `make_stones_tts.py` | 월명동 돌·나무 이야기를 현수 목소리 mp3 로 만들고 페이지·문단 시간표에 연결 |
 | `build_sync.py` | 음성을 받아쓴 뒤 원고에 시간을 맞춰 `sync.json` 생성 |
 | `align.py` | 받아쓴 결과를 원고 문단에 붙이는 계산 (build_sync 가 부른다) |
 | `transcribe.py` | 받아쓰기만 따로 해 보고 싶을 때 쓰는 CLI |
@@ -18,6 +19,7 @@ python -m pip install edge-tts    # 처음 한 번만
 python make_tts.py 159            # 한 편
 python make_tts.py 159 161 162    # 여러 편
 python make_tts.py --all          # 음성 없는 편 전부
+python make_stones_tts.py 1       # 월명동 1번
 ```
 
 목소리는 `make_tts.py` 의 `VOICE` 에서 바꾼다.
