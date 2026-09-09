@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>자료실 관리자 통계</title>
+  <style>
+    :root{color-scheme:dark;--bg:#10140f;--card:#1b2119;--line:#33402f;--text:#edf3e9;--muted:#aebaa8;--accent:#9bd36a;--danger:#ff9c8f}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Pretendard,"Malgun Gothic",sans-serif;line-height:1.55}
+    main{width:min(1120px,calc(100% - 32px));margin:0 auto;padding:40px 0 72px}h1{font-size:clamp(24px,4vw,36px);margin:0 0 6px}h2{font-size:19px;margin:0 0 16px}
+    .muted{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;margin-top:18px}.hidden{display:none!important}
+    label{display:block;color:var(--muted);font-size:14px;margin:12px 0 5px}input,button{font:inherit;border-radius:10px;border:1px solid var(--line)}input{width:100%;padding:11px 12px;background:#0e120d;color:var(--text)}button{cursor:pointer;padding:10px 16px;background:var(--accent);color:#14200d;font-weight:700}.secondary{background:transparent;color:var(--text)}
+    .login{max-width:440px;margin:70px auto}.message{min-height:24px;margin-top:12px;color:var(--danger)}.topbar{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.topbar>div{flex:1;min-width:160px}.topbar button{margin-bottom:0}
+    .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px}.metric{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}.metric strong{display:block;font-size:28px}.metric span{color:var(--muted);font-size:14px}
+    table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid var(--line);padding:12px 9px;white-space:nowrap}th{color:var(--muted);font-size:13px}td.num{text-align:right}.scroll{overflow:auto}.section-name{font-weight:800}.bar-row{display:grid;grid-template-columns:100px 1fr 50px;gap:12px;align-items:center;margin:9px 0}.bar{height:13px;background:#10140f;border-radius:20px;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent);border-radius:20px}
+    @media(max-width:720px){main{width:min(100% - 20px,1120px);padding-top:24px}.metrics{grid-template-columns:repeat(2,1fr)}.card{padding:16px}.metric strong{font-size:23px}}
+  </style>
+  <script src="../analytics-config.js"></script>
+</head>
+<body>
+<main>
+  <section id="setup" class="card login hidden">
+    <h1>통계 연결 필요</h1>
+    <p class="muted"><code>analytics-config.js</code>에 Supabase 주소와 anon key를 입력한 뒤 통계를 사용할 수 있습니다.</p>
+  </section>
+  <section id="login" class="card login hidden">
+    <h1>관리자 통계</h1><p class="muted">허가된 이메일로 받은 일회용 로그인 링크가 있어야 열람할 수 있습니다.</p>
+    <form id="loginForm">
+      <label for="email">관리자 이메일</label><input id="email" type="email" autocomplete="username" required>
+      <button type="submit" style="margin-top:18px;width:100%">로그인 링크 받기</button>
+      <div id="loginMessage" class="message" role="alert"></div>
+    </form>
+  </section>
+  <section id="dashboard" class="hidden">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><h1>자료실 통계</h1><div class="muted">개인정보 없이 익명 기기 기준으로 집계합니다.</div></div><button id="logout" class="secondary">로그아웃</button></div>
+    <div class="card topbar"><div><label for="from">시작일</label><input id="from" type="date"></div><div><label for="to">종료일</label><input id="to" type="date"></div><button id="refresh">조회</button></div>
+    <div class="metrics"><div class="metric"><strong id="totalVisitors">0</strong><span>방문 인원</span></div><div class="metric"><strong id="totalSessions">0</strong><span>방문 세션</span></div><div class="metric"><strong id="pageViews">0</strong><span>페이지 열람</span></div><div class="metric"><strong id="completions">0</strong><span>다 읽음</span></div></div>
+    <section class="card"><h2>자료실별 현황</h2><div class="scroll"><table><thead><tr><th>자료실</th><th>방문 인원</th><th>열람 수</th><th>열람 인원</th><th>완독 수</th><th>완독 인원</th></tr></thead><tbody id="sections"></tbody></table></div></section>
+    <section class="card"><h2>많이 읽은 페이지</h2><div class="scroll"><table><thead><tr><th>자료실</th><th>페이지</th><th>제목</th><th>열람 수</th><th>열람 인원</th><th>완독</th></tr></thead><tbody id="topPages"></tbody></table></div></section>
+    <section class="card"><h2>날짜별 방문 인원</h2><div id="daily"></div></section>
+    <div id="dashMessage" class="message"></div>
+  </section>
+</main>
+<script>
+(function(){
+  "use strict";
+  var cfg=window.SAYEON_ANALYTICS_CONFIG||{};
+  var configured=cfg.enabled===true&&/^https:\/\//.test(cfg.supabaseUrl||"")&&!!cfg.supabaseAnonKey;
+  var token=sessionStorage.getItem("sayeonAdminToken")||"";
+  var names={sayeon:"사연자료",malsseum:"말씀자료",stones:"월명동자료"};
+  function $(id){return document.getElementById(id)}
+  function show(id){["setup","login","dashboard"].forEach(function(x){$(x).classList.toggle("hidden",x!==id)})}
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+  function num(n){return Number(n||0).toLocaleString("ko-KR")}
+  function isoDate(d){return d.toISOString().slice(0,10)}
+  function defaults(){var now=new Date(),before=new Date(now);before.setDate(before.getDate()-29);$("from").value=isoDate(before);$("to").value=isoDate(now)}
+  async function request(path,options){options=options||{};options.headers=Object.assign({apikey:cfg.supabaseAnonKey,"Content-Type":"application/json"},options.headers||{});var r=await fetch(cfg.supabaseUrl.replace(/\/$/,"")+path,options);var body=await r.json().catch(function(){return null});if(!r.ok)throw new Error(body&&body.message?body.message:"요청을 처리하지 못했습니다.");return body}
+  async function sendLoginLink(email){var redirect=location.origin+location.pathname;return request("/auth/v1/otp?redirect_to="+encodeURIComponent(redirect),{method:"POST",body:JSON.stringify({email:email,create_user:true})})}
+  function sectionRow(s){return '<tr><td class="section-name">'+esc(names[s.section]||s.section)+'</td><td class="num">'+num(s.visitors)+'</td><td class="num">'+num(s.page_views)+'</td><td class="num">'+num(s.page_readers)+'</td><td class="num">'+num(s.completions)+'</td><td class="num">'+num(s.completion_readers)+'</td></tr>'}
+  async function load(){
+    $("dashMessage").textContent="불러오는 중…";
+    var from=$("from").value+"T00:00:00+09:00",toDate=new Date($("to").value+"T00:00:00+09:00");toDate.setDate(toDate.getDate()+1);
+    try{var d=await request("/rest/v1/rpc/get_analytics_dashboard",{method:"POST",headers:{Authorization:"Bearer "+token},body:JSON.stringify({p_from:from,p_to:toDate.toISOString()})});
+      $("totalVisitors").textContent=num(d.totalVisitors);$("totalSessions").textContent=num(d.totalSessions);$("pageViews").textContent=num(d.pageViews);$("completions").textContent=num(d.completions);
+      var by={};(d.sections||[]).forEach(function(s){by[s.section]=s});["sayeon","malsseum","stones"].forEach(function(k){if(!by[k])by[k]={section:k,visitors:0,page_views:0,page_readers:0,completions:0,completion_readers:0}});$("sections").innerHTML=["sayeon","malsseum","stones"].map(function(k){return sectionRow(by[k])}).join("");
+      $("topPages").innerHTML=(d.topPages||[]).map(function(p){return '<tr><td>'+esc(names[p.section]||p.section)+'</td><td>'+esc((p.content_year?p.content_year+" · ":"")+(p.item_no||""))+'</td><td>'+esc(p.item_title||"")+'</td><td class="num">'+num(p.page_views)+'</td><td class="num">'+num(p.readers)+'</td><td class="num">'+num(p.completions)+'</td></tr>'}).join("")||'<tr><td colspan="6" class="muted">아직 기록이 없습니다.</td></tr>';
+      var max=Math.max.apply(null,(d.daily||[]).map(function(x){return Number(x.visitors)||0}).concat([1]));$("daily").innerHTML=(d.daily||[]).map(function(x){return '<div class="bar-row"><span>'+esc(x.day)+'</span><div class="bar"><i style="width:'+((Number(x.visitors)||0)/max*100)+'%"></i></div><strong>'+num(x.visitors)+'</strong></div>'}).join("")||'<p class="muted">아직 기록이 없습니다.</p>';$("dashMessage").textContent="";
+    }catch(e){$("dashMessage").textContent=e.message;if(/권한|JWT|token/i.test(e.message)){sessionStorage.removeItem("sayeonAdminToken");token="";show("login")}}
+  }
+  if(location.hash){var params=new URLSearchParams(location.hash.slice(1));var incoming=params.get("access_token");if(incoming){token=incoming;sessionStorage.setItem("sayeonAdminToken",token);history.replaceState(null,"",location.pathname)}}
+  if(!configured){show("setup");return}defaults();if(token){show("dashboard");load()}else show("login");
+  $("loginForm").addEventListener("submit",async function(e){e.preventDefault();$("loginMessage").textContent="보내는 중…";try{await sendLoginLink($("email").value.trim().toLowerCase());$("loginMessage").style.color="var(--accent)";$("loginMessage").textContent="이메일을 확인해 로그인 링크를 눌러 주세요."}catch(err){$("loginMessage").textContent="로그인 링크를 보낼 수 없습니다. 관리자 이메일을 확인해 주세요."}});
+  $("refresh").onclick=load;$("logout").onclick=function(){token="";sessionStorage.removeItem("sayeonAdminToken");show("login")};
+})();
+</script>
+</body>
+</html>

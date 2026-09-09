@@ -12,6 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script src="/sayeon/analytics-config.js"></script>
+<script src="/sayeon/analytics.js"></script>
 <script>
 /* 화면이 그려지기 전에 상태바 색을 정한다.
    브라우저가 이 색을 보고 상태바 글자(시계·배터리) 색을 정한다. */
@@ -828,6 +830,7 @@ footer.credit{
 <script>
 (function(){
   const PASSCODE = '7125';
+SayeonAnalytics.trackSectionVisit('stones');
   const gate = document.getElementById('gate');
   const appEl = document.getElementById('app');
   const gateForm = document.getElementById('gateForm');
@@ -951,6 +954,7 @@ function render(index){
   current = index;
   const it = DATA[index];
   const readCount = getReadCount(it.num);
+  SayeonAnalytics.trackPage('stones', it.num, it.title, null);
   els.card.innerHTML = `
     <div class="card-title">
       <span class="num">${escapeHtml(it.num)}.</span><h2>${escapeHtml(it.title)}</h2>
@@ -1358,6 +1362,7 @@ els.card.addEventListener('click', e => {
   if(e.target.closest('#readCountBtn')){
     const it = DATA[current];
     const n = bumpReadCount(it.num);
+    SayeonAnalytics.trackRead('stones', it.num, it.title, null);
     const label = document.getElementById('readCountLabel');
     if(label) label.textContent = n + '독';
     return;
