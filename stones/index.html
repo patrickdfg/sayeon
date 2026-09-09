@@ -538,9 +538,8 @@ main{padding-top:28px;}
   text-align:center;
 }
 .prose [data-si].reading{
-  background:color-mix(in srgb, var(--accent-ink) 18%, transparent);
-  border-radius:8px;
-  transition:background .2s ease;
+  background:rgba(147,196,165,.28);
+  border-radius:4px;
 }
 
 /* 하이라이트 (문단을 드래그해서 칠하고, 칠한 부분을 다시 누르면 지워진다) */
@@ -1314,7 +1313,8 @@ function updateRecordedHighlight(){
   const nodes = els.card.querySelectorAll('.prose [data-si]');
   nodes.forEach(node => node.classList.toggle('reading', Number(node.dataset.si) === section));
   if(section >= 0 && nodes[section]){
-    nodes[section].scrollIntoView({behavior:'smooth', block:'center'});
+    try{ nodes[section].scrollIntoView({behavior:'smooth', block:'center'}); }
+    catch(e){ nodes[section].scrollIntoView(); }
   }
 }
 recordedPlayer.addEventListener('timeupdate', updateSeekUI);
