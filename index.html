@@ -591,6 +591,7 @@ function applyCfg() {
   $("fsVal").textContent = cfg.size + "px";
   $("lhVal").textContent = cfg.lh.toFixed(2);
   $("rateVal").textContent = Math.round(cfg.rate * 100) + "%";
+  if (player) player.playbackRate = cfg.rate;
   $("padVal").textContent = cfg.pad + "px";
   $("cText").value = cfg.text;
   $("cBg").value = cfg.bg;
@@ -1192,6 +1193,7 @@ function playAudioNow(s) {
   if (silentAnchor) silentAnchor.pause();
   startSyncFollow(s);
   player.src = s.audio;
+  player.playbackRate = cfg.rate;
   player.currentTime = 0;
   player.play();
 }
