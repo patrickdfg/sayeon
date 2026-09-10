@@ -76,7 +76,7 @@ def load_job(path):
         'no': number,
         'title': clean_line(job.get('title') or '성령 사연 %d' % number).strip(),
         'paragraphs': paragraphs,
-    }, bool(job.get('replace'))
+    }, bool(job.get('replace')), bool(job.get('dry_run'))
 
 
 def install_entry(entry, replace):
@@ -99,7 +99,11 @@ def install_entry(entry, replace):
 
 
 async def process(path):
-    entry, replace = load_job(path)
+    entry, replace, dry_run = load_job(path)
+    if dry_run:
+        os.remove(path)
+        print('검사 완료: %s (게시하지 않음)' % os.path.basename(path))
+        return
     install_entry(entry, replace)
     await make_tts.main([str(entry['no'])])
     os.remove(path)
