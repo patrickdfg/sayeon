@@ -1744,36 +1744,46 @@ function loadData() {
 
 /* ===== 홈 화면에 추가 =====
    안드로이드 크롬은 설치할 수 있을 때 beforeinstallprompt 를 보내 준다.
-   그때만 상단에 단추를 띄우고, 설치했거나 한 번 닫으면 다시 띄우지 않는다.
-   (아이폰은 이 신호가 없어서 install.html 안내로 대신한다) */
+   그때 상단에 단추를 띄우고, 아이폰은 install.html 안내로 대신한다.
+   이미 홈 화면 앱으로 실행 중이면 단추를 보이지 않는다. */
 (function () {
   var deferred = null;
   var btn = document.getElementById("installBtn");
   if (!btn) return;
 
-  function hidden() {
-    try { return localStorage.getItem("installHidden") === "1"; } catch (e) { return false; }
+  function installed() {
+    return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+      window.navigator.standalone === true;
   }
+  function iosDevice() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  }
+
+  if (installed()) return;
+  if (iosDevice()) btn.style.display = "inline-flex";
 
   window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault();
     deferred = e;
-    if (!hidden()) btn.style.display = "inline-flex";
+    if (!installed()) btn.style.display = "inline-flex";
   });
 
   btn.onclick = function () {
-    if (!deferred) return;
+    if (!deferred) {
+      window.location.href = "install.html";
+      return;
+    }
     deferred.prompt();
-    deferred.userChoice.then(function () {
+    deferred.userChoice.then(function (choice) {
       deferred = null;
-      btn.style.display = "none";
-      try { localStorage.setItem("installHidden", "1"); } catch (e) {}
+      if (choice && choice.outcome === "accepted") btn.style.display = "none";
     });
   };
 
   window.addEventListener("appinstalled", function () {
+    deferred = null;
     btn.style.display = "none";
-    try { localStorage.setItem("installHidden", "1"); } catch (e) {}
   });
 })();
 
