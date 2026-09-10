@@ -1,0 +1,63 @@
+name: Work 원고 자동 게시
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'work-upload/*.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: work-upload-main
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 현수 TTS 설치
+        run: python -m pip install --disable-pip-version-check edge-tts==7.2.7
+
+      - name: 원고·음성·문단 동기화 생성
+        run: python tools/process_work_upload.py
+
+      - name: 결과 검사
+        run: |
+          python -m unittest tools/test_work_pipeline.py
+          python -m json.tool sayeon.json > /dev/null
+          python -m json.tool audio/sync.json > /dev/null
+          test -z "$(find audio -type f -size +99M -print -quit)"
+
+      - name: 결과를 main에 저장
+        run: |
+          git config user.name "sayeon-publisher[bot]"
+          git config user.email "sayeon-publisher[bot]@users.noreply.github.com"
+          git add sayeon.json audio work-upload
+          git commit -m "Work 원고 자동 게시"
+          git pull --rebase origin main
+          git push origin main
+
+      - name: GitHub Pages 다시 배포
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail-with-body --retry 3 \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/builds"

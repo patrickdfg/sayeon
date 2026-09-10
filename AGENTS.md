@@ -57,6 +57,17 @@ JSON 항목에 `"audio": "audio/22.m4a"` 처럼 적어 두면 그 편은 그 파
 gh run list --repo patrickdfg/sayeon --limit 3      # 배포 끝났는지
 ```
 
+## 모바일 Work에서 성령사연 자동 게시
+
+ChatGPT Work가 `work-upload/<편번호>.json` 작업표를 main에 올리면
+`.github/workflows/work-upload.yml`이 현수 TTS, 문단 시간표, 데이터 연결과 Pages
+재배포까지 처리한다. 작업표와 모바일에서 쓸 요청문은 `work-upload/README.md`에 있다.
+
+- 현재 대상은 2026년 성령사연이다.
+- Work는 원고의 빈 줄을 문단 경계로 보존해야 한다.
+- 기존 편을 덮어쓰지 않는다. 의도적인 교체에만 `replace: true`를 쓴다.
+- 성공한 작업표는 자동으로 삭제되고 생성 결과가 main에 커밋된다.
+
 ## 음성 만들기 (육성 녹음이 오기 전 임시)
 
 무료 Edge TTS(마이크로소프트 신경망 음성)를 쓴다. API 키가 필요 없다.
@@ -65,7 +76,6 @@ gh run list --repo patrickdfg/sayeon --limit 3      # 배포 끝났는지
 python -m pip install edge-tts     # 처음 한 번만
 cd tools
 python make_tts.py 159             # 한 편 (여러 편은 번호를 나열, 전부는 --all)
-python build_sync.py base          # 이어서 문단 시간표 (필수)
 ```
 
 - 목소리는 `tools/make_tts.py` 의 `VOICE` 로 바꾼다.
@@ -73,6 +83,8 @@ python build_sync.py base          # 이어서 문단 시간표 (필수)
   선희(여자) `ko-KR-SunHiNeural`, 인준(남자) `ko-KR-InJoonNeural`.
 - 육성 녹음과 똑같이 **제목을 먼저 읽고** 본문으로 들어간다.
   (뷰어는 `audio` 가 있는 편의 제목을 따로 읽지 않는다)
+- `make_tts.py`는 Edge 문장 경계를 함께 받아 `audio/sync.json`도 바로 만든다.
+  새 TTS에는 Whisper `build_sync.py`를 다시 실행할 필요가 없다.
 - 나중에 육성 녹음이 오면 **같은 번호로 파일만 바꿔 끼우고** sync 를 다시 만든다
   (그 편의 `audio/sync.json` 항목을 지우고 `build_sync.py` 를 돌리면 다시 만든다).
 

@@ -9,7 +9,7 @@
     python make_tts.py 159               # 한 편
     python make_tts.py 159 161 162       # 여러 편
     python make_tts.py --all             # 음성 없는 편 전부
-    python build_sync.py base            # 이어서 문단 시간표 만들기 (필수)
+    문단 시간표도 동시에 생성한다. 육성 녹음만 build_sync.py로 맞춘다.
 
 육성 녹음과 같이 제목("성령 사연 159")을 먼저 읽고 본문으로 들어간다.
 뷰어는 audio 가 있는 편의 제목을 따로 읽지 않기 때문이다.
@@ -22,8 +22,9 @@ import sys
 
 import edge_tts
 
-REPO = '..'                                  # tools/ 에서 실행한다
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SAYEON = os.path.join(REPO, 'sayeon.json')
+SYNC = os.path.join(REPO, 'audio', 'sync.json')
 VOICE = 'ko-KR-HyunsuMultilingualNeural'     # 현수(남자). 선희(여자)는 ko-KR-SunHiNeural
 
 
@@ -40,12 +41,59 @@ def lines_of(p):
 
 def build_text(e):
     parts = [e['title']]
+    paragraph_indexes = []
     for p in e.get('paragraphs', []):
         body = ' '.join(lines_of(p)).strip()
         if body:
+            paragraph_indexes.append(len(parts))
             parts.append(body)
     # 문단 사이 빈 줄 — 읽을 때 잠깐 쉰다
-    return '\n\n'.join(parts)
+    text = '\n\n'.join(parts)
+    starts = []
+    offset = 0
+    for index, part in enumerate(parts):
+        if index in paragraph_indexes:
+            starts.append(offset)
+        offset += len(part) + 2
+    return text, starts
+
+
+async def synthesize(text, out):
+    """음성과 문장 경계를 한 번에 받아 Whisper 없이 문단 시간을 만든다."""
+    boundaries = []
+    cursor = 0
+    with open(out, 'wb') as audio:
+        communicate = edge_tts.Communicate(
+            text, VOICE, boundary='SentenceBoundary')
+        async for chunk in communicate.stream():
+            if chunk['type'] == 'audio':
+                audio.write(chunk['data'])
+            elif chunk['type'] == 'SentenceBoundary':
+                body = chunk.get('text', '')
+                pos = text.find(body, cursor)
+                if pos < 0:
+                    pos = cursor
+                boundaries.append((pos, chunk['offset'] / 10_000_000))
+                cursor = pos + len(body)
+    return boundaries
+
+
+def paragraph_times(starts, boundaries):
+    if not boundaries:
+        raise RuntimeError('TTS 문장 시간 정보를 받지 못했습니다.')
+    times = []
+    for start in starts:
+        following = [time for pos, time in boundaries if pos >= start]
+        times.append(round(following[0] if following else boundaries[-1][1], 2))
+    return times
+
+
+def save_sync(no, times):
+    sync = (json.load(io.open(SYNC, encoding='utf-8'))
+            if os.path.exists(SYNC) else {})
+    sync[str(no)] = times
+    io.open(SYNC, 'w', encoding='utf-8', newline='').write(
+        json.dumps(sync, ensure_ascii=False, separators=(',', ':')))
 
 
 def link_audio(no, rel_path):
@@ -82,14 +130,15 @@ async def main(args):
             print('  %d 편: 이미 음성 있음 (%s)' % (no, e['audio']))
             continue
         out = os.path.join(REPO, 'audio', '%d.mp3' % no)
-        text = build_text(e)
-        await edge_tts.Communicate(text, VOICE).save(out)
+        text, starts = build_text(e)
+        boundaries = await synthesize(text, out)
+        save_sync(no, paragraph_times(starts, boundaries))
         print('  %d 편: 문단 %d, 글자 %d → %s (%s bytes)'
               % (no, len(e.get('paragraphs', [])), len(text),
                  out, format(os.path.getsize(out), ',')))
         link_audio(no, 'audio/%d.mp3' % no)
 
-    print('\n이어서 문단 시간표를 만든다:  python build_sync.py base')
+    print('\n문단 시간표도 함께 만들었습니다.')
 
 
 if __name__ == '__main__':
