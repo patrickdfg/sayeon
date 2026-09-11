@@ -32,6 +32,11 @@ jobs:
       - name: 현수 TTS 설치
         run: python -m pip install --disable-pip-version-check edge-tts==7.2.7
 
+      - name: 음성 연결 도구 설치
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: 원고·음성·문단 동기화 생성
         run: python tools/process_work_upload.py
 
