@@ -1210,7 +1210,7 @@ function playAudioNow(s) {
   startSyncFollow(s);
   // 같은 파일명으로 음성을 다시 만들면 휴대폰이 옛 파일을 계속 쓸 수 있다.
   // 교체한 음성만 버전을 붙여 새 파일을 확실히 받게 한다.
-  var audioVersions = { "2026_163": "5" };
+  var audioVersions = { "2026_163": "6" };
   var audioVersion = audioVersions[currentYear + "_" + numOf(s, idx)];
   player.src = s.audio + (audioVersion ? "?v=" + audioVersion : "");
   player.playbackRate = cfg.rate;
