@@ -106,7 +106,7 @@ async def synthesize(text, out):
         for index, piece in enumerate(pieces):
             path = os.path.join(temp_dir, '%03d.mp3' % index)
             is_why = piece == '왜?'
-            spoken = '왜.' if is_why else piece
+            spoken = '왜' if is_why else piece
             part_boundaries = await synthesize_part(
                 spoken, path,
                 pitch='-18Hz' if is_why else '+0Hz',
