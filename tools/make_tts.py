@@ -18,7 +18,10 @@ import asyncio
 import io
 import json
 import os
+import re
+import subprocess
 import sys
+import tempfile
 
 import edge_tts
 
@@ -49,11 +52,6 @@ def build_text(e):
             parts.append(body)
     # 문단 사이 빈 줄 — 읽을 때 잠깐 쉰다
     text = '\n\n'.join(parts)
-    # 현수 음성은 한 음절짜리 "왜?"에서 음높이가 급격히 올라가며
-    # 소리가 깨지는 경우가 있다. 화면 원문은 건드리지 않고 TTS 입력의
-    # 문장부호만 마침표로 바꿔 짧고 안정적으로 읽게 한다.
-    # 글자 수가 같아서 아래 문단 시작 위치 계산에도 영향이 없다.
-    text = text.replace('왜?', '왜.')
     starts = []
     offset = 0
     for index, part in enumerate(parts):
@@ -63,13 +61,14 @@ def build_text(e):
     return text, starts
 
 
-async def synthesize(text, out):
-    """음성과 문장 경계를 한 번에 받아 Whisper 없이 문단 시간을 만든다."""
+async def synthesize_part(text, out, pitch='+0Hz', rate='+0%'):
+    """한 구간의 음성과 문장 경계를 만든다."""
     boundaries = []
     cursor = 0
     with open(out, 'wb') as audio:
         communicate = edge_tts.Communicate(
-            text, VOICE, boundary='SentenceBoundary')
+            text, VOICE, pitch=pitch, rate=rate,
+            boundary='SentenceBoundary')
         async for chunk in communicate.stream():
             if chunk['type'] == 'audio':
                 audio.write(chunk['data'])
@@ -80,6 +79,55 @@ async def synthesize(text, out):
                     pos = cursor
                 boundaries.append((pos, chunk['offset'] / 10_000_000))
                 cursor = pos + len(body)
+    return boundaries
+
+
+def audio_duration(path):
+    """ffprobe로 mp3의 실제 재생 시간을 초 단위로 구한다."""
+    value = subprocess.check_output([
+        'ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1', path
+    ], text=True).strip()
+    return float(value)
+
+
+async def synthesize(text, out):
+    """음성과 문장 경계를 만들고, 짧은 '왜?'는 안정된 별도 음성으로 잇는다."""
+    if '왜?' not in text:
+        return await synthesize_part(text, out)
+
+    # 한 음절 질문은 현수 음성의 음높이가 순간적으로 튀는 경우가 있다.
+    # 화면 원문은 그대로 두고 '왜?'만 같은 현수 목소리로 따로 생성해
+    # 음높이와 속도를 낮춘 뒤 앞뒤 음성과 연결한다.
+    pieces = [piece for piece in re.split(r'(왜\?)', text) if piece]
+    boundaries = []
+    char_offset = 0
+    time_offset = 0.0
+    with tempfile.TemporaryDirectory(prefix='sayeon_tts_') as temp_dir:
+        audio_files = []
+        for index, piece in enumerate(pieces):
+            path = os.path.join(temp_dir, '%03d.mp3' % index)
+            is_why = piece == '왜?'
+            spoken = '왜.' if is_why else piece
+            part_boundaries = await synthesize_part(
+                spoken, path,
+                pitch='-18Hz' if is_why else '+0Hz',
+                rate='-8%' if is_why else '+0%')
+            boundaries.extend(
+                (char_offset + pos, time_offset + when)
+                for pos, when in part_boundaries)
+            audio_files.append(path)
+            char_offset += len(piece)
+            time_offset += audio_duration(path)
+
+        concat_list = os.path.join(temp_dir, 'files.txt')
+        with io.open(concat_list, 'w', encoding='utf-8', newline='') as stream:
+            for path in audio_files:
+                stream.write("file '%s'\n" % path.replace("'", "'\\''"))
+        subprocess.check_call([
+            'ffmpeg', '-v', 'error', '-y', '-f', 'concat', '-safe', '0',
+            '-i', concat_list, '-c', 'copy', out
+        ])
     return boundaries
 
 
