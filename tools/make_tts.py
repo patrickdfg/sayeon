@@ -24,6 +24,8 @@ import sys
 import tempfile
 
 import edge_tts
+import imageio_ffmpeg
+from mutagen.mp3 import MP3
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SAYEON = os.path.join(REPO, 'sayeon.json')
@@ -83,12 +85,8 @@ async def synthesize_part(text, out, pitch='+0Hz', rate='+0%'):
 
 
 def audio_duration(path):
-    """ffprobe로 mp3의 실제 재생 시간을 초 단위로 구한다."""
-    value = subprocess.check_output([
-        'ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-        '-of', 'default=noprint_wrappers=1:nokey=1', path
-    ], text=True).strip()
-    return float(value)
+    """mp3의 실제 재생 시간을 초 단위로 구한다."""
+    return float(MP3(path).info.length)
 
 
 async def synthesize(text, out):
@@ -125,7 +123,8 @@ async def synthesize(text, out):
             for path in audio_files:
                 stream.write("file '%s'\n" % path.replace("'", "'\\''"))
         subprocess.check_call([
-            'ffmpeg', '-v', 'error', '-y', '-f', 'concat', '-safe', '0',
+            imageio_ffmpeg.get_ffmpeg_exe(), '-v', 'error', '-y',
+            '-f', 'concat', '-safe', '0',
             '-i', concat_list, '-c', 'copy', out
         ])
     return boundaries
