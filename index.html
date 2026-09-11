@@ -1744,7 +1744,8 @@ function loadData() {
 
 /* ===== 홈 화면에 추가 =====
    안드로이드 크롬은 설치할 수 있을 때 beforeinstallprompt 를 보내 준다.
-   그때 상단에 단추를 띄우고, 아이폰은 install.html 안내로 대신한다.
+   그때 상단에 단추를 띄운다. 아이폰은 현재 페이지를 유지한 채
+   Safari의 공유 메뉴에서 홈 화면에 추가하도록 안내한다.
    이미 홈 화면 앱으로 실행 중이면 단추를 보이지 않는다. */
 (function () {
   var deferred = null;
@@ -1771,6 +1772,10 @@ function loadData() {
 
   btn.onclick = function () {
     if (!deferred) {
+      if (iosDevice()) {
+        alert("아이폰 설치 방법\n\n1. 아래의 공유 버튼(□↑)을 누르세요.\n2. ‘홈 화면에 추가’를 누르세요.\n3. ‘웹 앱으로 열기’를 켜고 ‘추가’를 누르세요.\n\n지금 보고 있는 성령사연 화면에서 바로 추가해야 합니다.");
+        return;
+      }
       window.location.href = "install.html";
       return;
     }
