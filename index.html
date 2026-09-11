@@ -896,7 +896,7 @@ function go(delta) {
 
 /* ===== 읽어주기 ===== */
 var synth = window.speechSynthesis;
-var queue = [], qi = 0, speaking = false;
+var queue = [], qi = 0, speaking = false, playbackHadError = false;
 
 if (!synth) { $("speak").disabled = true; $("warn").style.display = "block"; }
 
@@ -1107,7 +1107,20 @@ function updateSpeakBtn() {
   btn.textContent = speaking ? "■ 정지" : ((human ? "🎙️" : "🤖") + " 듣기");
 }
 
-function advanceOrStop() {
+function recordReadCompletion() {
+  var s = SAYEON[idx];
+  if (!s) return;
+  var epNum = numOf(s, idx);
+  var n = bumpReadCount(epNum);
+  SayeonAnalytics.trackRead("sayeon", epNum, fullTitle(s, idx), currentYear);
+  $("readCountBtn").textContent = n + "독";
+  $("readCountBtn").classList.add("done");
+}
+
+function advanceOrStop(completed) {
+  // 녹음이나 TTS를 오류 없이 끝까지 들은 경우에도 '다 읽음'과 같이 1독 기록한다.
+  // 반복듣기에서는 한 번 끝날 때마다 1회씩 올라간다.
+  if (completed) recordReadCompletion();
   if (speaking && cfg.autoMode === "repeat") {
     setTimeout(function () { if (speaking && cfg.autoMode === "repeat") startSpeak(); }, 700);
   } else if (speaking && cfg.autoMode === "next" && idx < SAYEON.length - 1) {
@@ -1159,11 +1172,11 @@ player.ontimeupdate = function () {
   if (pi >= 0 && pi !== syncPi) { syncPi = pi; highlight(pi); }
 };
 
-player.onended = advanceOrStop;
-player.onerror = advanceOrStop;
+player.onended = function () { advanceOrStop(true); };
+player.onerror = function () { advanceOrStop(false); };
 
 function speakNext() {
-  if (qi >= queue.length) { advanceOrStop(); return; }
+  if (qi >= queue.length) { advanceOrStop(!playbackHadError); return; }
   var item = queue[qi];
   var u = new SpeechSynthesisUtterance(item.text);
   u.lang = "ko-KR";
@@ -1172,7 +1185,7 @@ function speakNext() {
   u.rate = cfg.rate;
   u.onstart = function () { highlight(item.pi); updateSeekQueue(); };
   u.onend = function () { qi++; if (speaking) speakNext(); };
-  u.onerror = function () { qi++; if (speaking) speakNext(); };
+  u.onerror = function () { playbackHadError = true; qi++; if (speaking) speakNext(); };
   synth.speak(u);
 }
 
@@ -1204,6 +1217,7 @@ function playAudioNow(s) {
 function startSpeak() {
   var s = SAYEON[idx];
   speaking = true;
+  playbackHadError = false;
   requestWakeLock();
   updateSpeakBtn();
   showSeek();
@@ -1581,12 +1595,7 @@ $("prev").onclick = function () { go(-1); };
 $("next").onclick = function () { go(1); };
 $("speak").onclick = function () { if (speaking) { stopSpeak(); } else { startSpeak(); } };
 $("readCountBtn").onclick = function () {
-  var s = SAYEON[idx];
-  var epNum = numOf(s, idx);
-  var n = bumpReadCount(epNum);
-  SayeonAnalytics.trackRead("sayeon", epNum, fullTitle(s, idx), currentYear);
-  $("readCountBtn").textContent = n + "독";
-  $("readCountBtn").classList.add("done");
+  recordReadCompletion();
 };
 
 $("opensettings").onclick = function () { openModal("settings"); };
