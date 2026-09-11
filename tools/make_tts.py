@@ -51,9 +51,9 @@ def build_text(e):
     text = '\n\n'.join(parts)
     # 현수 음성은 한 음절짜리 "왜?"에서 음높이가 급격히 올라가며
     # 소리가 깨지는 경우가 있다. 화면 원문은 건드리지 않고 TTS 입력의
-    # 문장부호만 쉼표로 바꿔 다음 문장과 자연스럽게 이어 읽게 한다.
+    # 문장부호만 마침표로 바꿔 짧고 안정적으로 읽게 한다.
     # 글자 수가 같아서 아래 문단 시작 위치 계산에도 영향이 없다.
-    text = text.replace('왜?', '왜,')
+    text = text.replace('왜?', '왜.')
     starts = []
     offset = 0
     for index, part in enumerate(parts):
