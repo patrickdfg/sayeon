@@ -394,6 +394,7 @@
         <button class="opt">이전편 자동듣기</button>
         <button class="opt">다음편 자동듣기</button>
         <button class="opt">현재편만 듣기</button>
+        <button class="opt">현재편 반복듣기</button>
       </div>
     </div>
 
@@ -548,7 +549,7 @@ function loadCfg() {
   if (typeof s.font === "number" && FONTS[s.font]) cfg.font = s.font;
   if (typeof s.bg === "string") cfg.bg = s.bg;
   if (typeof s.text === "string") cfg.text = s.text;
-  if (s.autoMode === "prev" || s.autoMode === "next" || s.autoMode === "off") {
+  if (s.autoMode === "prev" || s.autoMode === "next" || s.autoMode === "off" || s.autoMode === "repeat") {
     cfg.autoMode = s.autoMode;
   } else if (typeof s.autoNext === "boolean" && s.autoNext === false) {
     cfg.autoMode = "off"; // 예전 설정(끄기)만 그대로 이어받고, 나머지는 새 기본값(역순)을 쓴다
@@ -599,7 +600,7 @@ function applyCfg() {
   $("cBgHex").textContent = cfg.bg;
   markSel("fontOpts", cfg.font);
   markSel("themeOpts", themeIndex());
-  markSel("autoOpts", cfg.autoMode === "prev" ? 0 : cfg.autoMode === "next" ? 1 : 2);
+  markSel("autoOpts", cfg.autoMode === "prev" ? 0 : cfg.autoMode === "next" ? 1 : cfg.autoMode === "off" ? 2 : 3);
   storeCfg();
   syncThemeColor();
 }
@@ -1107,7 +1108,9 @@ function updateSpeakBtn() {
 }
 
 function advanceOrStop() {
-  if (speaking && cfg.autoMode === "next" && idx < SAYEON.length - 1) {
+  if (speaking && cfg.autoMode === "repeat") {
+    setTimeout(function () { if (speaking && cfg.autoMode === "repeat") startSpeak(); }, 700);
+  } else if (speaking && cfg.autoMode === "next" && idx < SAYEON.length - 1) {
     idx++;
     render(true);
     setTimeout(function () { if (speaking) startSpeak(); }, 1000);
@@ -1629,6 +1632,7 @@ $("resetAll").onclick = function () {
   bs[0].onclick = function () { cfg.autoMode = "prev"; applyCfg(); };
   bs[1].onclick = function () { cfg.autoMode = "next"; applyCfg(); };
   bs[2].onclick = function () { cfg.autoMode = "off"; applyCfg(); };
+  bs[3].onclick = function () { cfg.autoMode = "repeat"; applyCfg(); };
 })();
 
 document.onkeydown = function (e) {
