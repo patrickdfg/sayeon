@@ -49,6 +49,9 @@ def build_text(e):
     paragraph_indexes = []
     for p in e.get('paragraphs', []):
         body = ' '.join(lines_of(p)).strip()
+        # 짧은 한 음절 질문인 '왜?'는 현수 TTS에서 음높이가 튀는 경우가 있어
+        # 화면 원문은 유지하고 음성에서만 자연스러운 연결어로 읽는다.
+        body = body.replace('왜?', '왜냐하면,')
         if body:
             paragraph_indexes.append(len(parts))
             parts.append(body)
@@ -90,7 +93,7 @@ def audio_duration(path):
 
 
 async def synthesize(text, out):
-    """음성과 문장 경계를 만들고, 짧은 '왜?'는 안정된 별도 음성으로 잇는다."""
+    """음성과 문장 경계를 만들고, 필요한 경우 짧은 '왜?'를 별도로 잇는다."""
     if '왜?' not in text:
         return await synthesize_part(text, out)
 
