@@ -15,6 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script src="/sayeon/analytics-config.js"></script>
 <script src="/sayeon/analytics.js"></script>
+<script src="/sayeon/settings.js"></script>
 <script>
 /* 화면이 그려지기 전에 상태바 색을 정한다.
    브라우저가 이 색을 보고 상태바 글자(시계·배터리) 색을 정하기 때문에,
@@ -435,92 +436,6 @@
   </div>
 </div>
 
-<!-- 설정 -->
-<div class="modal" id="settings">
-  <div class="inner">
-    <div class="top">
-      <h2>설정</h2>
-      <button class="closebtn" id="closeset">닫기</button>
-    </div>
-
-    <div class="set">
-      <div class="name">읽기</div>
-      <div class="opts" id="autoOpts">
-        <button class="opt">이전편 자동듣기</button>
-        <button class="opt">다음편 자동듣기</button>
-        <button class="opt">현재편만 듣기</button>
-        <button class="opt">현재편 반복듣기</button>
-      </div>
-    </div>
-
-    <div class="set">
-      <div class="name">글자 크기</div>
-      <div class="stepper">
-        <button class="rnd" id="fsMinus">−</button>
-        <span class="val" id="fsVal">16px</span>
-        <button class="rnd" id="fsPlus">+</button>
-      </div>
-    </div>
-
-    <div class="set">
-      <div class="name">글자체</div>
-      <div class="opts" id="fontOpts"></div>
-    </div>
-
-    <div class="set">
-      <div class="name">줄 간격</div>
-      <div class="stepper">
-        <button class="rnd" id="lhMinus">−</button>
-        <span class="val" id="lhVal">1.95</span>
-        <button class="rnd" id="lhPlus">+</button>
-      </div>
-    </div>
-
-    <div class="set">
-      <div class="name">읽기 속도</div>
-      <div class="stepper">
-        <button class="rnd" id="rateMinus">−</button>
-        <span class="val" id="rateVal">90%</span>
-        <button class="rnd" id="ratePlus">+</button>
-      </div>
-    </div>
-
-    <div class="set">
-      <div class="name">좌우 여백</div>
-      <div class="stepper">
-        <button class="rnd" id="padMinus">−</button>
-        <span class="val" id="padVal">18px</span>
-        <button class="rnd" id="padPlus">+</button>
-      </div>
-    </div>
-
-    <div class="set">
-      <div class="name">테마</div>
-      <div class="opts" id="themeOpts"></div>
-    </div>
-
-    <div class="set">
-      <div class="name">글자색</div>
-      <div class="colorrow">
-        <input type="color" id="cText" value="#e9ece4">
-        <span class="hex" id="cTextHex">#e9ece4</span>
-      </div>
-    </div>
-
-    <div class="set">
-      <div class="name">배경색</div>
-      <div class="colorrow">
-        <input type="color" id="cBg" value="#1b2018">
-        <span class="hex" id="cBgHex">#1b2018</span>
-      </div>
-    </div>
-
-    <div class="opts">
-      <button class="opt" id="resetAll">기본값으로</button>
-    </div>
-  </div>
-</div>
-
 <!-- 검색 -->
 <div class="modal" id="search">
   <div class="inner">
@@ -562,61 +477,12 @@ SayeonAnalytics.trackSectionVisit("sayeon");
   if (m && YEAR_URLS[m[1]]) { currentYear = m[1]; DATA_URL = YEAR_URLS[currentYear]; }
 })();
 
-/* ===== 설정 ===== */
-var FONTS = [
-  { k: "고딕", v: '"Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif' },
-  { k: "명조", v: '"Nanum Myeongjo", "Batang", "AppleMyungjo", serif' },
-  { k: "돋움", v: '"Dotum", "Apple SD Gothic Neo", sans-serif' },
-  { k: "굴림", v: '"Gulim", "Apple SD Gothic Neo", sans-serif' }
-];
-var THEMES = [
-  { k: "어두운 초록", bg: "#1b2018", text: "#e9ece4" },
-  { k: "검정", bg: "#000000", text: "#e6e6e6" },
-  { k: "남색", bg: "#0b1a3a", text: "#eaf1ff" },
-  { k: "세피아", bg: "#f3e9d2", text: "#3a2f1b" },
-  { k: "흰색", bg: "#ffffff", text: "#1a1a1a" }
-];
-var DEF = { size: 16, lh: 1.95, pad: 18, font: 0, bg: "#1b2018", text: "#e9ece4", autoMode: "prev", rate: 0.90 };
-var cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoMode: DEF.autoMode, rate: DEF.rate };
+/* ===== 설정 =====
+   설정 화면과 저장은 settings.js 한 곳에 있다(세 페이지가 같이 쓴다).
+   여기서는 바뀐 값을 받아 이 화면에 입히기만 한다. */
+var cfg = null;
 
 function $(id) { return document.getElementById(id); }
-
-/* ===== 설정 저장 =====
-   글자·색·속도·목소리 같은 설정은 세 페이지(성령사연·월명동·말씀)가
-   한 곳에 모아 같이 쓴다. 같은 주소라 브라우저 저장소를 공유한다.
-   한 곳에서 바꾸면 나머지 두 곳에도 그대로 적용된다. */
-var SETTINGS_KEY = "siteSettings";
-function loadSettings() {
-  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }
-  catch (e) { return {}; }
-}
-function saveSettings(patch) {
-  var s = loadSettings(), k;
-  for (k in patch) { if (Object.prototype.hasOwnProperty.call(patch, k)) s[k] = patch[k]; }
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
-}
-// 저장해 둔 설정을 cfg 로 불러온다
-function loadCfg() {
-  var s = loadSettings();
-  if (typeof s.size === "number") cfg.size = s.size;
-  if (typeof s.lh === "number") cfg.lh = s.lh;
-  if (typeof s.pad === "number") cfg.pad = s.pad;
-  if (typeof s.font === "number" && FONTS[s.font]) cfg.font = s.font;
-  if (typeof s.bg === "string") cfg.bg = s.bg;
-  if (typeof s.text === "string") cfg.text = s.text;
-  if (s.autoMode === "prev" || s.autoMode === "next" || s.autoMode === "off" || s.autoMode === "repeat") {
-    cfg.autoMode = s.autoMode;
-  } else if (typeof s.autoNext === "boolean" && s.autoNext === false) {
-    cfg.autoMode = "off"; // 예전 설정(끄기)만 그대로 이어받고, 나머지는 새 기본값(역순)을 쓴다
-  }
-  if (typeof s.rate === "number" && s.rate >= 0.5 && s.rate <= 2.0) cfg.rate = s.rate;
-}
-function storeCfg() {
-  saveSettings({
-    size: cfg.size, lh: cfg.lh, pad: cfg.pad, font: cfg.font,
-    bg: cfg.bg, text: cfg.text, autoMode: cfg.autoMode, rate: cfg.rate
-  });
-}
 function setVar(n, v) { document.documentElement.style.setProperty(n, v); }
 
 /* 위 상태바 색을 지금 화면의 배경색에 맞춘다.
@@ -640,58 +506,11 @@ function applyCfg() {
   setVar("--size", cfg.size + "px");
   setVar("--lh", String(cfg.lh));
   setVar("--pad", cfg.pad + "px");
-  setVar("--font", FONTS[cfg.font].v);
+  setVar("--font", cfg.fontFamily);
   setVar("--bg", cfg.bg);
   setVar("--text", cfg.text);
-  $("fsVal").textContent = cfg.size + "px";
-  $("lhVal").textContent = cfg.lh.toFixed(2);
-  $("rateVal").textContent = Math.round(cfg.rate * 100) + "%";
   if (player) player.playbackRate = cfg.rate;
-  $("padVal").textContent = cfg.pad + "px";
-  $("cText").value = cfg.text;
-  $("cBg").value = cfg.bg;
-  $("cTextHex").textContent = cfg.text;
-  $("cBgHex").textContent = cfg.bg;
-  markSel("fontOpts", cfg.font);
-  markSel("themeOpts", themeIndex());
-  markSel("autoOpts", cfg.autoMode === "prev" ? 0 : cfg.autoMode === "next" ? 1 : cfg.autoMode === "off" ? 2 : 3);
-  storeCfg();
   syncThemeColor();
-}
-
-function themeIndex() {
-  for (var i = 0; i < THEMES.length; i++) {
-    if (THEMES[i].bg === cfg.bg && THEMES[i].text === cfg.text) return i;
-  }
-  return -1;
-}
-
-function markSel(boxId, sel) {
-  var bs = $(boxId).getElementsByTagName("button");
-  for (var i = 0; i < bs.length; i++) {
-    bs[i].className = (i === sel) ? "opt sel" : "opt";
-  }
-}
-
-function buildOpts() {
-  var i, b;
-  for (i = 0; i < FONTS.length; i++) {
-    b = document.createElement("button");
-    b.className = "opt";
-    b.textContent = FONTS[i].k;
-    b.style.fontFamily = FONTS[i].v;
-    (function (n) { b.onclick = function () { cfg.font = n; applyCfg(); }; })(i);
-    $("fontOpts").appendChild(b);
-  }
-  for (i = 0; i < THEMES.length; i++) {
-    b = document.createElement("button");
-    b.className = "opt";
-    b.textContent = THEMES[i].k;
-    (function (n) {
-      b.onclick = function () { cfg.bg = THEMES[n].bg; cfg.text = THEMES[n].text; applyCfg(); };
-    })(i);
-    $("themeOpts").appendChild(b);
-  }
 }
 
 /* ===== 하이라이트 (편별로 이 브라우저에만 저장, 3색) ===== */
@@ -1567,7 +1386,6 @@ function buildList() {
 function openModal(id) { $(id).className = "modal open"; }
 function closeAll() {
   $("search").className = "modal";
-  $("settings").className = "modal";
   $("listmodal").className = "modal";
 }
 
@@ -1606,8 +1424,7 @@ $("readCountMinus").onclick = function () {
   $("readCountMinus").disabled = n === 0;
 };
 
-$("opensettings").onclick = function () { openModal("settings"); };
-$("closeset").onclick = closeAll;
+$("opensettings").onclick = SaSettings.open;
 $("opensearch").onclick = function () { openModal("search"); $("q").focus(); };
 $("closeq").onclick = closeAll;
 $("q").oninput = runSearch;
@@ -1629,28 +1446,6 @@ $("findBack").onclick = function () {
 };
 
 
-$("fsPlus").onclick = function () { cfg.size = Math.min(48, cfg.size + 2); applyCfg(); };
-$("fsMinus").onclick = function () { cfg.size = Math.max(12, cfg.size - 2); applyCfg(); };
-$("lhPlus").onclick = function () { cfg.lh = Math.min(3.0, cfg.lh + 0.15); applyCfg(); };
-$("lhMinus").onclick = function () { cfg.lh = Math.max(1.2, cfg.lh - 0.15); applyCfg(); };
-$("ratePlus").onclick = function () { cfg.rate = Math.min(2.0, Math.round((cfg.rate + 0.05) * 100) / 100); applyCfg(); };
-$("rateMinus").onclick = function () { cfg.rate = Math.max(0.5, Math.round((cfg.rate - 0.05) * 100) / 100); applyCfg(); };
-$("padPlus").onclick = function () { cfg.pad = Math.min(80, cfg.pad + 6); applyCfg(); };
-$("padMinus").onclick = function () { cfg.pad = Math.max(0, cfg.pad - 6); applyCfg(); };
-$("cText").oninput = function () { cfg.text = $("cText").value; applyCfg(); };
-$("cBg").oninput = function () { cfg.bg = $("cBg").value; applyCfg(); };
-$("resetAll").onclick = function () {
-  cfg = { size: DEF.size, lh: DEF.lh, pad: DEF.pad, font: DEF.font, bg: DEF.bg, text: DEF.text, autoMode: DEF.autoMode, rate: DEF.rate };
-  applyCfg();
-};
-
-(function () {
-  var bs = $("autoOpts").getElementsByTagName("button");
-  bs[0].onclick = function () { cfg.autoMode = "prev"; applyCfg(); };
-  bs[1].onclick = function () { cfg.autoMode = "next"; applyCfg(); };
-  bs[2].onclick = function () { cfg.autoMode = "off"; applyCfg(); };
-  bs[3].onclick = function () { cfg.autoMode = "repeat"; applyCfg(); };
-})();
 
 document.onkeydown = function (e) {
   if (e.keyCode === 37) go(-1);
@@ -1664,7 +1459,7 @@ document.onkeydown = function (e) {
   var THRESHOLD = 60;
 
   function anyModalOpen() {
-    return $("settings").className.indexOf("open") >= 0 ||
+    return SaSettings.isOpen() ||
       $("search").className.indexOf("open") >= 0 ||
       $("listmodal").className.indexOf("open") >= 0;
   }
@@ -1872,10 +1667,9 @@ function tryUnlock() {
 $("pwok").onclick = tryUnlock;
 $("pw").onkeydown = function (e) { if (e.keyCode === 13) tryUnlock(); };
 
-loadCfg();
 loadSync();
-buildOpts();
-applyCfg();
+SaSettings.onChange(function (c) { cfg = c; applyCfg(); });
+SaSettings.init({ unit: '편' });
 
 var unlocked = false;
 try { unlocked = localStorage.getItem("sayeon_unlocked") === "1"; } catch (e) {}

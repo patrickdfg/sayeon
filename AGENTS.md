@@ -113,7 +113,20 @@ python make_tts.py 159             # 한 편 (여러 편은 번호를 나열, �
 - **localStorage 키는 페이지마다 접두어가 다르다.** 같은 도메인이라 저장소를
   공유하므로 섞이면 안 된다.
   성령사연 `sayeon*`, 월명동 `wmd*`, 말씀 `mal*`.
-  설정(글자·색·속도)만은 `siteSettings` 하나로 세 페이지가 같이 쓴다.
+  **설정은 `settings.js` 한 파일에 있다.** 설정 화면(모달)도 저장도 거기 하나뿐이고,
+  세 페이지는 바뀐 값을 받아 제 화면에 입히기만 한다:
+
+  ```js
+  SaSettings.onChange(function (c) { cfg = c; applyCfg(); });
+  SaSettings.init({ unit: '편' });      // 월명동은 '항목'
+  설정단추.onclick = SaSettings.open;
+  ```
+
+  **설정 항목을 더하거나 고칠 일은 `settings.js` 에서만 한다.** 페이지마다
+  따로 두었다가 한 곳에만 항목이 생기는 일이 있었다(반복듣기가 그랬다).
+  월명동은 카드·인용·테두리 색을 고른 글자색·배경색에서 뽑아 쓴다
+  (`SaSettings.mix`, `SaSettings.isLight`).
+  값은 `siteSettings` 하나로 세 페이지가 같이 쓴다.
   기기 목소리 고르기는 없앴다. 음성은 깃허브에서 현수 목소리로 만들어 붙고,
   아직 녹음이 없는 편만 기기가 알아서 한국어 목소리로 읽는다.
 

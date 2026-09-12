@@ -14,21 +14,24 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script src="/sayeon/analytics-config.js"></script>
 <script src="/sayeon/analytics.js"></script>
+<script src="/sayeon/settings.js"></script>
 <script>
 /* 화면이 그려지기 전에 상태바 색을 정한다.
    브라우저가 이 색을 보고 상태바 글자(시계·배터리) 색을 정한다. */
 (function () {
   try {
-    var t = null;
-    try { t = localStorage.getItem('wmdTheme'); } catch (e) {}
-    if (t !== 'light' && t !== 'dark') {
-      t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-    }
-    var bg = (t === 'dark') ? '#1b1f1b' : '#f5f1e8';
+    var bg = '#1b2018';
+    try {
+      var saved = JSON.parse(localStorage.getItem('siteSettings') || '{}');
+      if (typeof saved.bg === 'string') bg = saved.bg;
+    } catch (e) {}
+    var v = bg.replace('#', '');
+    var light = (parseInt(v.slice(0, 2), 16) * 299 + parseInt(v.slice(2, 4), 16) * 587 +
+                 parseInt(v.slice(4, 6), 16) * 114) / 1000 > 140;
     var m = document.querySelector('meta[name="theme-color"]');
     if (m) m.setAttribute('content', bg);
     var ios = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-    if (ios) ios.setAttribute('content', t === 'dark' ? 'black' : 'default');
+    if (ios) ios.setAttribute('content', light ? 'default' : 'black');
   } catch (e) {}
 })();
 </script>
@@ -505,7 +508,8 @@ main{padding-top:28px;}
 }
 
 .prose{
-  padding:22px 28px 30px;
+  padding:22px calc(10px + var(--content-pad, 18px)) 30px;
+  font-family:var(--content-font, inherit);
 }
 .prose h3{
   margin:22px 0 8px;
@@ -517,14 +521,14 @@ main{padding-top:28px;}
 .prose h3:first-child{margin-top:2px;}
 .prose p{
   margin:0 0 14px;
-  line-height:1.85;
+  line-height:var(--content-lh, 1.85);
   font-size:var(--content-size);
 }
 .prose .li{
   margin:0 0 6px 4px;
   padding-left:1.1em;
   text-indent:-1.1em;
-  line-height:1.75;
+  line-height:var(--content-lh, 1.75);
   font-size:var(--content-size);
 }
 .prose blockquote{
@@ -783,51 +787,6 @@ footer.credit{
     <div class="drawer-list" id="drawerList" role="listbox"></div>
   </div>
 
-  <div class="drawer-backdrop" id="settingsBackdrop"></div>
-  <div class="modal-panel" id="settingsModal" role="dialog" aria-label="설정">
-    <div class="modal-head">
-      <h2>설정</h2>
-      <button type="button" class="drawer-close" id="settingsClose" aria-label="닫기">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div class="modal-body">
-      <div class="set-row">
-        <div class="set-label">테마</div>
-        <div class="opts" id="themeOpts">
-          <button type="button" class="opt" data-theme="light">라이트</button>
-          <button type="button" class="opt" data-theme="dark">다크</button>
-          <button type="button" class="opt" data-theme="system">시스템</button>
-        </div>
-      </div>
-      <div class="set-row">
-        <div class="set-label">글자 크기</div>
-        <div class="stepper">
-          <button type="button" class="rnd" id="setFontMinus" aria-label="글자 작게">−</button>
-          <span class="stepper-val" id="setFontSizeLabel">16px</span>
-          <button type="button" class="rnd" id="setFontPlus" aria-label="글자 크게">+</button>
-          <button type="button" class="opt" id="setFontReset">기본</button>
-        </div>
-      </div>
-      <div class="set-row">
-        <div class="set-label">읽기 속도</div>
-        <div class="stepper">
-          <button type="button" class="rnd" id="rateMinus" aria-label="느리게">−</button>
-          <span class="stepper-val" id="rateLabel">90%</span>
-          <button type="button" class="rnd" id="ratePlus" aria-label="빠르게">+</button>
-        </div>
-      </div>
-      <div class="set-row">
-        <div class="set-label">읽어주기</div>
-        <div class="opts" id="autoNextOpts">
-          <button type="button" class="opt" data-automode="prev">이전 항목 이어 듣기</button>
-          <button type="button" class="opt" data-automode="next">다음 항목 이어 듣기</button>
-          <button type="button" class="opt" data-automode="off">현재 항목만 듣기</button>
-          <button type="button" class="opt" data-automode="repeat">현재 항목 반복 듣기</button>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -892,9 +851,6 @@ const els = {
   topSettingsBtn: document.getElementById('topSettingsBtn'),
   topSearchBtn: document.getElementById('topSearchBtn'),
   pagerListBtn: document.getElementById('pagerListBtn'),
-  settingsModal: document.getElementById('settingsModal'),
-  settingsBackdrop: document.getElementById('settingsBackdrop'),
-  settingsClose: document.getElementById('settingsClose'),
   hlToolbar: document.getElementById('hlToolbar'),
 };
 
@@ -992,7 +948,7 @@ function render(index){
   els.nextLabel.textContent = index < DATA.length - 1 ? `${DATA[index+1].num}. ${DATA[index+1].title}` : '';
   els.card.scrollIntoView({block:'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
   closeDrawer();
-  closeSettings();
+  SaSettings.close();
   applyFind();
 }
 
@@ -1059,21 +1015,6 @@ function render(index){
 
 // 읽어주기 (Web Speech API)
 // 기본은 구글 한국어 목소리(안드로이드의 '구글 여성1(시스템)')를 고른다.
-// 기기마다 쓸 수 있는 목소리가 달라 설정에서 직접 고를 수도 있다.
-/* ===== 설정 저장 =====
-   글자·색·속도·목소리 같은 설정은 세 페이지(성령사연·월명동·말씀)가
-   한 곳에 모아 같이 쓴다. 같은 주소라 브라우저 저장소를 공유한다.
-   한 곳에서 바꾸면 나머지 두 곳에도 그대로 적용된다. */
-const SETTINGS_KEY = 'siteSettings';
-function loadSettings(){
-  try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }catch(e){ return {}; }
-}
-function saveSettings(patch){
-  const s = loadSettings();
-  Object.assign(s, patch);
-  try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }catch(e){}
-}
-
 // 녹음이 아직 없는 편만 기기가 읽어 준다. 구글 한국어 목소리를 먼저 쓴다.
 let koVoice = null;
 
@@ -1825,30 +1766,14 @@ els.drawerClose.addEventListener('click', closeDrawer);
 els.drawerBackdrop.addEventListener('click', closeDrawer);
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape' && isDrawerOpen()) closeDrawer();
-  if(e.key === 'Escape' && isSettingsOpen()) closeSettings();
   if(e.key === 'Escape') hideHlToolbar();
 });
 
-els.topListBtn.addEventListener('click', () => { closeSettings(); openList(); });
-els.pagerListBtn.addEventListener('click', () => { closeSettings(); openList(); });
-els.topSearchBtn.addEventListener('click', () => { closeSettings(); openSearch(); });
+els.topListBtn.addEventListener('click', () => { SaSettings.close(); openList(); });
+els.pagerListBtn.addEventListener('click', () => { SaSettings.close(); openList(); });
+els.topSearchBtn.addEventListener('click', () => { SaSettings.close(); openSearch(); });
 
-// 설정 모달
-function isSettingsOpen(){
-  return els.settingsModal.classList.contains('open');
-}
-function openSettings(){
-  closeDrawer();
-  els.settingsModal.classList.add('open');
-  els.settingsBackdrop.classList.add('open');
-}
-function closeSettings(){
-  els.settingsModal.classList.remove('open');
-  els.settingsBackdrop.classList.remove('open');
-}
-els.topSettingsBtn.addEventListener('click', () => { isSettingsOpen() ? closeSettings() : openSettings(); });
-els.settingsClose.addEventListener('click', closeSettings);
-els.settingsBackdrop.addEventListener('click', closeSettings);
+els.topSettingsBtn.addEventListener('click', SaSettings.open);
 
 els.prevBtn.addEventListener('click', () => { if(current > 0) render(current - 1); });
 els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) render(current + 1); });
@@ -1888,32 +1813,6 @@ els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) rend
   }, {passive:true});
 })();
 
-// 글자 크기 조절 (설정 모달)
-(function(){
-  const MIN = 14, MAX = 26, STEP = 1, DEFAULT = 16;
-  const root = document.documentElement;
-  const setSizeLabel = document.getElementById('setFontSizeLabel');
-  const setMinusBtn = document.getElementById('setFontMinus');
-  const setPlusBtn = document.getElementById('setFontPlus');
-  const setResetBtn = document.getElementById('setFontReset');
-
-  function apply(size){
-    size = Math.min(MAX, Math.max(MIN, size));
-    root.style.setProperty('--content-size', size + 'px');
-    setSizeLabel.textContent = size + 'px';
-    saveSettings({ size: size });
-    setMinusBtn.disabled = size <= MIN;
-    setPlusBtn.disabled = size >= MAX;
-  }
-
-  const saved = loadSettings().size;
-  apply(Number.isFinite(saved) ? saved : DEFAULT);
-
-  setMinusBtn.addEventListener('click', () => apply(parseInt(setSizeLabel.textContent, 10) - STEP));
-  setPlusBtn.addEventListener('click', () => apply(parseInt(setSizeLabel.textContent, 10) + STEP));
-  setResetBtn.addEventListener('click', () => apply(DEFAULT));
-})();
-
 /* 위 상태바 색을 지금 화면의 배경색에 맞춘다.
    설정에서 테마나 배경색을 바꾸면 상태바도 따라 바뀐다. */
 function syncThemeColor() {
@@ -1931,89 +1830,45 @@ function syncThemeColor() {
   if (ios) ios.setAttribute("content", light ? "default" : "black");
 }
 
-// 테마 (라이트 / 다크 / 시스템)
-(function(){
-  const root = document.documentElement;
-  const opts = [...document.querySelectorAll('#themeOpts .opt')];
-
-  function markSel(theme){
-    opts.forEach(b => b.classList.toggle('sel', b.dataset.theme === theme));
-  }
-  function apply(theme, save){
-    if(theme === 'light' || theme === 'dark') root.setAttribute('data-theme', theme);
-    else root.removeAttribute('data-theme');
-    markSel(theme);
-    syncThemeColor();
-    if(save) localStorage.setItem('wmdTheme', theme);
-  }
-
-  // 성령사연/말씀은 배경색을 직접 고르는 방식이라 색이 그대로 옮겨 오지 않는다.
-  // 대신 저장된 배경색의 밝기를 보고 밝은 테마/어두운 테마를 맞춘다.
-  function themeFromShared(){
-    const bg = loadSettings().bg;
-    if(typeof bg !== 'string' || !/^#[0-9a-f]{6}$/i.test(bg)) return null;
-    const r = parseInt(bg.slice(1,3),16), g = parseInt(bg.slice(3,5),16), b = parseInt(bg.slice(5,7),16);
-    return (r*299 + g*587 + b*114) / 1000 > 140 ? 'light' : 'dark';
-  }
-
-  apply(themeFromShared() || 'system', false);
-
-  opts.forEach(b => b.addEventListener('click', () => {
-    apply(b.dataset.theme, true);
-    // 다른 두 페이지에도 반영되도록 대표 색을 같이 저장한다
-    if(b.dataset.theme === 'light') saveSettings({ bg:'#ffffff', text:'#1a1a1a' });
-    else if(b.dataset.theme === 'dark') saveSettings({ bg:'#1b2018', text:'#e9ece4' });
-  }));
-  // '시스템' 을 골랐을 때 기기의 밝게/어둡게가 바뀌면 상태바 색도 따라간다
-  if(window.matchMedia){
-    window.matchMedia('(prefers-color-scheme: dark)')
-      .addEventListener('change', () => setTimeout(syncThemeColor, 50));
-  }
-})();
-
-// 읽기 속도
+/* ===== 설정 받아 쓰기 =====
+   설정 화면과 저장은 settings.js 한 곳에 있다(세 페이지가 같이 쓴다).
+   월명동은 카드·인용·테두리 색을 고른 글자색·배경색에서 뽑아 쓴다. */
 let readRate = 0.90;
-(function(){
-  const MIN = 0.6, MAX = 1.8, STEP = 0.05, DEFAULT = 0.90;
-  const label = document.getElementById('rateLabel');
-  const minusBtn = document.getElementById('rateMinus');
-  const plusBtn = document.getElementById('ratePlus');
-
-  function apply(rate){
-    rate = Math.min(MAX, Math.max(MIN, Math.round(rate * 100) / 100));
-    readRate = rate;
-    recordedPlayer.playbackRate = rate;
-    label.textContent = Math.round(rate * 100) + '%';
-    saveSettings({ rate: rate });
-  }
-
-  const saved = loadSettings().rate;
-  apply(Number.isFinite(saved) ? saved : DEFAULT);
-
-  minusBtn.addEventListener('click', () => apply(readRate - STEP));
-  plusBtn.addEventListener('click', () => apply(readRate + STEP));
-})();
-
-// 읽어주기: 이전/다음 항목 이어 듣기 방향 (기본은 역순)
 let readAutoMode = 'prev';
-(function(){
-  const opts = [...document.querySelectorAll('#autoNextOpts .opt')];
-  function markSel(){
-    opts.forEach(b => b.classList.toggle('sel', b.dataset.automode === readAutoMode));
-  }
-  function apply(mode, save){
-    readAutoMode = mode;
-    markSel();
-    if(save) saveSettings({ autoMode: mode });
-  }
-  const saved = loadSettings();
-  var initial = 'prev';
-  if(saved.autoMode === 'prev' || saved.autoMode === 'next' || saved.autoMode === 'off'
-     || saved.autoMode === 'repeat') initial = saved.autoMode;
-  else if(typeof saved.autoNext === 'boolean' && saved.autoNext === false) initial = 'off';
-  apply(initial, false);
-  opts.forEach(b => b.addEventListener('click', () => apply(b.dataset.automode, true)));
-})();
+
+function applyCfg(c){
+  const root = document.documentElement;
+  const mix = SaSettings.mix;
+  const dark = !SaSettings.isLight(c.bg);
+  root.setAttribute('data-theme', dark ? 'dark' : 'light');
+
+  root.style.setProperty('--bg', c.bg);
+  root.style.setProperty('--ink', c.text);
+  root.style.setProperty('--surface', mix(c.bg, c.text, 0.05));
+  root.style.setProperty('--surface-2', mix(c.bg, c.text, 0.10));
+  root.style.setProperty('--border', mix(c.bg, c.text, 0.20));
+  root.style.setProperty('--muted', mix(c.bg, c.text, 0.55));
+  root.style.setProperty('--quote-bg', mix(c.bg, c.text, 0.07));
+  root.style.setProperty('--quote-border', mix(c.bg, dark ? '#d9ae72' : '#ad8248', 0.45));
+  root.style.setProperty('--quote-ink', mix(c.text, dark ? '#d9ae72' : '#8a5a2b', 0.55));
+  root.style.setProperty('--accent', dark ? '#7bb697' : '#3b6e58');
+  root.style.setProperty('--accent-ink', c.bg);
+  root.style.setProperty('--accent-warm', dark ? '#d9ae72' : '#ad8248');
+  root.style.setProperty('--focus', dark ? '#7bb697' : '#3b6e58');
+
+  root.style.setProperty('--content-size', c.size + 'px');
+  root.style.setProperty('--content-lh', String(c.lh));
+  root.style.setProperty('--content-pad', c.pad + 'px');
+  root.style.setProperty('--content-font', c.fontFamily);
+
+  readRate = c.rate;
+  readAutoMode = c.autoMode;
+  if(recordedPlayer) recordedPlayer.playbackRate = c.rate;
+  syncThemeColor();
+}
+
+SaSettings.onChange(applyCfg);
+SaSettings.init({ unit: '항목' });
 
 els.count.textContent = `총 ${DATA.length}개 항목`;
 
