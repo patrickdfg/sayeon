@@ -408,6 +408,7 @@
         <button class="opt">이전편 자동듣기</button>
         <button class="opt">다음편 자동듣기</button>
         <button class="opt">현재편만 듣기</button>
+        <button class="opt">현재편 반복듣기</button>
       </div>
     </div>
 
@@ -555,7 +556,7 @@ function loadCfg() {
   if (typeof s.font === "number" && FONTS[s.font]) cfg.font = s.font;
   if (typeof s.bg === "string") cfg.bg = s.bg;
   if (typeof s.text === "string") cfg.text = s.text;
-  if (s.autoMode === "prev" || s.autoMode === "next" || s.autoMode === "off") {
+  if (s.autoMode === "prev" || s.autoMode === "next" || s.autoMode === "off" || s.autoMode === "repeat") {
     cfg.autoMode = s.autoMode;
   } else if (typeof s.autoNext === "boolean" && s.autoNext === false) {
     cfg.autoMode = "off";
@@ -605,7 +606,7 @@ function applyCfg() {
   $("cBgHex").textContent = cfg.bg;
   markSel("fontOpts", cfg.font);
   markSel("themeOpts", themeIndex());
-  markSel("autoOpts", cfg.autoMode === "prev" ? 0 : cfg.autoMode === "next" ? 1 : 2);
+  markSel("autoOpts", cfg.autoMode === "prev" ? 0 : cfg.autoMode === "next" ? 1 : cfg.autoMode === "off" ? 2 : 3);
   storeCfg();
   syncThemeColor();
 }
@@ -1155,8 +1156,11 @@ function updateSpeakBtn() {
   btn.textContent = speaking ? "■ 정지" : ((human ? "🎙️" : "🤖") + " 듣기");
 }
 
-function advanceOrStop() {
-  if (speaking && cfg.autoMode === "next" && idx < MAL.length - 1) {
+function advanceOrStop(completed) {
+  // 끝까지 들었을 때만 되풀이한다. 파일을 못 읽어 멈춘 것이면 그대로 선다.
+  if (speaking && cfg.autoMode === "repeat" && completed) {
+    setTimeout(function () { if (speaking && cfg.autoMode === "repeat") startSpeak(); }, 700);
+  } else if (speaking && cfg.autoMode === "next" && idx < MAL.length - 1) {
     idx++;
     render(true);
     setTimeout(function () { if (speaking) startSpeak(); }, 1000);
@@ -1205,11 +1209,11 @@ player.ontimeupdate = function () {
   if (pi >= 0 && pi !== syncPi) { syncPi = pi; highlight(pi); }
 };
 
-player.onended = advanceOrStop;
-player.onerror = advanceOrStop;
+player.onended = function () { advanceOrStop(true); };
+player.onerror = function () { advanceOrStop(false); };
 
 function speakNext() {
-  if (qi >= queue.length) { advanceOrStop(); return; }
+  if (qi >= queue.length) { advanceOrStop(true); return; }
   var item = queue[qi];
   var u = new SpeechSynthesisUtterance(item.text);
   u.lang = "ko-KR";
@@ -1672,6 +1676,7 @@ $("resetAll").onclick = function () {
   bs[0].onclick = function () { cfg.autoMode = "prev"; applyCfg(); };
   bs[1].onclick = function () { cfg.autoMode = "next"; applyCfg(); };
   bs[2].onclick = function () { cfg.autoMode = "off"; applyCfg(); };
+  bs[3].onclick = function () { cfg.autoMode = "repeat"; applyCfg(); };
 })();
 
 document.onkeydown = function (e) {

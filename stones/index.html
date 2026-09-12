@@ -823,6 +823,7 @@ footer.credit{
           <button type="button" class="opt" data-automode="prev">이전 항목 이어 듣기</button>
           <button type="button" class="opt" data-automode="next">다음 항목 이어 듣기</button>
           <button type="button" class="opt" data-automode="off">현재 항목만 듣기</button>
+          <button type="button" class="opt" data-automode="repeat">현재 항목 반복 듣기</button>
         </div>
       </div>
     </div>
@@ -1280,7 +1281,9 @@ recordedPlayer.addEventListener('timeupdate', updateRecordedHighlight);
 recordedPlayer.addEventListener('loadedmetadata', updateSeekUI);
 recordedPlayer.addEventListener('ended', () => {
   if(!isReading) return;
-  if(readAutoMode === 'next' && current < DATA.length - 1){
+  if(readAutoMode === 'repeat'){
+    setTimeout(() => { if(isReading) beginReadCurrent(); }, 700);
+  }else if(readAutoMode === 'next' && current < DATA.length - 1){
     render(current + 1);
     setTimeout(beginReadCurrent, 1000);
   }else if(readAutoMode === 'prev' && current > 0){
@@ -1313,6 +1316,10 @@ function stopReading(){
 function speakNextChunk(session){
   if(session !== readSession) return;
   if(readQueueIndex >= readQueue.length){
+    if(readAutoMode === 'repeat'){
+      setTimeout(() => { if(isReading) beginReadCurrent(); }, 700);
+      return;
+    }
     if(readAutoMode === 'next' && current < DATA.length - 1){
       render(current + 1);
       beginReadCurrent();
@@ -2001,7 +2008,8 @@ let readAutoMode = 'prev';
   }
   const saved = loadSettings();
   var initial = 'prev';
-  if(saved.autoMode === 'prev' || saved.autoMode === 'next' || saved.autoMode === 'off') initial = saved.autoMode;
+  if(saved.autoMode === 'prev' || saved.autoMode === 'next' || saved.autoMode === 'off'
+     || saved.autoMode === 'repeat') initial = saved.autoMode;
   else if(typeof saved.autoNext === 'boolean' && saved.autoNext === false) initial = 'off';
   apply(initial, false);
   opts.forEach(b => b.addEventListener('click', () => apply(b.dataset.automode, true)));

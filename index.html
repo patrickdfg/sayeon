@@ -1112,7 +1112,7 @@ function advanceOrStop(completed) {
   // 녹음이나 TTS를 오류 없이 끝까지 들은 경우에도 '다 읽음'과 같이 1독 기록한다.
   // 반복듣기에서는 한 번 끝날 때마다 1회씩 올라간다.
   if (completed) recordReadCompletion();
-  if (speaking && cfg.autoMode === "repeat") {
+  if (speaking && cfg.autoMode === "repeat" && completed) {
     setTimeout(function () { if (speaking && cfg.autoMode === "repeat") startSpeak(); }, 700);
   } else if (speaking && cfg.autoMode === "next" && idx < SAYEON.length - 1) {
     idx++;
