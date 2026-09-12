@@ -1832,7 +1832,32 @@ function loadData() {
   if (!btn) return;
 
   function hidden() {
-    try { return localStorage.getItem("installHidden") === "1"; } catch (e) { return false; }
+    try {
+      return localStorage.getItem("installHidden") === "1" ||
+        localStorage.getItem("sayeon_app_installed") === "1";
+    } catch (e) { return false; }
+  }
+  function rememberInstalled() {
+    try {
+      localStorage.setItem("installHidden", "1");
+      localStorage.setItem("sayeon_app_installed", "1");
+    } catch (e) {}
+  }
+  function runningAsApp() {
+    var modes = ["standalone", "fullscreen", "minimal-ui", "window-controls-overlay"];
+    if (window.matchMedia) {
+      for (var i = 0; i < modes.length; i++) {
+        if (window.matchMedia("(display-mode: " + modes[i] + ")").matches) return true;
+      }
+    }
+    return window.navigator.standalone === true ||
+      document.referrer.indexOf("android-app://") === 0;
+  }
+
+  if (runningAsApp()) rememberInstalled();
+  if (runningAsApp() || hidden()) {
+    btn.style.display = "none";
+    return;
   }
 
   window.addEventListener("beforeinstallprompt", function (e) {
@@ -1847,13 +1872,13 @@ function loadData() {
     deferred.userChoice.then(function () {
       deferred = null;
       btn.style.display = "none";
-      try { localStorage.setItem("installHidden", "1"); } catch (e) {}
+      rememberInstalled();
     });
   };
 
   window.addEventListener("appinstalled", function () {
     btn.style.display = "none";
-    try { localStorage.setItem("installHidden", "1"); } catch (e) {}
+    rememberInstalled();
   });
 })();
 
