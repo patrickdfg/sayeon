@@ -165,7 +165,11 @@ def link_audio(no, rel_path):
     needle = ' {\n  "no": %d,\n  "title": "%s",\n' % (no, e['title'])
     if text.count(needle) != 1:
         raise SystemExit('%d 편 위치를 찾지 못했다 (%d 군데)' % (no, text.count(needle)))
-    text = text.replace(needle, needle + '  "audio": "%s",\n' % rel_path, 1)
+    # "tts": true 로 컴퓨터 목소리임을 표시한다.
+    # 뷰어는 이것으로 육성 녹음(🎙️)과 컴퓨터 목소리(🤖)를 가른다.
+    # 나중에 육성이 오면 파일을 바꿔 끼우고 이 줄을 지운다.
+    text = text.replace(
+        needle, needle + '  "audio": "%s",\n  "tts": true,\n' % rel_path, 1)
     io.open(SAYEON, 'w', encoding='utf-8', newline='').write(text)
     return True
 
