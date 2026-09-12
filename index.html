@@ -1829,9 +1829,29 @@ function loadData() {
   var closeGuideDone = document.getElementById("closeIosInstallDone");
   if (!btn) return;
 
+  function savedAsInstalled() {
+    try { return localStorage.getItem("sayeon_app_installed") === "1"; }
+    catch (e) { return false; }
+  }
+  function rememberInstalled() {
+    try { localStorage.setItem("sayeon_app_installed", "1"); } catch (e) {}
+  }
+  function runningAsApp() {
+    var modes = ["standalone", "fullscreen", "minimal-ui", "window-controls-overlay"];
+    var matched = false;
+    if (window.matchMedia) {
+      for (var i = 0; i < modes.length; i++) {
+        if (window.matchMedia("(display-mode: " + modes[i] + ")").matches) {
+          matched = true;
+          break;
+        }
+      }
+    }
+    return matched || window.navigator.standalone === true ||
+      document.referrer.indexOf("android-app://") === 0;
+  }
   function installed() {
-    return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
-      window.navigator.standalone === true;
+    return runningAsApp() || savedAsInstalled();
   }
   function iosDevice() {
     return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
@@ -1852,7 +1872,11 @@ function loadData() {
   if (closeGuideDone) closeGuideDone.onclick = hideIosGuide;
   if (guide) guide.onclick = function (e) { if (e.target === guide) hideIosGuide(); };
 
-  if (installed()) return;
+  if (runningAsApp()) rememberInstalled();
+  if (installed()) {
+    btn.style.display = "none";
+    return;
+  }
   if (iosDevice()) btn.style.display = "inline-flex";
 
   window.addEventListener("beforeinstallprompt", function (e) {
@@ -1873,12 +1897,16 @@ function loadData() {
     deferred.prompt();
     deferred.userChoice.then(function (choice) {
       deferred = null;
-      if (choice && choice.outcome === "accepted") btn.style.display = "none";
+      if (choice && choice.outcome === "accepted") {
+        rememberInstalled();
+        btn.style.display = "none";
+      }
     });
   };
 
   window.addEventListener("appinstalled", function () {
     deferred = null;
+    rememberInstalled();
     hideIosGuide();
     btn.style.display = "none";
   });
