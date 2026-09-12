@@ -1375,7 +1375,7 @@ function stopSpeak() {
 var SEARCH_SOURCES = [
   { label: "성령사연 2026", kind: "sayeon", url: "../sayeon.json", base: "../", year: "2026" },
   { label: "성령사연 2025", kind: "sayeon", url: "../sayeon2025.json", base: "../", year: "2025" },
-  { label: "월명동사연", kind: "stones", url: "../stones/stones-search.json", base: "../stones/" },
+  { label: "월명동사연", kind: "stones", url: "../stones/stones.json", base: "../stones/" },
   { label: "말씀", kind: "sayeon", url: "malsseum.json", base: "",
     local: function () { return MAL; } }
 ];
@@ -1384,7 +1384,7 @@ var SEARCH_SOURCES = [
 function gotoHit(src, h) {
   var kw = $("q").value.replace(/^\s+|\s+$/g, "");
   if (src.base === "") { idx = h.idx; findQuery = kw; closeAll(); render(); return; }
-  location.href = src.base + "#n=" + encodeURIComponent(h.item.no) +
+  location.href = src.base + "#n=" + encodeURIComponent(h.item.no || h.item.num) +
     (src.year ? "&y=" + src.year : "") + "&q=" + encodeURIComponent(kw);
 }
 
@@ -1506,8 +1506,8 @@ function gotoFind(n) {
 /* ===== 통합 검색 =====
    성령사연(2026·2025) · 월명동 · 말씀을 한 번에 찾는다.
    각 카테고리의 원본 파일을 그때그때 받아서 찾으므로, 사연을 더 넣어도 여기는 손댈 것이 없다.
-   월명동만은 사진이 통째로 들어 있어 문서가 10MB 라, 글자만 뽑아 둔
-   stones/stones-search.json 을 쓴다. (월명동 내용을 고치면 이 파일도 다시 만들어야 한다) */
+   월명동도 사진을 파일로 따로 두어 stones/stones.json 은 200KB 뿐이라,
+   그 원본을 그대로 받아 쓴다. 따로 만들어 둘 검색용 파일이 없다. */
 var SEARCH_CACHE = {};
 
 // 띄어쓰기·줄바꿈을 무시하고 찾기 위해, 공백을 뺀 문자열과 원문 위치를 함께 만든다
@@ -1523,7 +1523,12 @@ function squash(t) {
 
 // 한 항목의 본문을 통째 글자로 만든다
 function itemText(item, kind) {
-  if (kind === "stones") return item.text || "";
+  if (kind === "stones") {
+    var ss = item.sections || [], st = [], k;
+    if (item.meta) st.push(item.meta);
+    for (k = 0; k < ss.length; k++) { if (ss[k] && ss[k].text) st.push(ss[k].text); }
+    return st.join(" ");
+  }
   var out = [], ps = item.paragraphs || [], i, it, lines;
   for (i = 0; i < ps.length; i++) {
     it = ps[i];
@@ -1537,7 +1542,7 @@ function itemText(item, kind) {
 }
 
 function itemTitle(item, kind) {
-  if (kind === "stones") return item.no + ". " + item.title;
+  if (kind === "stones") return item.num + ". " + item.title;
   return item.title || (item.no + "편");
 }
 

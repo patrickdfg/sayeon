@@ -32,7 +32,7 @@ GitHub Pages 로 <https://patrickdfg.github.io/sayeon/> 에 올라간다.
 | 경로 | 내용 | 데이터 |
 | --- | --- | --- |
 | `index.html` | 성령 사연 (2026 / 2025 두 해) | `sayeon.json`, `sayeon2025.json` |
-| `stones/index.html` | 월명동 돌과 나무 이야기 | HTML 안에 들어 있음 |
+| `stones/index.html` | 월명동 돌과 나무 이야기 | `stones/stones.json` + `stones/img/` |
 | `malsseum/index.html` | 주일·수요 말씀 | `malsseum/malsseum.json` |
 
 음성 파일은 `audio/`(사연), `malsseum/audio/`(말씀)에 편 번호로 넣는다.
@@ -136,17 +136,24 @@ python make_tts.py 159             # 한 편 (여러 편은 번호를 나열, �
 
 - **검색은 세 카테고리를 한 번에 찾는다.** 각 페이지가 다른 카테고리의 JSON 을
   그때그때 받아서 찾으므로, 사연을 더 넣어도 검색 쪽은 손댈 것이 없다.
-  **단 월명동만 예외다.** `stones/index.html` 은 사진이 통째로 들어 있어 10MB 라
-  그대로 받아 쓸 수 없어서, 글자만 뽑아 둔 `stones/stones-search.json` 을 쓴다.
-  **월명동 항목을 고치거나 추가했으면 이 파일을 다시 만들어야 한다:**
+  월명동도 `stones/stones.json` 원본을 그대로 받아 쓴다. 따로 만들어 둘
+  검색용 파일은 없다.
+
+- **월명동은 글과 사진을 파일로 나눠 두었다.** `stones/index.html` 은 화면 코드만
+  가진 80KB 짜리 평범한 파일이고, 이야기는 `stones/stones.json`(200KB),
+  사진은 `stones/img/<번호>-<순서>.jpg`(75장, 7.8MB)에 있다.
+  페이지는 열릴 때 `stones.json` 을 받아 `bootStones(DATA)` 를 부른다.
+  화면 코드 전체가 그 함수 안에 들어 있으니, 손볼 때 함수 밖으로 빼지 말 것.
+
+  예전에는 사진까지 HTML 한 줄에 base64 로 박혀 있어 파일이 10.7MB 였다.
+  그러다 2026-09-12 에 도구가 파일을 읽다 잘린 채 덮어써서 52편과 사진 75장이
+  통째로 날아갔다(`2e88594` 로 되돌림). **큰 파일은 통째로 다시 쓰지 말고
+  부분만 고칠 것.** 월명동을 고친 뒤에는 항상 이렇게 확인한다:
 
   ```python
-  import re, io, json
-  src = io.open('stones/index.html', encoding='utf-8').read()
-  data = json.loads(re.search(r'^const DATA = (\[.*?\]);\s*$', src, re.M|re.S).group(1))
-  out = [{'no': d['num'], 'title': d['title'], 'text': d.get('search','')} for d in data]
-  io.open('stones/stones-search.json','w',encoding='utf-8',newline='').write(
-      json.dumps(out, ensure_ascii=False, separators=(',',':')))
+  import io, json
+  d = json.load(io.open('stones/stones.json', encoding='utf-8'))
+  print(len(d), sum(len(e.get('images', [])) for e in d))   # 52  75
   ```
 
 - **다른 카테고리 검색 결과로 넘어갈 때**는 주소 뒤에 `#n=편번호` 를 붙인다
