@@ -281,6 +281,26 @@
     border-bottom: 1px solid; border-color: rgba(147,196,165,.3);
   }
   .hit b { color: var(--green); }
+
+  /* 말씀 목록 한 줄: 날짜 + 제목, 끝에 펼치기 삼각형 */
+  .mrow { display: flex; align-items: stretch; gap: 6px; margin-bottom: 8px; }
+  .mrow .hit {
+    margin-bottom: 0; flex: 1 1 auto; min-width: 0;
+    display: flex; gap: 9px; align-items: baseline;
+    padding: 10px 12px; line-height: 1.5;   /* 목록은 줄 간격 설정을 따르지 않고 촘촘하게 */
+  }
+  .mrow .date { color: var(--green); font-weight: 700; white-space: nowrap; }
+  .mrow .mtitle {
+    flex: 1 1 auto; min-width: 0; opacity: .85;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mrow.open .hit { align-items: flex-start; }
+  .mrow.open .mtitle { white-space: normal; overflow: visible; line-height: 1.65; }
+  .mrow .more {
+    flex: 0 0 auto; width: 38px; background: var(--panel); color: var(--text);
+    border: 0; border-radius: 8px; cursor: pointer; font-size: 12px;
+    font-family: inherit; opacity: .75;
+  }
   .hit .snip { display: block; opacity: .6; font-size: 14px; margin-top: 4px; line-height: 1.6; }
 
   /* 잠금화면 */
@@ -1386,15 +1406,74 @@ function paintResults(blocks, total) {
   });
 }
 
+/* '9월 6일 주일말씀' -> '9월 6일 (주)' */
+var DAY_MARK = { "주일": "(주)", "수요": "(수)", "금요": "(금)", "토요": "(토)", "월요": "(월)" };
+function dateLabel(s, i) {
+  var m = (s.title || "").match(/^\s*(\d+월\s*\d+일)\s*(주일|수요|금요|토요|월요)?/);
+  if (!m) return fullTitle(s, i);
+  var mark = DAY_MARK[m[2]] || "";
+  return m[1] + (mark ? " " + mark : "");
+}
+
+// 말씀 제목(부제)을 한 줄로 이어 붙인다
+function subText(s) {
+  if (!s.subtitle) return "";
+  var subs = (typeof s.subtitle === "string") ? [s.subtitle] : s.subtitle;
+  return subs.join("  ");
+}
+
+var listRows = [];   // 목록을 펼쳤을 때 삼각형이 필요한지 재려고 들고 있는다
+
 function buildList() {
   var box = $("listresults");
   box.innerHTML = "";
+  listRows = [];
   for (var i = 0; i < MAL.length; i++) {
-    var btn = document.createElement("button");
-    btn.className = "hit";
-    btn.textContent = fullTitle(MAL[i], i);
-    (function (t) { btn.onclick = function () { idx = t; closeAll(); render(); }; })(i);
-    box.appendChild(btn);
+    (function (at) {
+      var s = MAL[at];
+      var row = document.createElement("div");
+      row.className = "mrow";
+
+      var btn = document.createElement("button");
+      btn.className = "hit";
+      var d = document.createElement("span");
+      d.className = "date";
+      d.textContent = dateLabel(s, at);
+      var sb = document.createElement("span");
+      sb.className = "mtitle";
+      sb.textContent = subText(s);
+      btn.appendChild(d);
+      btn.appendChild(sb);
+      btn.onclick = function () { idx = at; closeAll(); render(); };
+      row.appendChild(btn);
+
+      var more = document.createElement("button");
+      more.type = "button";
+      more.className = "more";
+      more.textContent = "▾";
+      more.setAttribute("aria-label", "제목 전체 보기");
+      more.onclick = function (e) {
+        e.stopPropagation();
+        var open = row.className.indexOf("open") < 0;
+        row.className = open ? "mrow open" : "mrow";
+        more.textContent = open ? "▴" : "▾";
+        more.setAttribute("aria-label", open ? "접기" : "제목 전체 보기");
+      };
+      row.appendChild(more);
+
+      box.appendChild(row);
+      listRows.push({ sub: sb, more: more });
+    })(i);
+  }
+}
+
+/* 한 줄에 다 들어가는 제목은 삼각형이 필요 없다.
+   목록이 보이는 상태라야 잴 수 있어서 열 때 잰다. */
+function measureList() {
+  for (var i = 0; i < listRows.length; i++) {
+    var r = listRows[i];
+    var cut = r.sub.scrollWidth > r.sub.clientWidth + 1;
+    r.more.style.visibility = cut ? "visible" : "hidden";
   }
 }
 
@@ -1450,8 +1529,9 @@ $("opensearch").onclick = function () { openModal("search"); $("q").focus(); };
 $("closeq").onclick = closeAll;
 $("q").oninput = runSearch;
 
-$("openlist").onclick = function () { openModal("listmodal"); };
-$("navlist").onclick = function () { openModal("listmodal"); };
+function openList() { openModal("listmodal"); measureList(); }
+$("openlist").onclick = openList;
+$("navlist").onclick = openList;
 $("closelist").onclick = closeAll;
 
 $("findPrev").onclick = function () { gotoFind(findAt - 1); };
