@@ -451,6 +451,8 @@ main{padding-top:28px;}
 .read-btn:focus-visible{outline:2px solid var(--accent-ink); outline-offset:2px;}
 .read-btn svg{width:14px;height:14px;flex:0 0 auto;}
 .read-btn.speaking{background:color-mix(in srgb, var(--accent-ink) 30%, transparent);}
+.read-btn.read-minus{min-width:38px;justify-content:center;padding-left:9px;padding-right:9px;font-size:1.15rem;line-height:1;}
+.read-btn:disabled{opacity:.35;cursor:default;}
 @media (prefers-reduced-motion:no-preference){
   .read-btn.speaking svg{animation:pulse 1s ease-in-out infinite;}
   @keyframes pulse{ 50%{opacity:.45;} }
@@ -967,6 +969,7 @@ function render(index){
   els.card.innerHTML = `
     <div class="card-title">
       <span class="num">${escapeHtml(it.num)}.</span><h2>${escapeHtml(it.title)}</h2>
+      <button type="button" class="read-btn read-minus" id="readCountMinus" aria-label="읽은 횟수 1회 줄이기" ${readCount === 0 ? 'disabled' : ''}>−</button>
       <button type="button" class="read-btn" id="readCountBtn" aria-label="다 읽었으면 눌러서 기록">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
         <span id="readCountLabel">${readCount > 0 ? readCount + '독' : '다 읽음'}</span>
@@ -1462,15 +1465,34 @@ function bumpReadCount(itemNum){
   try{ localStorage.setItem(readCountKey(itemNum), String(n)); }catch(e){}
   return n;
 }
+function lowerReadCount(itemNum){
+  const n = Math.max(0, getReadCount(itemNum) - 1);
+  try{
+    if(n === 0) localStorage.removeItem(readCountKey(itemNum));
+    else localStorage.setItem(readCountKey(itemNum), String(n));
+  }catch(e){}
+  return n;
+}
 
 els.card.addEventListener('click', e => {
   if(e.target.closest('#readBtn')){ toggleReading(); return; }
+  if(e.target.closest('#readCountMinus')){
+    const it = DATA[current];
+    const n = lowerReadCount(it.num);
+    const label = document.getElementById('readCountLabel');
+    const minus = document.getElementById('readCountMinus');
+    if(label) label.textContent = n > 0 ? n + '독' : '다 읽음';
+    if(minus) minus.disabled = n === 0;
+    return;
+  }
   if(e.target.closest('#readCountBtn')){
     const it = DATA[current];
     const n = bumpReadCount(it.num);
     SayeonAnalytics.trackRead('stones', it.num, it.title, null);
     const label = document.getElementById('readCountLabel');
+    const minus = document.getElementById('readCountMinus');
     if(label) label.textContent = n + '독';
+    if(minus) minus.disabled = false;
     return;
   }
   const markEl = e.target.closest('mark.hl');
