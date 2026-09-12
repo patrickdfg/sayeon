@@ -15,6 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script src="/sayeon/analytics-config.js"></script>
 <script src="/sayeon/analytics.js"></script>
+<script src="/sayeon/crypt.js"></script>
 <script src="/sayeon/settings.js"></script>
 <script>
 /* 화면이 그려지기 전에 상태바 색을 정한다.
@@ -1276,17 +1277,10 @@ function fetchSource(src, done) {
     if (have) { done(have); return; }
   }
   if (SEARCH_CACHE[src.url]) { done(SEARCH_CACHE[src.url]); return; }
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", src.url, true);
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState !== 4) return;
-    var list = [];
-    try { list = JSON.parse(xhr.responseText) || []; } catch (e) { list = []; }
-    SEARCH_CACHE[src.url] = list;
-    done(list);
-  };
-  xhr.onerror = function () { done([]); };
-  try { xhr.send(null); } catch (e) { done([]); }
+  SaCrypt.json(src.url).then(function (list) {
+    SEARCH_CACHE[src.url] = list || [];
+    done(SEARCH_CACHE[src.url]);
+  }).catch(function () { done([]); });
 }
 
 function runSearch() {
@@ -1530,27 +1524,15 @@ $("yearBtn2025").onclick = function () { switchYear("2025"); };
 
 function loadData() {
   $("total").textContent = "불러오는 중…";
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", DATA_URL + "?v=" + (new Date()).getTime(), true);
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState !== 4) return;
-    var ok = (xhr.status === 200 || xhr.status === 0);
-    if (!ok || !xhr.responseText) { showLoadError("(응답 코드 " + xhr.status + ")"); return; }
-    try {
-      SAYEON = JSON.parse(xhr.responseText);
-    } catch (e) {
-      showLoadError("(내용 형식 오류)");
-      return;
-    }
+  SaCrypt.json(DATA_URL).then(function (list) {
+    SAYEON = list || [];
     if (!SAYEON.length) { showLoadError("(내용이 비어 있음)"); return; }
     idx = SAYEON.length - 1;
     if (pendingJumpNo !== null) { jumpToNo(pendingJumpNo); pendingJumpNo = null; }
     else jumpToHashItem();
     buildList();
     render();
-  };
-  xhr.onerror = function () { showLoadError("(연결 실패)"); };
-  try { xhr.send(null); } catch (e) { showLoadError("(파일을 직접 열면 브라우저가 막습니다)"); }
+  }).catch(function () { showLoadError("(읽지 못했습니다)"); });
 }
 
 
@@ -1650,19 +1632,24 @@ function loadData() {
   });
 })();
 
-/* ===== 잠금화면 ===== */
-var PASSCODE = "7125";
+/* ===== 잠금화면 =====
+   원고는 잠겨 있고(.enc), 암호로만 풀린다. 암호는 이 파일 어디에도 없다.
+   맞는 암호인지는 내용이 풀리는지로 가린다. */
+function enter() {
+  $("lock").className = "lock hidden";
+  loadData();
+}
 
 function tryUnlock() {
-  if ($("pw").value === PASSCODE) {
-    $("lock").className = "lock hidden";
-    try { localStorage.setItem("sayeon_unlocked", "1"); } catch (e) {}
-    loadData();
-  } else {
+  var pw = $("pw").value;
+  $("pwok").disabled = true;
+  SaCrypt.unlock(pw).then(function (ok) {
+    $("pwok").disabled = false;
+    if (ok) { enter(); return; }
     $("pwwarn").style.display = "block";
     $("pw").value = "";
     $("pw").focus();
-  }
+  });
 }
 $("pwok").onclick = tryUnlock;
 $("pw").onkeydown = function (e) { if (e.keyCode === 13) tryUnlock(); };
@@ -1671,14 +1658,10 @@ loadSync();
 SaSettings.onChange(function (c) { cfg = c; applyCfg(); });
 SaSettings.init({ unit: '편' });
 
-var unlocked = false;
-try { unlocked = localStorage.getItem("sayeon_unlocked") === "1"; } catch (e) {}
-if (unlocked) {
-  $("lock").className = "lock hidden";
-  loadData();
-} else {
-  $("pw").focus();
-}
+// 한 번 넣은 기기에서는 다시 묻지 않는다
+SaCrypt.resume().then(function (ok) {
+  if (ok) enter(); else $("pw").focus();
+});
 </script>
 </body>
 </html>

@@ -9,12 +9,13 @@ import os
 import re
 import sys
 
+import crypt
 import make_tts
 
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INBOX = os.path.join(REPO, 'work-upload')
-SAYEON = os.path.join(REPO, 'sayeon.json')
+SAYEON = os.path.join(REPO, 'sayeon.json')   # 실제 파일은 sayeon.json.enc (잠겨 있다)
 
 
 def clean_line(value):
@@ -80,7 +81,7 @@ def load_job(path):
 
 
 def install_entry(entry, replace):
-    data = json.load(io.open(SAYEON, encoding='utf-8'))
+    data = crypt.read_json(SAYEON)
     matches = [index for index, item in enumerate(data) if item['no'] == entry['no']]
     if matches and not replace:
         raise ValueError('%d편이 이미 있습니다. 교체하려면 replace: true를 넣으세요.' % entry['no'])
@@ -94,8 +95,7 @@ def install_entry(entry, replace):
     else:
         data.append(entry)
         data.sort(key=lambda item: item['no'])
-    io.open(SAYEON, 'w', encoding='utf-8', newline='').write(
-        json.dumps(data, ensure_ascii=False, indent=1))
+    crypt.write_json(SAYEON, data)
 
 
 async def process(path):

@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script src="/sayeon/analytics-config.js"></script>
 <script src="/sayeon/analytics.js"></script>
+<script src="/sayeon/crypt.js"></script>
 <script src="/sayeon/settings.js"></script>
 <script>
 /* 화면이 그려지기 전에 상태바 색을 정한다.
@@ -791,7 +792,6 @@ footer.credit{
 
 <script>
 (function(){
-  const PASSCODE = '7125';
 SayeonAnalytics.trackSectionVisit('stones');
   const gate = document.getElementById('gate');
   const appEl = document.getElementById('app');
@@ -801,20 +801,21 @@ SayeonAnalytics.trackSectionVisit('stones');
   const gateBox = document.getElementById('gateBox');
 
   function unlock(){
-    localStorage.setItem('wmdUnlocked', '1');
     gate.classList.add('hidden');
     appEl.removeAttribute('inert');
+    loadStones();
   }
 
-  if(localStorage.getItem('wmdUnlocked') === '1'){
-    unlock();
-  } else {
-    setTimeout(() => gateInput.focus(), 60);
-  }
+  // 한 번 넣은 기기에서는 다시 묻지 않는다
+  SaCrypt.resume().then(function(ok){
+    if(ok) unlock(); else setTimeout(() => gateInput.focus(), 60);
+  });
 
   gateForm.addEventListener('submit', function(e){
     e.preventDefault();
-    if(gateInput.value.trim() === PASSCODE){
+    const pw = gateInput.value.trim();
+    SaCrypt.unlock(pw).then(function(ok){
+    if(ok){
       unlock();
     } else {
       gateError.textContent = '암호가 올바르지 않습니다. 다시 입력해 주세요.';
@@ -824,6 +825,7 @@ SayeonAnalytics.trackSectionVisit('stones');
       gateInput.value = '';
       gateInput.focus();
     }
+    });
   });
 })();
 
@@ -908,9 +910,19 @@ function paintSections(){
 function renderGallery(images){
   if(!images.length) return '';
   const cls = images.length === 1 ? 'gallery single' : 'gallery';
+  // 사진도 잠겨 있어 바로 붙일 수 없다. 자리만 잡아 두고 풀리는 대로 채운다.
   return `<div class="${cls}">` + images.map(src =>
-    `<figure><img src="${src}" alt="" loading="lazy"></figure>`
+    `<figure><img data-enc="${src}" alt="" loading="lazy"></figure>`
   ).join('') + `</div>`;
+}
+
+function fillGallery(){
+  els.card.querySelectorAll('img[data-enc]').forEach(img => {
+    const path = img.getAttribute('data-enc');
+    img.removeAttribute('data-enc');
+    SaCrypt.blobURL('stones/' + path).then(u => { img.src = u; })
+      .catch(() => { img.alt = '사진을 불러오지 못했습니다'; });
+  });
 }
 
 function render(index){
@@ -942,6 +954,7 @@ function render(index){
     ${renderGallery(it.images)}
     <div class="prose">${renderSections(it.sections, it.num)}</div>
   `;
+  fillGallery();
   els.prevBtn.disabled = index === 0;
   els.nextBtn.disabled = index === DATA.length - 1;
   els.prevLabel.textContent = index > 0 ? `${DATA[index-1].num}. ${DATA[index-1].title}` : '';
@@ -1612,9 +1625,9 @@ document.getElementById("findBack").addEventListener("click", () => {
    성령사연(2026·2025)·말씀 원본을 그때그때 받아서 함께 찾는다.
    내용이 늘어도 여기는 손댈 것이 없다. */
 const OTHER_SOURCES = [
-  { label:'성령사연 2026', url:'../sayeon.json',     base:'../', year:'2026' },
-  { label:'성령사연 2025', url:'../sayeon2025.json', base:'../', year:'2025' },
-  { label:'말씀',          url:'../malsseum/malsseum.json', base:'../malsseum/' }
+  { label:'성령사연 2026', url:'sayeon.json',     base:'../', year:'2026' },
+  { label:'성령사연 2025', url:'sayeon2025.json', base:'../', year:'2025' },
+  { label:'말씀',          url:'malsseum/malsseum.json', base:'../malsseum/' }
 ];
 const OTHER_CACHE = {};
 
@@ -1634,7 +1647,7 @@ function otherText(item){
 
 function fetchOther(src){
   if(OTHER_CACHE[src.url]) return Promise.resolve(OTHER_CACHE[src.url]);
-  return fetch(src.url).then(r => r.json()).then(list => {
+  return SaCrypt.json(src.url).then(list => {
     OTHER_CACHE[src.url] = list || [];
     return OTHER_CACHE[src.url];
   }).catch(() => []);
@@ -1886,23 +1899,19 @@ els.count.textContent = `총 ${DATA.length}개 항목`;
 })();
 }
 
-(function () {
-  function fail() {
+var stonesLoaded = false;
+function loadStones() {
+  if (stonesLoaded) return;
+  stonesLoaded = true;
+  SaCrypt.json('stones/stones.json').then(function (data) {
+    if (data && data.length) bootStones(data); else throw new Error('빈 내용');
+  }).catch(function () {
+    stonesLoaded = false;
     var c = document.getElementById('card');
     if (c) c.innerHTML = '<p style="padding:24px 0">이야기를 불러오지 못했습니다.' +
       ' 인터넷 연결을 확인하고 새로고침해 주세요.</p>';
-  }
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', 'stones.json', true);
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState !== 4) return;
-    var data = null;
-    try { data = JSON.parse(xhr.responseText); } catch (e) {}
-    if (data && data.length) bootStones(data); else fail();
-  };
-  xhr.onerror = fail;
-  try { xhr.send(null); } catch (e) { fail(); }
-})();
+  });
+}
 
 </script>
 </head>

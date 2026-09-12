@@ -16,6 +16,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script src="/sayeon/analytics-config.js"></script>
 <script src="/sayeon/analytics.js"></script>
+<script src="/sayeon/crypt.js"></script>
 <script src="/sayeon/settings.js"></script>
 <script>
 /* 화면이 그려지기 전에 상태바 색을 정한다.
@@ -427,7 +428,7 @@
 */
 var MAL = [];
 SayeonAnalytics.trackSectionVisit("malsseum");
-var DATA_URL = "malsseum.json";
+var DATA_URL = "malsseum/malsseum.json";   // 잠긴 원고는 뿌리에서 찾는다
 
 /* ===== 설정 =====
    설정 화면과 저장은 settings.js 한 곳에 있다(세 페이지가 같이 쓴다).
@@ -1117,10 +1118,10 @@ function stopSpeak() {
 /* ===== 검색 ===== */
 /* 어느 페이지에서든 세 카테고리를 모두 찾는다 */
 var SEARCH_SOURCES = [
-  { label: "성령사연 2026", kind: "sayeon", url: "../sayeon.json", base: "../", year: "2026" },
-  { label: "성령사연 2025", kind: "sayeon", url: "../sayeon2025.json", base: "../", year: "2025" },
-  { label: "월명동사연", kind: "stones", url: "../stones/stones.json", base: "../stones/" },
-  { label: "말씀", kind: "sayeon", url: "malsseum.json", base: "",
+  { label: "성령사연 2026", kind: "sayeon", url: "sayeon.json", base: "../", year: "2026" },
+  { label: "성령사연 2025", kind: "sayeon", url: "sayeon2025.json", base: "../", year: "2025" },
+  { label: "월명동사연", kind: "stones", url: "stones/stones.json", base: "../stones/" },
+  { label: "말씀", kind: "sayeon", url: "malsseum/malsseum.json", base: "",
     local: function () { return MAL; } }
 ];
 
@@ -1297,17 +1298,10 @@ function fetchSource(src, done) {
     if (have) { done(have); return; }
   }
   if (SEARCH_CACHE[src.url]) { done(SEARCH_CACHE[src.url]); return; }
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", src.url, true);
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState !== 4) return;
-    var list = [];
-    try { list = JSON.parse(xhr.responseText) || []; } catch (e) { list = []; }
-    SEARCH_CACHE[src.url] = list;
-    done(list);
-  };
-  xhr.onerror = function () { done([]); };
-  try { xhr.send(null); } catch (e) { done([]); }
+  SaCrypt.json(src.url).then(function (list) {
+    SEARCH_CACHE[src.url] = list || [];
+    done(SEARCH_CACHE[src.url]);
+  }).catch(function () { done([]); });
 }
 
 function runSearch() {
@@ -1542,26 +1536,14 @@ function showLoadError(msg) {
 
 function loadData() {
   $("total").textContent = "불러오는 중…";
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", DATA_URL + "?v=" + (new Date()).getTime(), true);
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState !== 4) return;
-    var ok = (xhr.status === 200 || xhr.status === 0);
-    if (!ok || !xhr.responseText) { showLoadError("(응답 코드 " + xhr.status + ")"); return; }
-    try {
-      MAL = JSON.parse(xhr.responseText);
-    } catch (e) {
-      showLoadError("(내용 형식 오류)");
-      return;
-    }
+  SaCrypt.json(DATA_URL).then(function (list) {
+    MAL = list || [];
     if (!MAL.length) { showLoadError("(내용이 비어 있음)"); return; }
     idx = MAL.length - 1;
     jumpToHashItem();
     buildList();
     render();
-  };
-  xhr.onerror = function () { showLoadError("(연결 실패)"); };
-  try { xhr.send(null); } catch (e) { showLoadError("(파일을 직접 열면 브라우저가 막습니다)"); }
+  }).catch(function () { showLoadError("(읽지 못했습니다)"); });
 }
 
 
@@ -1626,18 +1608,21 @@ function loadData() {
 })();
 
 /* ===== 잠금화면 ===== */
-var PASSCODE = "7125";
+function enter() {
+  $("lock").className = "lock hidden";
+  loadData();
+}
 
 function tryUnlock() {
-  if ($("pw").value === PASSCODE) {
-    $("lock").className = "lock hidden";
-    try { localStorage.setItem("sayeon_unlocked", "1"); } catch (e) {}
-    loadData();
-  } else {
+  var pw = $("pw").value;
+  $("pwok").disabled = true;
+  SaCrypt.unlock(pw).then(function (ok) {
+    $("pwok").disabled = false;
+    if (ok) { enter(); return; }
     $("pwwarn").style.display = "block";
     $("pw").value = "";
     $("pw").focus();
-  }
+  });
 }
 $("pwok").onclick = tryUnlock;
 $("pw").onkeydown = function (e) { if (e.keyCode === 13) tryUnlock(); };
@@ -1646,14 +1631,10 @@ loadSync();
 SaSettings.onChange(function (c) { cfg = c; applyCfg(); });
 SaSettings.init({ unit: '편' });
 
-var unlocked = false;
-try { unlocked = localStorage.getItem("sayeon_unlocked") === "1"; } catch (e) {}
-if (unlocked) {
-  $("lock").className = "lock hidden";
-  loadData();
-} else {
-  $("pw").focus();
-}
+// 한 번 넣은 기기에서는 다시 묻지 않는다
+SaCrypt.resume().then(function (ok) {
+  if (ok) enter(); else $("pw").focus();
+});
 </script>
 </body>
 </html>

@@ -20,6 +20,9 @@ permissions:
   contents: write
   pages: write
 
+env:
+  SAYEON_PASS: ${{ secrets.SAYEON_PASS }}
+
 # 원고 자동 게시와 같은 줄에 세워 둔다. 둘이 동시에 main 을 밀지 않게.
 concurrency:
   group: work-upload-main
@@ -40,7 +43,7 @@ jobs:
           python-version: '3.12'
 
       - name: 현수 TTS 설치
-        run: python -m pip install --disable-pip-version-check edge-tts==7.2.7 imageio-ffmpeg==0.6.0 mutagen==1.47.0
+        run: python -m pip install --disable-pip-version-check edge-tts==7.2.7 imageio-ffmpeg==0.6.0 mutagen==1.47.0 cryptography==46.0.3
 
       - name: 몇 편 만들지 정하기
         id: plan
@@ -51,8 +54,10 @@ jobs:
           fi
           echo "count=${COUNT:-0}" >> "$GITHUB_OUTPUT"
           python - <<'PY'
-          import io, json
-          data = json.load(io.open('sayeon.json', encoding='utf-8'))
+          import sys, os
+          sys.path.insert(0, 'tools')
+          import crypt
+          data = crypt.read_json(os.path.join(crypt.REPO, 'sayeon.json'))
           left = [e['no'] for e in data if not e.get('audio')]
           print('음성 없는 편 %d 개: %s' % (len(left), left))
           PY
@@ -77,15 +82,15 @@ jobs:
           rm -f work-upload/tts/request.json
           git config user.name "sayeon-publisher[bot]"
           git config user.email "sayeon-publisher[bot]@users.noreply.github.com"
-          git add -A sayeon.json audio work-upload
+          git add -A sayeon.json.enc audio work-upload
           if git diff --cached --quiet; then
             echo "새로 만든 음성이 없습니다."
             exit 0
           fi
-          python -m json.tool sayeon.json > /dev/null
+          python -c "import sys;sys.path.insert(0,'tools');import crypt,os;crypt.read_json(os.path.join(crypt.REPO,'sayeon.json'))"
           python -m json.tool audio/sync.json > /dev/null
           test -z "$(find audio -type f -size +99M -print -quit)"
-          LEFT=$(python -c "import io,json;print(sum(1 for e in json.load(io.open('sayeon.json',encoding='utf-8')) if not e.get('audio')))")
+          LEFT=$(python -c "import sys,os;sys.path.insert(0,'tools');import crypt;print(sum(1 for e in crypt.read_json(os.path.join(crypt.REPO,'sayeon.json')) if not e.get('audio')))")
           git commit -m "성령사연 현수 음성 생성 (남은 편 ${LEFT})"
           git pull --rebase origin main
           git push origin main
@@ -106,8 +111,10 @@ jobs:
         if: always()
         run: |
           python - <<'PY'
-          import io, json
-          data = json.load(io.open('sayeon.json', encoding='utf-8'))
+          import sys, os
+          sys.path.insert(0, 'tools')
+          import crypt
+          data = crypt.read_json(os.path.join(crypt.REPO, 'sayeon.json'))
           left = [e['no'] for e in data if not e.get('audio')]
           print('아직 음성 없는 편 %d 개: %s' % (len(left), left))
           PY

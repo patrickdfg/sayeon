@@ -24,12 +24,13 @@ import subprocess
 import sys
 import tempfile
 
+import crypt
 import edge_tts
 import imageio_ffmpeg
 from mutagen.mp3 import MP3
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SAYEON = os.path.join(REPO, 'sayeon.json')
+SAYEON = os.path.join(REPO, 'sayeon.json')   # 실제 파일은 sayeon.json.enc (잠겨 있다)
 SYNC = os.path.join(REPO, 'audio', 'sync.json')
 VOICE = 'ko-KR-HyunsuMultilingualNeural'     # 현수(남자). 선희(여자)는 ko-KR-SunHiNeural
 
@@ -157,8 +158,7 @@ def link_audio(no, rel_path):
 
     통째로 다시 쓰지 않고 문자열만 갈아 끼워, diff 가 그 한 줄만 바뀌게 한다.
     """
-    with io.open(SAYEON, encoding='utf-8') as f:
-        text = f.read()
+    text = crypt.read_text(SAYEON)
     e = [x for x in json.loads(text) if x['no'] == no][0]
     if e.get('audio'):
         return False
@@ -170,7 +170,7 @@ def link_audio(no, rel_path):
     # 나중에 육성이 오면 파일을 바꿔 끼우고 이 줄을 지운다.
     text = text.replace(
         needle, needle + '  "audio": "%s",\n  "tts": true,\n' % rel_path, 1)
-    io.open(SAYEON, 'w', encoding='utf-8', newline='').write(text)
+    crypt.write_text(SAYEON, text)
     return True
 
 
@@ -181,7 +181,7 @@ async def main(args):
         limit = int(args[at + 1])
         args = args[:at] + args[at + 2:]
 
-    data = json.load(io.open(SAYEON, encoding='utf-8'))
+    data = crypt.read_json(SAYEON)
     by_no = {x['no']: x for x in data}
     targets = ([x['no'] for x in data if not x.get('audio')]
                if args == ['--all'] else [int(a) for a in args])

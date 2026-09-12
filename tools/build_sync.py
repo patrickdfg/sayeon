@@ -14,6 +14,7 @@ import sys
 import time
 
 import align
+import crypt
 
 REPO = '..'          # tools/ 에서 실행한다
 CACHE = '../.seg_cache'          # 받아쓴 결과를 편별로 남겨 둔다 (다시 돌릴 때 아낀다)
@@ -36,7 +37,7 @@ def main(model_size='base'):
         sync = {}
         if os.path.exists(out):
             sync = json.load(io.open(out, encoding='utf-8'))
-        data = json.load(io.open(os.path.join(base, src), encoding='utf-8'))
+        data = crypt.read_json(os.path.join(base, src))
         targets = [e for e in data if e.get('audio')]
         print('%s: 육성 %d편' % (src, len(targets)))
 

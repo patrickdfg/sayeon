@@ -29,3 +29,10 @@ Work가 작업표 하나를 올리면 GitHub Actions가 자동으로 다음을 �
 이미 있는 편을 의도적으로 교체할 때만 `"replace": true`를 추가한다. 현재 자동
 파이프라인은 2026년 성령사연을 지원한다. 말씀과 월명동은 기존 자료 구조와 이미지
 처리가 서로 달라 별도 작업표 형식으로 확장한다.
+
+## 암호
+
+원고는 잠겨서(`sayeon.json.enc`) 올라간다. GitHub Actions 가 이것을 열려면
+저장소 비밀값 `SAYEON_PASS` 가 있어야 한다
+(Settings → Secrets and variables → Actions → New repository secret).
+이 값이 없으면 자동 게시가 "암호를 찾지 못했습니다" 로 멈춘다.

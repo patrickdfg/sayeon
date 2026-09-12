@@ -153,6 +153,29 @@ python make_tts.py 159             # 한 편 (여러 편은 번호를 나열, �
 - **녹음이 원고와 안 맞으면 정렬이 실패한다.** 실제로 그렇게 해서 `audio/152.m4a` 가
   152편이 아니라 153편 낭독이었음을 찾아냈다. 정렬 실패는 대개 파일이 잘못 들어간 신호다.
 
+- **원고와 사진은 잠겨 있다.** 저장소가 공개라, 예전에는 주소만 알면
+  암호창을 거치지 않고 `sayeon.json` 을 그대로 받아 볼 수 있었다.
+  이제 `.enc` 만 올라간다:
+
+  | 잠긴 것 | 안 잠근 것 |
+  | --- | --- |
+  | `sayeon.json.enc`, `sayeon2025.json.enc` | 음성 (`audio/*.mp3`, `*.m4a`) |
+  | `malsseum/malsseum.json.enc` | 문단 시간표 (`*/sync.json`) — 숫자뿐이다 |
+  | `stones/stones.json.enc`, `stones/img/*.enc` | 화면 코드(HTML·JS) |
+
+  - 브라우저는 `crypt.js`, 도구는 `tools/crypt.py` 로 푼다. 방식은 같다
+    (PBKDF2-SHA256 20만 번 → AES-GCM, 소금과 반복수는 `crypt.json`).
+  - **암호는 어디에도 적혀 있지 않다.** 맞는지는 `check.enc` 가 풀리는지로 가린다.
+  - **도구를 돌릴 때는 환경변수 `SAYEON_PASS` 에 암호를 넣어야 한다.**
+    깃허브 일꾼은 저장소 비밀값(Settings → Secrets → Actions → `SAYEON_PASS`)에서 받는다.
+    이것이 없으면 원고를 못 열어 자동 게시가 멈춘다.
+  - 잠그기 전 파일은 `.gitignore` 에 넣어 두었다. 실수로 올리지 않게 하기 위함이다.
+  - 처음 잠글 때만 `SAYEON_PASS=암호 python encrypt_content.py` 를 돌렸다.
+    그 뒤로는 도구들이 잠근 채로 읽고 쓴다.
+  - **암호는 짧을수록 약하다.** 네 자리는 만 가지뿐이라 마음먹으면 한 시간 안에
+    다 넣어 볼 수 있다. 길게 바꾸려면 새 암호로 `encrypt_content.py` 를 다시 돌리고
+    저장소 비밀값도 같이 바꾼다.
+
 - **자료 파일은 캐시를 우회해서 받는다.** `sayeon.json`·`sync.json` 같은 자료는
   주소 뒤에 `?v=시각` 을 붙여 받는다. 안 붙이면 새 편을 올려도 폰에 옛것이 남아
   "목록엔 뜨는데 스크롤은 안 따라가는" 일이 생긴다.

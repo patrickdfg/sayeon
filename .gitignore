@@ -1,2 +1,10 @@
 .seg_cache/
 __pycache__/
+
+# 잠그기 전 원고·사진은 올리지 않는다 (.enc 만 올린다)
+/sayeon.json
+/sayeon2025.json
+/malsseum/malsseum.json
+/stones/stones.json
+/stones/img/*.jpg
+/stones/img/*.png
