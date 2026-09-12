@@ -280,6 +280,46 @@
     cursor: pointer; font-family: inherit; min-height: 46px;
   }
   .lockwarn { color: #d8837f; font-size: 14px; margin-top: 12px; display: none; }
+
+  /* 아이폰 Safari 홈 화면 설치 안내 */
+  .install-guide {
+    position: fixed; inset: 0; z-index: 80; display: flex;
+    align-items: flex-end; justify-content: center;
+    background: rgba(0,0,0,.58); padding: 18px 14px calc(18px + env(safe-area-inset-bottom));
+  }
+  .install-guide.hidden { display: none; }
+  .install-sheet {
+    width: 100%; max-width: 440px; max-height: calc(100vh - 36px); overflow-y: auto;
+    background: var(--bg); color: var(--text); border: 1px solid rgba(255,255,255,.14);
+    border-radius: 20px; padding: 20px 18px 18px;
+    box-shadow: 0 18px 60px rgba(0,0,0,.45);
+  }
+  .install-sheet-head { display: flex; align-items: flex-start; gap: 12px; }
+  .install-sheet-title { flex: 1; font-size: 20px; font-weight: 800; line-height: 1.35; }
+  .install-close {
+    flex: 0 0 auto; width: 38px; height: 38px; border: 0; border-radius: 50%;
+    background: var(--panel); color: var(--text); font-size: 22px; line-height: 1;
+    cursor: pointer;
+  }
+  .install-sheet-desc { margin: 8px 0 16px; opacity: .72; font-size: 14px; }
+  .install-steps { display: grid; gap: 10px; }
+  .install-step {
+    display: flex; align-items: center; gap: 12px; padding: 12px;
+    background: var(--panel); border-radius: 12px; font-size: 15px; line-height: 1.55;
+  }
+  .install-step-num {
+    flex: 0 0 30px; width: 30px; height: 30px; display: grid; place-items: center;
+    border-radius: 50%; background: var(--green); color: #14180f; font-weight: 800;
+  }
+  .install-share-hint {
+    margin-top: 14px; padding: 12px; text-align: center; border-radius: 12px;
+    border: 1px solid rgba(147,196,165,.45); color: var(--green); font-weight: 700;
+  }
+  .install-share-icon { font-size: 25px; vertical-align: -2px; margin: 0 3px; }
+  .install-done {
+    width: 100%; margin-top: 14px; min-height: 48px; border: 0; border-radius: 10px;
+    background: var(--green); color: #14180f; font: 700 16px var(--font); cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -311,6 +351,23 @@
     <button class="topbtn" id="opensettings">⚙ 설정</button>
     <button class="topbtn" id="opensearch">🔍 검색</button>
     <button class="topbtn" id="installBtn" style="display:none">📲 앱 설치</button>
+  </div>
+
+  <div class="install-guide hidden" id="iosInstallGuide" role="dialog" aria-modal="true" aria-labelledby="iosInstallTitle">
+    <div class="install-sheet">
+      <div class="install-sheet-head">
+        <div class="install-sheet-title" id="iosInstallTitle">아이폰 홈 화면에 추가</div>
+        <button class="install-close" id="closeIosInstall" type="button" aria-label="설치 안내 닫기">×</button>
+      </div>
+      <p class="install-sheet-desc">이 성령 사연 화면을 그대로 둔 채 아래 순서대로 눌러 주세요.</p>
+      <div class="install-steps">
+        <div class="install-step"><span class="install-step-num">1</span><span>Safari의 <b>공유</b> 버튼 <span class="install-share-icon">□↑</span>을 누릅니다.</span></div>
+        <div class="install-step"><span class="install-step-num">2</span><span>공유 메뉴를 위로 올려 <b>홈 화면에 추가</b>를 누릅니다.</span></div>
+        <div class="install-step"><span class="install-step-num">3</span><span><b>웹 앱으로 열기</b>를 켜고 오른쪽 위 <b>추가</b>를 누릅니다.</span></div>
+      </div>
+      <div class="install-share-hint">↓ 화면 아래의 <span class="install-share-icon">□↑</span> 공유 버튼</div>
+      <button class="install-done" id="closeIosInstallDone" type="button">확인했어요</button>
+    </div>
   </div>
 
   <div class="total" id="total"></div>
@@ -1767,6 +1824,9 @@ function loadData() {
 (function () {
   var deferred = null;
   var btn = document.getElementById("installBtn");
+  var guide = document.getElementById("iosInstallGuide");
+  var closeGuide = document.getElementById("closeIosInstall");
+  var closeGuideDone = document.getElementById("closeIosInstallDone");
   if (!btn) return;
 
   function installed() {
@@ -1777,6 +1837,20 @@ function loadData() {
     return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   }
+  function showIosGuide() {
+    if (!guide) return;
+    guide.className = "install-guide";
+    document.body.style.overflow = "hidden";
+  }
+  function hideIosGuide() {
+    if (!guide) return;
+    guide.className = "install-guide hidden";
+    document.body.style.overflow = "";
+  }
+
+  if (closeGuide) closeGuide.onclick = hideIosGuide;
+  if (closeGuideDone) closeGuideDone.onclick = hideIosGuide;
+  if (guide) guide.onclick = function (e) { if (e.target === guide) hideIosGuide(); };
 
   if (installed()) return;
   if (iosDevice()) btn.style.display = "inline-flex";
@@ -1790,7 +1864,7 @@ function loadData() {
   btn.onclick = function () {
     if (!deferred) {
       if (iosDevice()) {
-        alert("아이폰 설치 방법\n\n1. 아래의 공유 버튼(□↑)을 누르세요.\n2. ‘홈 화면에 추가’를 누르세요.\n3. ‘웹 앱으로 열기’를 켜고 ‘추가’를 누르세요.\n\n지금 보고 있는 성령사연 화면에서 바로 추가해야 합니다.");
+        showIosGuide();
         return;
       }
       window.location.href = "install.html";
@@ -1805,6 +1879,7 @@ function loadData() {
 
   window.addEventListener("appinstalled", function () {
     deferred = null;
+    hideIosGuide();
     btn.style.display = "none";
   });
 })();
