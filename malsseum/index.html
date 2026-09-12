@@ -282,14 +282,16 @@
   }
   .hit b { color: var(--green); }
 
-  /* 말씀 목록: 날짜 + 말씀 제목. 제목이 길면 줄을 바꿔 다 보여 준다 */
+  /* 말씀 목록: 날짜에 이어 말씀 제목을 죽 쓴다.
+     줄이 넘어가면 날짜 밑까지 써서 폭을 다 쓴다. */
   .mrow { margin-bottom: 8px; }
   .mrow .hit {
-    margin-bottom: 0; display: flex; gap: 9px; align-items: flex-start;
-    padding: 10px 12px; line-height: 1.55;  /* 목록은 줄 간격 설정을 따르지 않고 촘촘하게 */
+    margin-bottom: 0; padding: 10px 13px;
+    line-height: 1.6;              /* 목록은 줄 간격 설정을 따르지 않고 촘촘하게 */
+    word-break: keep-all;          /* 낱말 가운데서 끊기지 않게 */
   }
-  .mrow .date { color: var(--green); font-weight: 700; white-space: nowrap; }
-  .mrow .mtitle { flex: 1 1 auto; min-width: 0; opacity: .85; word-break: keep-all; }
+  .mrow .date { color: var(--green); font-weight: 700; white-space: nowrap; margin-right: 8px; }
+  .mrow .mtitle { opacity: .85; }
   .hit .snip { display: block; opacity: .6; font-size: 14px; margin-top: 4px; line-height: 1.6; }
 
   /* 잠금화면 */
@@ -1429,7 +1431,7 @@ function buildList() {
       t.className = "mtitle";
       t.textContent = subText(s);
       btn.appendChild(d);
-      btn.appendChild(t);
+      btn.appendChild(t);   // 이어 붙여 한 덩어리 글로 흐르게 한다
       btn.onclick = function () { idx = at; closeAll(); render(); };
 
       row.appendChild(btn);
