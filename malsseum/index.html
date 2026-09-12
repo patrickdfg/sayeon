@@ -115,6 +115,8 @@
   .speakbtn.human { background: var(--gold); color: #2a2200; }
   .speakbtn.human.on { background: #2a2200; color: var(--gold); }
   .speakbtn.readcount.done { background: #14180f; color: var(--green); }
+  .speakbtn.readminus { min-width: 40px; padding-left: 11px; padding-right: 11px; font-size: 21px; line-height: 1; }
+  .speakbtn:disabled { opacity: .35; cursor: default; }
   @media (max-width: 420px) {
     .card-head { gap: 6px; padding: 12px 12px; }
     .card-head .t { font-size: 17px; }
@@ -335,6 +337,7 @@
     <div class="card-head">
       <div class="t"><span id="ctitle"></span></div>
       <div class="card-head-actions">
+        <button class="speakbtn readminus" id="readCountMinus" type="button" aria-label="읽은 횟수 1회 줄이기" disabled>−</button>
         <button class="speakbtn readcount" id="readCountBtn" type="button" aria-label="다 읽었으면 눌러서 기록">다 읽음</button>
         <button class="speakbtn" id="speak">🔊 듣기</button>
       </div>
@@ -664,6 +667,14 @@ function bumpReadCount(epNum) {
   try { localStorage.setItem(readCountKey(epNum), String(n)); } catch (e) {}
   return n;
 }
+function lowerReadCount(epNum) {
+  var n = Math.max(0, getReadCount(epNum) - 1);
+  try {
+    if (n === 0) localStorage.removeItem(readCountKey(epNum));
+    else localStorage.setItem(readCountKey(epNum), String(n));
+  } catch (e) {}
+  return n;
+}
 
 function hlKey(epNum) { return "malHl_" + epNum; }
 function getHighlights(epNum) {
@@ -952,6 +963,7 @@ function render(keepSpeaking) {
   var rc = getReadCount(epNum);
   $("readCountBtn").textContent = rc > 0 ? rc + "독" : "다 읽음";
   $("readCountBtn").classList.toggle("done", rc > 0);
+  $("readCountMinus").disabled = rc === 0;
   buildLegend(s);
   var body = $("body");
   body.innerHTML = "";
@@ -1680,6 +1692,15 @@ $("readCountBtn").onclick = function () {
   SayeonAnalytics.trackRead("malsseum", epNum, fullTitle(s, idx), "2026");
   $("readCountBtn").textContent = n + "독";
   $("readCountBtn").classList.add("done");
+  $("readCountMinus").disabled = false;
+};
+$("readCountMinus").onclick = function () {
+  var s = MAL[idx];
+  if (!s) return;
+  var n = lowerReadCount(numOf(s, idx));
+  $("readCountBtn").textContent = n > 0 ? n + "독" : "다 읽음";
+  $("readCountBtn").classList.toggle("done", n > 0);
+  $("readCountMinus").disabled = n === 0;
 };
 
 $("opensettings").onclick = function () { openModal("settings"); };
@@ -1791,6 +1812,7 @@ function showLoadError(msg) {
   $("prev").disabled = true;
   $("next").disabled = true;
   $("speak").disabled = true;
+  $("readCountMinus").disabled = true;
   $("readCountBtn").disabled = true;
   $("openlist").disabled = true;
   $("navlist").disabled = true;
