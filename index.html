@@ -1091,7 +1091,7 @@ function updateMediaSession(playing) {
 
 function updateSpeakBtn() {
   var s = SAYEON[idx];
-  var human = !!(s && s.audio);
+  var human = !!(s && s.audio && !s.tts);   // 컴퓨터 목소리는 육성이 아니다
   var btn = $("speak");
   btn.className = "speakbtn" + (human ? " human" : "") + (speaking ? " on" : "");
   btn.textContent = speaking ? "■ 정지" : ((human ? "🎙️" : "🤖") + " 듣기");

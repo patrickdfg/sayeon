@@ -8757,6 +8757,7 @@
   "no": 155,
   "title": "성령 사연 155",
   "audio": "audio/155.mp3",
+  "tts": true,
   "paragraphs": [
    {
     "h": "<성공하는 자>"
@@ -9155,6 +9156,7 @@
   "no": 159,
   "title": "성령 사연 159",
   "audio": "audio/159.mp3",
+  "tts": true,
   "paragraphs": [
    [
     "성령의 소리이다.",
@@ -9289,6 +9291,7 @@
   "no": 160,
   "title": "성령 사연 160",
   "audio": "audio/160.mp3",
+  "tts": true,
   "paragraphs": [
    [
     "오늘도 잘들 지냈느냐.",
@@ -9399,6 +9402,7 @@
   "no": 161,
   "title": "성령 사연 161",
   "audio": "audio/161.mp3",
+  "tts": true,
   "paragraphs": [
    [
     "섭리사 모두 하나님 말씀하신 것 듣기 전에는",
@@ -9477,6 +9481,7 @@
   "no": 162,
   "title": "성령 사연 162",
   "audio": "audio/162.mp3",
+  "tts": true,
   "paragraphs": [
    [
     "선생이다."
@@ -9593,6 +9598,7 @@
   "no": 163,
   "title": "성령 사연 163",
   "audio": "audio/163.mp3",
+  "tts": true,
   "paragraphs": [
    [
     "우리가 말씀을 들으면",

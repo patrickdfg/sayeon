@@ -79,6 +79,14 @@ python make_tts.py 159             # 한 편 (여러 편은 번호를 나열, �
 ```
 
 - 목소리는 `tools/make_tts.py` 의 `VOICE` 로 바꾼다.
+- **아직 음성이 없는 편을 한꺼번에 만들려면** 깃허브 Actions 의
+  "성령사연 남은 편 음성 만들기" 를 돌린다(`.github/workflows/make-tts-all.yml`).
+  편 수를 넣어 나눠 돌릴 수도 있고, `work-upload/tts/request.json` 을 올려도 돈다.
+  한 편 끝날 때마다 `sayeon.json` 에 바로 연결되므로 중간에 멈춰도
+  만든 편은 남고, 다시 돌리면 남은 편부터 이어서 만든다.
+- **컴퓨터 목소리로 만든 편에는 `"tts": true` 가 붙는다.** 뷰어는 이것으로
+  육성 녹음(🎙️)과 컴퓨터 목소리(🤖)를 가른다. 나중에 육성이 오면
+  파일을 바꿔 끼우고 이 줄을 지운다.
   현수(남자) `ko-KR-HyunsuMultilingualNeural` — 지금 쓰는 것.
   선희(여자) `ko-KR-SunHiNeural`, 인준(남자) `ko-KR-InJoonNeural`.
 - 육성 녹음과 똑같이 **제목을 먼저 읽고** 본문으로 들어간다.

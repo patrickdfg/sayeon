@@ -1,0 +1,113 @@
+name: 성령사연 남은 편 음성 만들기
+
+# 아직 음성이 없는 편을 현수 목소리(Edge TTS)로 만들어 붙인다.
+# Actions 탭에서 직접 돌리거나, work-upload/tts/request.json 을 올리면 돈다.
+# 한 편 끝날 때마다 sayeon.json 에 바로 연결되므로, 중간에 멈춰도
+# 이미 만든 편은 남고 다시 돌리면 남은 편부터 이어서 만든다.
+
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: '이번에 만들 편 수 (0 이면 남은 편 전부)'
+        required: false
+        default: '0'
+  push:
+    paths:
+      - 'work-upload/tts/request.json'
+
+permissions:
+  contents: write
+  pages: write
+
+# 원고 자동 게시와 같은 줄에 세워 둔다. 둘이 동시에 main 을 밀지 않게.
+concurrency:
+  group: work-upload-main
+  cancel-in-progress: false
+
+jobs:
+  tts:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 현수 TTS 설치
+        run: python -m pip install --disable-pip-version-check edge-tts==7.2.7 imageio-ffmpeg==0.6.0 mutagen==1.47.0
+
+      - name: 몇 편 만들지 정하기
+        id: plan
+        run: |
+          COUNT="${{ github.event.inputs.count }}"
+          if [ -z "$COUNT" ] && [ -f work-upload/tts/request.json ]; then
+            COUNT=$(python -c "import io,json;print(json.load(io.open('work-upload/tts/request.json',encoding='utf-8')).get('count',0))")
+          fi
+          echo "count=${COUNT:-0}" >> "$GITHUB_OUTPUT"
+          python - <<'PY'
+          import io, json
+          data = json.load(io.open('sayeon.json', encoding='utf-8'))
+          left = [e['no'] for e in data if not e.get('audio')]
+          print('음성 없는 편 %d 개: %s' % (len(left), left))
+          PY
+
+      - name: 현수 목소리로 음성 만들기
+        id: make
+        continue-on-error: true
+        run: |
+          for try in 1 2 3; do
+            if python tools/make_tts.py --all --limit ${{ steps.plan.outputs.count }}; then
+              exit 0
+            fi
+            echo "::warning::중간에 멈췄습니다. 만든 편은 건너뛰고 다시 시도합니다 ($try/3)"
+            sleep 30
+          done
+          echo "::warning::세 번 시도해도 끝내지 못했습니다. 만들어 둔 편까지만 저장합니다."
+          exit 1
+
+      - name: 결과를 main 에 저장
+        if: always()
+        run: |
+          rm -f work-upload/tts/request.json
+          git config user.name "sayeon-publisher[bot]"
+          git config user.email "sayeon-publisher[bot]@users.noreply.github.com"
+          git add -A sayeon.json audio work-upload
+          if git diff --cached --quiet; then
+            echo "새로 만든 음성이 없습니다."
+            exit 0
+          fi
+          python -m json.tool sayeon.json > /dev/null
+          python -m json.tool audio/sync.json > /dev/null
+          test -z "$(find audio -type f -size +99M -print -quit)"
+          LEFT=$(python -c "import io,json;print(sum(1 for e in json.load(io.open('sayeon.json',encoding='utf-8')) if not e.get('audio')))")
+          git commit -m "성령사연 현수 음성 생성 (남은 편 ${LEFT})"
+          git pull --rebase origin main
+          git push origin main
+
+      - name: GitHub Pages 다시 배포
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail-with-body --retry 3 \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/builds"
+
+      - name: 남은 편이 있으면 알린다
+        if: always()
+        run: |
+          python - <<'PY'
+          import io, json
+          data = json.load(io.open('sayeon.json', encoding='utf-8'))
+          left = [e['no'] for e in data if not e.get('audio')]
+          print('아직 음성 없는 편 %d 개: %s' % (len(left), left))
+          PY

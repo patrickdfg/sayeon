@@ -9,6 +9,7 @@
     python make_tts.py 159               # 한 편
     python make_tts.py 159 161 162       # 여러 편
     python make_tts.py --all             # 음성 없는 편 전부
+    python make_tts.py --all --limit 40  # 그중 앞에서 40 편만
     문단 시간표도 동시에 생성한다. 육성 녹음만 build_sync.py로 맞춘다.
 
 육성 녹음과 같이 제목("성령 사연 159")을 먼저 읽고 본문으로 들어간다.
@@ -170,10 +171,18 @@ def link_audio(no, rel_path):
 
 
 async def main(args):
+    limit = 0
+    if '--limit' in args:
+        at = args.index('--limit')
+        limit = int(args[at + 1])
+        args = args[:at] + args[at + 2:]
+
     data = json.load(io.open(SAYEON, encoding='utf-8'))
     by_no = {x['no']: x for x in data}
     targets = ([x['no'] for x in data if not x.get('audio')]
                if args == ['--all'] else [int(a) for a in args])
+    if limit:
+        targets = targets[:limit]
 
     print('만들 편: %d 개' % len(targets))
     for no in targets:
