@@ -50,10 +50,16 @@ def build_text(e):
     parts = [e['title']]
     paragraph_indexes = []
     for p in e.get('paragraphs', []):
-        body = ' '.join(lines_of(p)).strip()
-        # 짧은 한 음절 질문인 '왜?'는 현수 TTS에서 음높이가 튀는 경우가 있어
-        # 화면 원문은 유지하고 음성에서만 자연스러운 연결어로 읽는다.
-        body = body.replace('왜?', '왜냐하면,')
+        spoken_lines = []
+        for line in lines_of(p):
+            line = line.strip().replace('왜?', '왜냐하면,')
+            # 화면 원문은 그대로 두고, 음성에서만 줄 끝의 쉼을 조금 늘린다.
+            # 이미 문장부호가 있으면 중복해서 붙이지 않는다.
+            if line and line[-1] not in '.!?…。,”’)]}〉》':
+                line += '.'
+            if line:
+                spoken_lines.append(line)
+        body = '\n'.join(spoken_lines)
         if body:
             paragraph_indexes.append(len(parts))
             parts.append(body)
