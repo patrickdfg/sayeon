@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b2018">
+<title>2026년 말씀</title>
+<style>
+html,body{width:100%;height:100%;margin:0;background:#1b2018;overflow:hidden}
+iframe{display:block;width:100%;height:100%;border:0;background:#1b2018}
+</style>
+</head>
+<body>
+<iframe id="malsseumFrame" title="2026년 말씀"></iframe>
+<script>
+(function(){
+  var frame=document.getElementById('malsseumFrame');
+  frame.src='/malsseum/'+(location.hash||'');
+  frame.addEventListener('load',function(){
+    try{
+      var url=new URL(frame.contentWindow.location.href);
+      if(url.pathname.indexOf('/malsseum/')===0)return;
+      location.replace(url.pathname+url.search+url.hash);
+    }catch(e){}
+  });
+})();
+</script>
+</body>
+</html>
