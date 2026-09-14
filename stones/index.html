@@ -1,0 +1,1954 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<!-- 홈 화면에 추가했을 때 앱처럼 보이게 -->
+<link rel="manifest" href="../manifest.json">
+<meta name="theme-color" content="#1b2018">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png?v=4">
+<link rel="icon" href="../icons/icon-192.png?v=4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<script src="/sayeon/analytics-config.js"></script>
+<script src="/sayeon/analytics.js"></script>
+<script src="/sayeon/crypt.js"></script>
+<script src="/sayeon/settings.js"></script>
+<script>
+/* 화면이 그려지기 전에 상태바 색을 정한다.
+   브라우저가 이 색을 보고 상태바 글자(시계·배터리) 색을 정한다. */
+(function () {
+  try {
+    var bg = '#1b2018';
+    try {
+      var saved = JSON.parse(localStorage.getItem('siteSettings') || '{}');
+      if (typeof saved.bg === 'string') bg = saved.bg;
+    } catch (e) {}
+    var v = bg.replace('#', '');
+    var light = (parseInt(v.slice(0, 2), 16) * 299 + parseInt(v.slice(2, 4), 16) * 587 +
+                 parseInt(v.slice(4, 6), 16) * 114) / 1000 > 140;
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute('content', bg);
+    var ios = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (ios) ios.setAttribute('content', light ? 'default' : 'black');
+  } catch (e) {}
+})();
+</script>
+<meta name="apple-mobile-web-app-title" content="월명동 돌과 나무 이야기">
+<title>월명동 돌과 나무 이야기</title>
+<style>
+:root{
+  --bg:#f5f1e8;
+  --surface:#ffffff;
+  --surface-2:#efe9d9;
+  --border:#dcd3be;
+  --ink:#2a2823;
+  --muted:#726c5e;
+  --accent:#3b6e58;
+  --accent-ink:#ffffff;
+  --accent-warm:#ad8248;
+  --quote-bg:#fbf6ec;
+  --quote-border:#d8c7a1;
+  --quote-ink:#6b4a2f;
+  --focus:#3b6e58;
+  --shadow: 0 1px 2px rgba(40,35,20,.06), 0 8px 24px -12px rgba(40,35,20,.18);
+  --content-size:16px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1b1f1b;
+    --surface:#242920;
+    --surface-2:#2b3126;
+    --border:#3a4032;
+    --ink:#ede8da;
+    --muted:#a6a08e;
+    --accent:#7bb697;
+    --accent-ink:#12241c;
+    --accent-warm:#d9ae72;
+    --quote-bg:#2a2c22;
+    --quote-border:#4a4632;
+    --quote-ink:#e3c894;
+    --focus:#7bb697;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px -12px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1b1f1b;
+  --surface:#242920;
+  --surface-2:#2b3126;
+  --border:#3a4032;
+  --ink:#ede8da;
+  --muted:#a6a08e;
+  --accent:#7bb697;
+  --accent-ink:#12241c;
+  --accent-warm:#d9ae72;
+  --quote-bg:#2a2c22;
+  --quote-border:#4a4632;
+  --quote-ink:#e3c894;
+  --focus:#7bb697;
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px -12px rgba(0,0,0,.5);
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"Noto Sans KR", "Malgun Gothic", sans-serif;
+  min-height:100%;
+  -webkit-font-smoothing:antialiased;
+  /* 전체화면으로 열면 상태바가 사라지므로 노치에 가리지 않게 안전 여백을 둔다 */
+  padding-top:env(safe-area-inset-top);
+  padding-left:env(safe-area-inset-left);
+  padding-right:env(safe-area-inset-right);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.eyebrow{
+  font-family:"Noto Sans KR", sans-serif;
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--accent-warm);
+}
+h1,h2,h3{ text-wrap:balance; font-family:"Nanum Myeongjo", "Noto Serif KR", serif; }
+
+a{color:inherit;}
+button{font-family:inherit;}
+
+.app{
+  max-width:920px;
+  margin:0 auto;
+  padding:0 20px 64px;
+}
+
+header.top{
+  border-bottom:1px solid var(--border);
+}
+.top-inner{
+  max-width:920px;
+  margin:0 auto;
+  padding:20px 20px 16px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  flex-wrap:wrap;
+}
+.brand h1{
+  margin:0;
+  font-size:1.35rem;
+  font-weight:700;
+  letter-spacing:.01em;
+}
+/* 성령사연 / 월명동사연 / 말씀 이동 탭 */
+.tabs{ display:flex; gap:8px; flex-wrap:wrap; }
+.topbar{ display:flex; gap:8px; flex-wrap:wrap; }
+.tab{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding:8px 16px;
+  font-size:.86rem;
+  color:var(--ink);
+  text-decoration:none;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.tab:hover{ border-color:var(--accent); color:var(--accent); }
+.tab.on{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:var(--accent-ink);
+  font-weight:700;
+  cursor:default;
+}
+.tab.on:hover{ color:var(--accent-ink); }
+.brand .count{
+  font-size:.82rem;
+  color:var(--muted);
+  font-variant-numeric:tabular-nums;
+}
+
+
+.topbtn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding:6px 14px;
+  font-size:.82rem;
+  color:var(--ink);
+  cursor:pointer;
+  white-space:nowrap;
+}
+.topbtn:hover{ border-color:var(--accent); color:var(--accent); }
+.topbtn:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
+
+.drawer-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:80;
+  background:rgba(20,18,12,.4);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease;
+}
+.drawer-backdrop.open{opacity:1; pointer-events:auto;}
+
+.drawer{
+  position:fixed;
+  left:0; right:0; top:0;
+  z-index:90;
+  max-width:920px;
+  margin:0 auto;
+  background:var(--surface);
+  border-bottom-left-radius:18px;
+  border-bottom-right-radius:18px;
+  box-shadow:var(--shadow);
+  transform:translateY(-100%);
+  transition:transform .22s ease;
+  display:flex;
+  flex-direction:column;
+  max-height:85vh;
+}
+.drawer.open{transform:translateY(0);}
+.drawer-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:16px 16px 10px;
+}
+.drawer-head input[type="search"]{
+  flex:1;
+  padding:11px 14px 11px 38px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:var(--bg);
+  color:var(--ink);
+  font-size:.95rem;
+  outline:none;
+  transition:border-color .15s ease, box-shadow .15s ease;
+  background-image:none;
+}
+.drawer-search-wrap{position:relative; flex:1;}
+.drawer-search-wrap svg{
+  position:absolute;
+  left:12px;
+  top:50%;
+  transform:translateY(-50%);
+  width:16px;
+  height:16px;
+  color:var(--muted);
+  pointer-events:none;
+}
+.drawer-head input[type="search"]:focus{
+  border-color:var(--focus);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--focus) 22%, transparent);
+}
+.drawer-close{
+  flex:0 0 auto;
+  width:38px;
+  height:38px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--muted);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.drawer-close:hover{border-color:var(--accent); color:var(--accent);}
+mark.find{ background:#ffd54a; color:#2a2823; border-radius:2px; }
+mark.find.cur{ background:#ff9330; box-shadow:0 0 0 2px rgba(255,147,48,.45); }
+.findbar{
+  position:fixed; left:50%; transform:translateX(-50%); bottom:16px;
+  z-index:70; display:none; align-items:center; gap:6px;
+  background:var(--surface); border:1px solid var(--border); border-radius:999px;
+  padding:6px 8px 6px 14px; box-shadow:var(--shadow); max-width:calc(100% - 24px);
+}
+.findbar .w{
+  font-weight:700; color:var(--accent); font-size:.82rem;
+  max-width:32vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.findbar .c{ color:var(--muted); font-size:.76rem; white-space:nowrap; }
+.findbar button{
+  width:34px; height:34px; border:0; border-radius:50%;
+  background:var(--surface-2); color:var(--ink);
+  font-size:.9rem; cursor:pointer; flex:0 0 auto;
+}
+.other-cat{
+  margin:14px 12px 6px;
+  padding-bottom:4px;
+  font-size:.78rem;
+  font-weight:700;
+  color:var(--accent);
+  border-bottom:1px solid var(--border);
+}
+.drawer-list{
+  overflow-y:auto;
+  padding:4px 0 10px;
+}
+.drawer-list button{
+  display:flex;
+  width:100%;
+  gap:10px;
+  align-items:baseline;
+  text-align:left;
+  padding:11px 20px;
+  background:none;
+  border:none;
+  border-bottom:1px solid var(--border);
+  color:var(--ink);
+  cursor:pointer;
+  font-size:.92rem;
+}
+.drawer-list button:last-child{border-bottom:none;}
+.drawer-list button:hover,
+.drawer-list button:focus-visible,
+.drawer-list button[aria-selected="true"]{
+  background:var(--surface-2);
+  outline:none;
+}
+.drawer-list button.current{color:var(--accent); font-weight:700;}
+.drawer-list .num{
+  font-variant-numeric:tabular-nums;
+  color:var(--accent-warm);
+  font-weight:700;
+  flex:0 0 auto;
+}
+.drawer-list .snip{
+  color:var(--muted);
+  font-size:.78rem;
+  display:block;
+  margin-top:2px;
+}
+.drawer-list .empty{
+  padding:16px 20px;
+  color:var(--muted);
+  font-size:.85rem;
+}
+
+/* 설정 모달 (목록 드로어와 같은 배경/패널 톤을 공유) */
+.modal-panel{
+  position:fixed;
+  left:0; right:0; top:0;
+  z-index:90;
+  max-width:920px;
+  margin:0 auto;
+  background:var(--surface);
+  border-bottom-left-radius:18px;
+  border-bottom-right-radius:18px;
+  box-shadow:var(--shadow);
+  transform:translateY(-100%);
+  transition:transform .22s ease;
+  display:flex;
+  flex-direction:column;
+  max-height:85vh;
+}
+.modal-panel.open{transform:translateY(0);}
+.modal-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:16px 20px 6px;
+}
+.modal-head h2{
+  flex:1;
+  margin:0;
+  font-size:1.1rem;
+}
+.modal-body{
+  overflow-y:auto;
+  padding:8px 20px 22px;
+}
+.set-row{margin-bottom:20px;}
+.set-row .set-label{
+  font-size:.82rem;
+  color:var(--muted);
+  margin-bottom:8px;
+}
+.opts{display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+.opt{
+  background:var(--surface-2);
+  color:var(--ink);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:9px 14px;
+  font-size:.86rem;
+  cursor:pointer;
+}
+.opt.sel{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:700;}
+.stepper{display:flex; align-items:center; gap:10px;}
+.rnd{
+  width:38px; height:38px; border-radius:50%; border:1px solid var(--border);
+  background:var(--surface-2); color:var(--ink); font-size:1.1rem; cursor:pointer;
+}
+.rnd:hover{border-color:var(--accent); color:var(--accent);}
+.stepper-val{
+  min-width:56px; text-align:center; font-weight:700; color:var(--accent-warm);
+  font-variant-numeric:tabular-nums; font-size:.92rem;
+}
+
+main{padding-top:28px;}
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+
+.card-title{
+  background:var(--accent);
+  color:var(--accent-ink);
+  padding:22px 28px;
+  display:flex;
+  align-items:baseline;
+  gap:7px;
+}
+.card-title .num{
+  font-family:"Nanum Myeongjo","Noto Serif KR",serif;
+  font-size:1.1rem;
+  opacity:.82;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;          /* '21-4.' 가 줄 사이에서 쪼개지지 않게 */
+}
+.card-title h2{
+  margin:0;
+  font-size:1.5rem;
+  line-height:1.3;
+  flex:1 1 auto;
+  word-break:keep-all;         /* '원리' 처럼 낱말 가운데서 끊기지 않게 */
+}
+/* 제목이 길어 두 줄로 넘칠 때만 한 단계씩 줄인다 (fitTitle 이 입힌다) */
+.card-title h2.t-sm{font-size:1.26rem;}
+.card-title h2.t-xs{font-size:1.08rem;}
+.card-title h2.t-xxs{font-size:.96rem;}
+.read-btn{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:5px 9px;
+  border-radius:999px;
+  border:1px solid color-mix(in srgb, var(--accent-ink) 45%, transparent);
+  background:color-mix(in srgb, var(--accent-ink) 14%, transparent);
+  color:var(--accent-ink);
+  font-size:.74rem;
+  font-family:"Noto Sans KR", sans-serif;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.read-btn:hover{background:color-mix(in srgb, var(--accent-ink) 24%, transparent);}
+.read-btn:focus-visible{outline:2px solid var(--accent-ink); outline-offset:2px;}
+.read-btn svg{width:12px;height:12px;flex:0 0 auto;}
+.read-btn.speaking{background:color-mix(in srgb, var(--accent-ink) 30%, transparent);}
+.read-btn.read-minus{min-width:24px;justify-content:center;padding-left:5px;padding-right:5px;font-size:1rem;line-height:1;}
+.read-btn:disabled{opacity:.35;cursor:default;}
+@media (prefers-reduced-motion:no-preference){
+  .read-btn.speaking svg{animation:pulse 1s ease-in-out infinite;}
+  @keyframes pulse{ 50%{opacity:.45;} }
+}
+.seekwrap{
+  display:none;
+  align-items:center;
+  gap:10px;
+  padding:10px 28px 0;
+}
+.seekwrap.show{display:flex;}
+.seekwrap input[type=range]{
+  flex:1;
+  accent-color:var(--accent);
+  height:4px;
+  cursor:pointer;
+}
+.seektime{
+  font-size:.78rem;
+  color:var(--muted);
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+}
+@media (max-width:640px){
+  .seekwrap{padding:10px 12px 0;}
+}
+.card-meta{
+  padding:10px 28px 0;
+  color:var(--muted);
+  font-size:.86rem;
+  font-style:italic;
+}
+
+.gallery{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+  padding:20px 28px 4px;
+}
+.gallery.single{grid-template-columns:1fr;}
+.gallery.single img{max-height:520px;object-fit:contain;}
+.gallery figure{
+  margin:0;
+  border:1px solid var(--border);
+  border-radius:10px;
+  overflow:hidden;
+  background:var(--surface-2);
+}
+.gallery img{
+  display:block;
+  width:100%;
+  height:auto;
+}
+
+.prose{
+  padding:22px calc(10px + var(--content-pad, 18px)) 30px;
+  font-family:var(--content-font, inherit);
+}
+.prose h3{
+  margin:22px 0 8px;
+  font-size:1.08rem;
+  color:var(--accent);
+  border-bottom:2px solid var(--accent);
+  padding-bottom:6px;
+}
+.prose h3:first-child{margin-top:2px;}
+.prose p{
+  margin:0 0 14px;
+  line-height:var(--content-lh, 1.85);
+  font-size:var(--content-size);
+}
+.prose .li{
+  margin:0 0 6px 4px;
+  padding-left:1.1em;
+  text-indent:-1.1em;
+  line-height:var(--content-lh, 1.75);
+  font-size:var(--content-size);
+}
+.prose blockquote{
+  margin:16px 0;
+  padding:14px 18px;
+  background:var(--quote-bg);
+  border:1px solid var(--quote-border);
+  border-radius:10px;
+  color:var(--quote-ink);
+  font-weight:700;
+  font-size:calc(var(--content-size) * 0.98);
+  line-height:1.7;
+  text-align:center;
+}
+.prose [data-si].reading{
+  background:rgba(147,196,165,.28);
+  border-radius:4px;
+}
+
+/* 하이라이트 (문단을 드래그해서 칠하고, 칠한 부분을 다시 누르면 지워진다) */
+mark.hl{
+  cursor:pointer;
+  border-radius:3px;
+  padding:.05em .1em;
+  color:#2a2823;
+}
+mark.hl-1{ background:#ffe08a; }
+mark.hl-2{ background:#9fe0b8; }
+mark.hl-3{ background:#a7c8f5; }
+
+.hl-toolbar{
+  position:fixed;
+  z-index:120;
+  display:none;
+  align-items:center;
+  gap:6px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding:6px;
+  box-shadow:var(--shadow);
+}
+.hl-swatch{
+  width:26px;
+  height:26px;
+  border-radius:50%;
+  border:2px solid var(--surface);
+  box-shadow:0 0 0 1px var(--border);
+  cursor:pointer;
+  padding:0;
+}
+.hl-swatch.hl-1{background:#ffe08a;}
+.hl-swatch.hl-2{background:#9fe0b8;}
+.hl-swatch.hl-3{background:#a7c8f5;}
+.hl-swatch:hover{transform:scale(1.1);}
+
+.pager{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:18px 4px 0;
+}
+.pager button{
+  flex:1;
+  padding:12px 16px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--ink);
+  cursor:pointer;
+  font-size:.88rem;
+  text-align:left;
+  transition:border-color .15s ease, background .15s ease;
+}
+.pager button:hover{border-color:var(--accent);}
+.pager button:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
+.pager button.next{text-align:right;}
+.pager button.mid{flex:0 0 84px; text-align:center;}
+.pager button .lbl{display:block;color:var(--muted);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px;}
+.pager button:disabled{opacity:.35;cursor:default;}
+
+footer.credit{
+  text-align:center;
+  color:var(--muted);
+  font-size:.78rem;
+  padding:34px 0 0;
+}
+
+@media (prefers-reduced-motion:no-preference){
+  .card{animation:rise .25s ease;}
+  @keyframes rise{
+    from{opacity:0; transform:translateY(6px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+}
+
+.gate{
+  position:fixed;
+  inset:0;
+  z-index:1000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--bg);
+  padding:20px;
+}
+.gate.hidden{display:none;}
+.gate-box{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  box-shadow:var(--shadow);
+  padding:36px 32px;
+  max-width:360px;
+  width:100%;
+  text-align:center;
+}
+.gate-box .eyebrow{display:block;margin-bottom:10px;}
+.gate-box h2{margin:0 0 6px;font-size:1.3rem;}
+.gate-box p{margin:0 0 22px;color:var(--muted);font-size:.88rem;}
+.gate-box input{
+  width:100%;
+  padding:13px 14px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:var(--bg);
+  color:var(--ink);
+  font-size:1.25rem;
+  text-align:center;
+  letter-spacing:.35em;
+  outline:none;
+  font-variant-numeric:tabular-nums;
+}
+.gate-box input:focus{
+  border-color:var(--focus);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--focus) 22%, transparent);
+}
+.gate-box button{
+  margin-top:14px;
+  width:100%;
+  padding:12px;
+  border-radius:10px;
+  border:none;
+  background:var(--accent);
+  color:var(--accent-ink);
+  font-size:.95rem;
+  font-weight:700;
+  cursor:pointer;
+}
+.gate-box button:hover{filter:brightness(1.06);}
+.gate-box button:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
+.gate-error{color:#b3462c;font-size:.82rem;margin-top:12px;min-height:1.2em;}
+@media (prefers-reduced-motion:no-preference){
+  .gate-box.shake{animation:shake .35s;}
+  @keyframes shake{
+    10%,90%{transform:translateX(-2px);}
+    20%,80%{transform:translateX(4px);}
+    30%,50%,70%{transform:translateX(-8px);}
+    40%,60%{transform:translateX(8px);}
+  }
+}
+
+@media (max-width: 640px){
+  .app{padding:0 8px 40px;}
+  .top-inner{padding:14px 8px 12px;}
+  .card{
+    border-left:none;
+    border-right:none;
+    border-radius:0;
+    box-shadow:none;
+  }
+  .card-title{padding:16px 12px; gap:5px;}
+  .card-title h2{font-size:1.25rem;}
+  .card-title h2.t-sm{font-size:1.08rem;}
+  .card-title h2.t-xs{font-size:.94rem;}
+  .card-title h2.t-xxs{font-size:.85rem;}
+  .read-btn{padding:4px 7px; font-size:.7rem; gap:3px;}
+  .read-btn svg{width:11px;height:11px;}
+  .read-btn.read-minus{min-width:21px;padding-left:4px;padding-right:4px;}
+  .card-meta{padding:8px 12px 0;}
+  .gallery{padding:14px 8px 4px; gap:6px;}
+  .prose{padding:16px 12px 22px;}
+  .pager{padding:14px 4px 0; gap:8px;}
+  .pager button{padding:11px 12px;}
+  .gate-box{padding:28px 20px;}
+}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+
+<div class="gate" id="gate">
+  <div class="gate-box" id="gateBox">
+    <span class="eyebrow">비공개 자료실</span>
+    <h2>암호를 입력해 주세요</h2>
+    <p>월명동 돌과 나무 이야기는 암호를 아는 분만 열람할 수 있습니다.</p>
+    <form id="gateForm" autocomplete="off">
+      <input type="password" inputmode="numeric" pattern="[0-9]*" id="gateInput" maxlength="12" autocomplete="off" placeholder="암호" aria-label="암호 입력">
+      <button type="submit">입장하기</button>
+      <div class="gate-error" id="gateError" role="alert"></div>
+    </form>
+  </div>
+</div>
+
+<div class="app" id="app" inert>
+  <header class="top">
+    <div class="top-inner">
+      <nav class="tabs">
+        <a class="tab" href="../">성령사연</a>
+        <span class="tab on" aria-current="page">월명동사연</span>
+        <a class="tab" href="/malsseum/">말씀</a>
+      </nav>
+      <div class="brand">
+        <h1>월명동 돌과 나무 이야기</h1>
+        <span class="count" id="countLabel"></span>
+      </div>
+      <div class="topbar">
+        <button type="button" class="topbtn" id="topListBtn">📋 목록</button>
+        <button type="button" class="topbtn" id="topSettingsBtn">⚙ 설정</button>
+        <button type="button" class="topbtn" id="topSearchBtn">🔍 검색</button>
+        <button type="button" class="topbtn" id="installBtn" style="display:none">📲 앱 설치</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="card" id="card"></div>
+    <div class="pager">
+      <button type="button" id="prevBtn"><span class="lbl">이전</span><span id="prevLabel"></span></button>
+      <button type="button" id="pagerListBtn" class="mid">목록</button>
+      <button type="button" id="nextBtn" class="next"><span class="lbl">다음</span><span id="nextLabel"></span></button>
+    </div>
+    <footer class="credit">사파이어 교육부 · 월명동 자연성전 돌·나무 이야기 자료실</footer>
+  </main>
+
+  <audio id="silentAnchor" loop playsinline preload="auto" src="data:audio/wav;base64,UklGRmQfAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAfAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA=="></audio>
+<div class="hl-toolbar" id="hlToolbar" role="menu" aria-label="하이라이트 색 선택">
+    <button type="button" class="hl-swatch hl-1" data-c="1" aria-label="노란색으로 칠하기"></button>
+    <button type="button" class="hl-swatch hl-2" data-c="2" aria-label="초록색으로 칠하기"></button>
+    <button type="button" class="hl-swatch hl-3" data-c="3" aria-label="파란색으로 칠하기"></button>
+  </div>
+
+  <div class="findbar" id="findBar">
+    <span class="w" id="findWord"></span>
+    <span class="c" id="findCount"></span>
+    <button type="button" id="findBack" aria-label="검색 결과로 돌아가기">↩</button>
+    <button type="button" id="findPrev" aria-label="이전 낱말">▲</button>
+    <button type="button" id="findNext" aria-label="다음 낱말">▼</button>
+    <button type="button" id="findClose" aria-label="찾기 끝내기">✕</button>
+  </div>
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <div class="drawer" id="drawer" role="dialog" aria-label="돌·나무 검색 및 목록">
+    <div class="drawer-head">
+      <div class="drawer-search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="search" id="search" placeholder="성령사연·월명동·말씀 전체 검색" autocomplete="off" aria-label="돌·나무 검색">
+      </div>
+      <button type="button" class="drawer-close" id="drawerClose" aria-label="닫기">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="drawer-list" id="drawerList" role="listbox"></div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+SayeonAnalytics.trackSectionVisit('stones');
+  const gate = document.getElementById('gate');
+  const appEl = document.getElementById('app');
+  const gateForm = document.getElementById('gateForm');
+  const gateInput = document.getElementById('gateInput');
+  const gateError = document.getElementById('gateError');
+  const gateBox = document.getElementById('gateBox');
+
+  function unlock(){
+    gate.classList.add('hidden');
+    appEl.removeAttribute('inert');
+    loadStones();
+  }
+
+  // 한 번 넣은 기기에서는 다시 묻지 않는다
+  SaCrypt.resume().then(function(ok){
+    if(ok) unlock(); else setTimeout(() => gateInput.focus(), 60);
+  });
+
+  gateForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    const pw = gateInput.value.trim();
+    SaCrypt.unlock(pw).then(function(ok){
+    if(ok){
+      unlock();
+    } else {
+      gateError.textContent = '암호가 올바르지 않습니다. 다시 입력해 주세요.';
+      gateBox.classList.remove('shake');
+      void gateBox.offsetWidth;
+      gateBox.classList.add('shake');
+      gateInput.value = '';
+      gateInput.focus();
+    }
+    });
+  });
+})();
+
+
+/* 이야기와 사진 목록은 stones.json 에 따로 두었다.
+   예전에는 이 파일 안에 사진까지 통째로 들어 있어 10MB가 넘었고,
+   코드를 조금 고치다 파일이 잘리면 내용이 전부 날아갔다.
+   이제 받아서 화면을 짠다. */
+function bootStones(DATA) {
+
+const els = {
+  card: document.getElementById('card'),
+  main: document.getElementById('main'),
+  search: document.getElementById('search'),
+  count: document.getElementById('countLabel'),
+  prevBtn: document.getElementById('prevBtn'),
+  nextBtn: document.getElementById('nextBtn'),
+  prevLabel: document.getElementById('prevLabel'),
+  nextLabel: document.getElementById('nextLabel'),
+  drawer: document.getElementById('drawer'),
+  drawerBackdrop: document.getElementById('drawerBackdrop'),
+  drawerClose: document.getElementById('drawerClose'),
+  drawerList: document.getElementById('drawerList'),
+  topListBtn: document.getElementById('topListBtn'),
+  topSettingsBtn: document.getElementById('topSettingsBtn'),
+  topSearchBtn: document.getElementById('topSearchBtn'),
+  pagerListBtn: document.getElementById('pagerListBtn'),
+  hlToolbar: document.getElementById('hlToolbar'),
+};
+
+let current = 0;
+let activeResult = -1;
+const RECORDED_AUDIO = {"1":"audio/1.mp3","2":"audio/2.mp3","3":"audio/3.mp3","4":"audio/4.mp3","5":"audio/5.mp3","6":"audio/6.mp3","7":"audio/7.mp3","8":"audio/8.mp3","9":"audio/9.mp3","10":"audio/10.mp3","11":"audio/11.mp3","12":"audio/12.mp3","13":"audio/13.mp3","14":"audio/14.mp3","15":"audio/15.mp3","16":"audio/16.mp3","17":"audio/17.mp3","18":"audio/18.mp3","19":"audio/19.mp3","20":"audio/20.mp3","21":"audio/21.mp3","21-1":"audio/21-1.mp3","21-2":"audio/21-2.mp3","21-3":"audio/21-3.mp3","21-4":"audio/21-4.mp3","21-5":"audio/21-5.mp3","21-6":"audio/21-6.mp3","22":"audio/22.mp3","23":"audio/23.mp3","24":"audio/24.mp3","25":"audio/25.mp3","26":"audio/26.mp3","27":"audio/27.mp3","28":"audio/28.mp3","29":"audio/29.mp3","30":"audio/30.mp3","31":"audio/31.mp3","32":"audio/32.mp3","33":"audio/33.mp3","34":"audio/34.mp3","35":"audio/35.mp3","36":"audio/36.mp3","37":"audio/37.mp3","38":"audio/38.mp3","39":"audio/39.mp3","40":"audio/40.mp3","41":"audio/41.mp3","42":"audio/42.mp3","43":"audio/43.mp3","44":"audio/44.mp3","45":"audio/45.mp3","46":"audio/46.mp3"};
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ===== 하이라이트 (문단 드래그로 칠하기, 3색, 항목별로 이 브라우저에만 저장) =====
+function hlKey(itemNum){ return 'wmdHl_' + itemNum; }
+function getHighlights(itemNum){
+  try{ return JSON.parse(localStorage.getItem(hlKey(itemNum)) || '[]'); }catch(e){ return []; }
+}
+function setHighlights(itemNum, list){
+  try{ localStorage.setItem(hlKey(itemNum), JSON.stringify(list)); }catch(e){}
+}
+
+function sectionHtmlWithHighlights(text, hls){
+  if(!hls.length) return escapeHtml(text);
+  const sorted = hls.slice().sort((a,b) => a.start - b.start);
+  let out = '', pos = 0;
+  for(const h of sorted){
+    if(h.start < pos) continue; // 겹치는 항목은 이미 처리된 것으로 보고 건너뛴다
+    out += escapeHtml(text.slice(pos, h.start));
+    out += `<mark class="hl hl-${h.color}" data-si="${h.si}" data-start="${h.start}" data-end="${h.end}">${escapeHtml(text.slice(h.start, h.end))}</mark>`;
+    pos = h.end;
+  }
+  out += escapeHtml(text.slice(pos));
+  return out;
+}
+
+function renderSections(sections, itemNum){
+  const hls = getHighlights(itemNum);
+  let html = '';
+  sections.forEach((s, si) => {
+    const mine = hls.filter(h => h.si === si);
+    const inner = sectionHtmlWithHighlights(s.text, mine);
+    if(s.type === 'h') html += `<h3 data-si="${si}">${inner}</h3>`;
+    else if(s.type === 'quote') html += `<blockquote data-si="${si}">${inner}</blockquote>`;
+    else if(s.type === 'li') html += `<p class="li" data-si="${si}">${inner}</p>`;
+    else html += `<p data-si="${si}">${inner}</p>`;
+  });
+  return html;
+}
+
+function paintSections(){
+  const it = DATA[current];
+  const prose = els.card.querySelector('.prose');
+  if(prose) prose.innerHTML = renderSections(it.sections, it.num);
+}
+
+function renderGallery(images){
+  if(!images.length) return '';
+  const cls = images.length === 1 ? 'gallery single' : 'gallery';
+  // 사진도 잠겨 있어 바로 붙일 수 없다. 자리만 잡아 두고 풀리는 대로 채운다.
+  return `<div class="${cls}">` + images.map(src =>
+    `<figure><img data-enc="${src}" alt="" loading="lazy"></figure>`
+  ).join('') + `</div>`;
+}
+
+/* 제목이 두 줄로 넘치면 글자를 한 단계씩 줄여 본다.
+   글자 수로 가리지 않고 실제로 넘치는지를 보므로, 화면 너비가 달라져도 맞는다. */
+function fitTitle(){
+  const h2 = els.card.querySelector('.card-title h2');
+  if(!h2) return;
+  const steps = ['t-sm', 't-xs', 't-xxs'];
+  h2.classList.remove.apply(h2.classList, steps);
+  for(const step of steps){
+    const line = parseFloat(getComputedStyle(h2).lineHeight);
+    if(h2.getBoundingClientRect().height <= line * 1.4) return;   // 한 줄이면 그만
+    h2.classList.remove.apply(h2.classList, steps);
+    h2.classList.add(step);
+  }
+}
+
+function fillGallery(){
+  els.card.querySelectorAll('img[data-enc]').forEach(img => {
+    const path = img.getAttribute('data-enc');
+    img.removeAttribute('data-enc');
+    SaCrypt.blobURL('stones/' + path).then(u => { img.src = u; })
+      .catch(() => { img.alt = '사진을 불러오지 못했습니다'; });
+  });
+}
+
+function render(index){
+  stopReading();
+  hideHlToolbar();
+  current = index;
+  const it = DATA[index];
+  const readCount = getReadCount(it.num);
+  const hasRecording = !!RECORDED_AUDIO[String(it.num)];
+  SayeonAnalytics.trackPage('stones', it.num, it.title, null);
+  els.card.innerHTML = `
+    <div class="card-title">
+      <span class="num">${escapeHtml(it.num)}.</span><h2>${escapeHtml(it.title)}</h2>
+      <button type="button" class="read-btn read-minus" id="readCountMinus" aria-label="읽은 횟수 1회 줄이기" ${readCount === 0 ? 'disabled' : ''}>−</button>
+      <button type="button" class="read-btn" id="readCountBtn" aria-label="다 읽었으면 눌러서 기록">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <span id="readCountLabel">${readCount > 0 ? readCount + '독' : '읽음'}</span>
+      </button>
+      <button type="button" class="read-btn" id="readBtn" aria-pressed="false" aria-label="이 항목 읽어주기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M16 8.5a5 5 0 0 1 0 7"/><path d="M19 6a9 9 0 0 1 0 12"/></svg>
+        <span id="readBtnLabel">듣기</span>
+      </button>
+    </div>
+    <div class="seekwrap" id="seekWrap">
+      <input type="range" id="seekRange" min="0" max="1000" value="0" step="1" aria-label="재생 위치">
+      <span class="seektime" id="seekTime"></span>
+    </div>
+    ${it.meta ? `<div class="card-meta">${escapeHtml(it.meta)}</div>` : ''}
+    ${renderGallery(it.images)}
+    <div class="prose">${renderSections(it.sections, it.num)}</div>
+  `;
+  fillGallery();
+  fitTitle();
+  els.prevBtn.disabled = index === 0;
+  els.nextBtn.disabled = index === DATA.length - 1;
+  els.prevLabel.textContent = index > 0 ? `${DATA[index-1].num}. ${DATA[index-1].title}` : '';
+  els.nextLabel.textContent = index < DATA.length - 1 ? `${DATA[index+1].num}. ${DATA[index+1].title}` : '';
+  els.card.scrollIntoView({block:'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+  closeDrawer();
+  SaSettings.close();
+  applyFind();
+}
+
+
+/* ===== 홈 화면에 추가 =====
+   안드로이드 크롬은 설치할 수 있을 때 beforeinstallprompt 를 보내 준다.
+   그때만 상단에 단추를 띄우고, 설치했거나 한 번 닫으면 다시 띄우지 않는다.
+   (아이폰은 이 신호가 없어서 install.html 안내로 대신한다) */
+(function () {
+  var deferred = null;
+  var btn = document.getElementById('installBtn');
+  if (!btn) return;
+
+  function hidden() {
+    try {
+      return localStorage.getItem("installHidden") === "1" ||
+        localStorage.getItem("sayeon_app_installed") === "1";
+    } catch (e) { return false; }
+  }
+  function rememberInstalled() {
+    try {
+      localStorage.setItem("installHidden", "1");
+      localStorage.setItem("sayeon_app_installed", "1");
+    } catch (e) {}
+  }
+  function runningAsApp() {
+    var modes = ["standalone", "fullscreen", "minimal-ui", "window-controls-overlay"];
+    if (window.matchMedia) {
+      for (var i = 0; i < modes.length; i++) {
+        if (window.matchMedia("(display-mode: " + modes[i] + ")").matches) return true;
+      }
+    }
+    return window.navigator.standalone === true ||
+      document.referrer.indexOf("android-app://") === 0;
+  }
+
+  if (runningAsApp()) rememberInstalled();
+  if (runningAsApp() || hidden()) {
+    btn.style.display = "none";
+    return;
+  }
+
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    deferred = e;
+    if (!hidden()) btn.style.display = "inline-flex";
+  });
+
+  btn.onclick = function () {
+    if (!deferred) return;
+    deferred.prompt();
+    deferred.userChoice.then(function () {
+      deferred = null;
+      btn.style.display = "none";
+      rememberInstalled();
+    });
+  };
+
+  window.addEventListener("appinstalled", function () {
+    btn.style.display = "none";
+    rememberInstalled();
+  });
+})();
+
+// 읽어주기 (Web Speech API)
+// 기본은 구글 한국어 목소리(안드로이드의 '구글 여성1(시스템)')를 고른다.
+// 녹음이 아직 없는 편만 기기가 읽어 준다. 구글 한국어 목소리를 먼저 쓴다.
+let koVoice = null;
+
+// 'kok'(코카니어) 처럼 ko 로 시작만 하는 다른 언어가 섞이지 않게 정확히 걸러낸다
+function isKorean(v){
+  if(!v || !v.lang) return false;
+  const l = v.lang.toLowerCase().replace('_','-');
+  return l === 'ko' || l.startsWith('ko-');
+}
+
+function koVoices(){
+  if(!('speechSynthesis' in window)) return [];
+  return speechSynthesis.getVoices().filter(isKorean);
+}
+
+function isGoogle(v){ return /google|구글/i.test(v.name) || /^ko-kr-x-/i.test(v.voiceURI || ''); }
+
+function voiceId(v){ return v.voiceURI || v.name; }
+
+function pickVoice(){
+  const vs = koVoices();
+  koVoice = vs.find(isGoogle) || vs[0] || null;
+}
+
+
+// 듣는 동안 화면이 꺼지지 않게 한다.
+// 화면 잠금은 탭이 보일 때만 걸 수 있고 화면이 꺼지면 저절로 풀리므로,
+// 다시 보이게 될 때 듣는 중이면 새로 건다.
+let wakeLock = null;
+function requestWakeLock(){
+  if(!('wakeLock' in navigator) || wakeLock) return;
+  try{
+    navigator.wakeLock.request('screen').then(wl => {
+      wakeLock = wl;
+      wl.addEventListener('release', () => { wakeLock = null; });
+    }).catch(()=>{});
+  }catch(e){}
+}
+function releaseWakeLock(){
+  if(!wakeLock) return;
+  try{ wakeLock.release(); }catch(e){}
+  wakeLock = null;
+}
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && isReading) requestWakeLock();
+});
+
+function buildReadText(it){
+  const parts = [`${it.num}번, ${it.title}.`];
+  if(it.meta) parts.push(it.meta + '.');
+  for(const s of it.sections){
+    parts.push(s.type === 'h' ? (s.text + '.') : s.text);
+  }
+  return parts.join(' ');
+}
+
+// 모바일 크롬 등에서 발화가 15초 안팎으로 끊기는 고질적 버그가 있어
+// 긴 글을 문장 단위로 잘라 순서대로 이어 읽는다.
+function chunkText(text, maxLen){
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const chunks = [];
+  let cur = '';
+  function flush(){ if(cur.trim()){ chunks.push(cur.trim()); cur = ''; } }
+  for(let s of sentences){
+    // 문장 하나가 이미 너무 길면 공백 기준으로 강제로 더 잘게 나눈다
+    while(s.length > maxLen){
+      let cut = s.lastIndexOf(' ', maxLen);
+      if(cut < maxLen * 0.5) cut = maxLen;
+      flush();
+      chunks.push(s.slice(0, cut).trim());
+      s = s.slice(cut).trim();
+    }
+    if(cur && (cur.length + s.length + 1) > maxLen){
+      flush();
+      cur = s;
+    } else {
+      cur = cur ? cur + ' ' + s : s;
+    }
+  }
+  flush();
+  return chunks;
+}
+
+function updateReadBtn(speaking){
+  const btn = document.getElementById('readBtn');
+  const label = document.getElementById('readBtnLabel');
+  if(!btn || !label) return;
+  const human = !!RECORDED_AUDIO[String(DATA[current].num)];
+  btn.classList.toggle('speaking', speaking);
+  btn.setAttribute('aria-pressed', String(speaking));
+  label.textContent = speaking ? '정지' : '듣기';
+}
+
+// ===== 재생 위치 막대 (듣는 중 어디서든 이어 시작) =====
+let seekDragging = false;
+function showSeek(){
+  const el = document.getElementById('seekWrap');
+  if(el) el.classList.add('show');
+}
+function hideSeek(){
+  const el = document.getElementById('seekWrap');
+  if(el) el.classList.remove('show');
+}
+function updateSeekUI(){
+  if(seekDragging) return;
+  const range = document.getElementById('seekRange');
+  const timeEl = document.getElementById('seekTime');
+  if(!range || !timeEl) return;
+  const path = RECORDED_AUDIO[String(DATA[current].num)];
+  if(path && isFinite(recordedPlayer.duration) && recordedPlayer.duration > 0){
+    range.value = Math.round((recordedPlayer.currentTime / recordedPlayer.duration) * 1000);
+    timeEl.textContent = formatAudioTime(recordedPlayer.currentTime) + ' / ' + formatAudioTime(recordedPlayer.duration);
+    return;
+  }
+  const total = readQueue.length || 1;
+  range.value = Math.round((readQueueIndex / total) * 1000);
+  timeEl.textContent = (readQueueIndex + 1) + ' / ' + total;
+}
+function formatAudioTime(seconds){
+  seconds = isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+  const minutes = Math.floor(seconds / 60);
+  seconds %= 60;
+  return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+}
+els.card.addEventListener('input', e => {
+  if(e.target && e.target.id === 'seekRange') seekDragging = true;
+});
+els.card.addEventListener('change', e => {
+  if(!e.target || e.target.id !== 'seekRange') return;
+  seekDragging = false;
+  const path = RECORDED_AUDIO[String(DATA[current].num)];
+  if(path && isFinite(recordedPlayer.duration) && recordedPlayer.duration > 0){
+    recordedPlayer.currentTime = (Number(e.target.value) / 1000) * recordedPlayer.duration;
+    return;
+  }
+  const total = readQueue.length;
+  if(total <= 0) return;
+  const frac = Number(e.target.value) / 1000;
+  const target = Math.min(total - 1, Math.floor(frac * total));
+  readQueueIndex = target;
+  readSession++;
+  const session = readSession;
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+  isReading = true;
+  updateReadBtn(true);
+  speakNextChunk(session);
+});
+
+// ===== 잠금화면/미디어 컨트롤에 재생 정보를 알려 백그라운드 재생을 돕는다 =====
+function updateMediaSession(playing){
+  if(!('mediaSession' in navigator)) return;
+  try{
+    const it = DATA[current];
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: (it.num + '. ' + it.title),
+      artist: '월명동 자연성전 돌·나무 이야기',
+    });
+    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+    navigator.mediaSession.setActionHandler('play', () => { if(!isReading) toggleReading(); });
+    navigator.mediaSession.setActionHandler('pause', () => { if(isReading) toggleReading(); });
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      if(current > 0){ const wasReading = isReading; render(current - 1); if(wasReading) beginReadCurrent(); }
+    });
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      if(current < DATA.length - 1){ const wasReading = isReading; render(current + 1); if(wasReading) beginReadCurrent(); }
+    });
+  }catch(e){}
+}
+
+let readQueue = [];
+let readQueueIndex = 0;
+// speechSynthesis.cancel() 은 읽던 발화의 onend/onerror 를 뒤늦게 부른다.
+// 그 콜백이 다음 항목을 이어 읽어 버리면 정지가 먹히지 않으므로,
+// 재생을 시작하거나 멈출 때마다 세션 번호를 올려 옛 콜백을 무시한다.
+let readSession = 0;
+let isReading = false;
+const recordedPlayer = new Audio();
+recordedPlayer.preload = 'metadata';
+let recordedSync = {};
+let recordedSection = -1;
+fetch('audio/sync.json?v=' + Date.now())
+  .then(response => response.ok ? response.json() : {})
+  .then(data => { recordedSync = data || {}; })
+  .catch(() => {});
+
+function updateRecordedHighlight(){
+  const times = recordedSync[String(DATA[current].num)];
+  if(!times) return;
+  let section = -1;
+  for(let i = 0; i < times.length; i++){
+    if(recordedPlayer.currentTime + 0.15 >= times[i]) section = i;
+    else break;
+  }
+  if(section === recordedSection) return;
+  recordedSection = section;
+  const nodes = els.card.querySelectorAll('.prose [data-si]');
+  nodes.forEach(node => node.classList.toggle('reading', Number(node.dataset.si) === section));
+  if(section >= 0 && nodes[section]){
+    try{ nodes[section].scrollIntoView({behavior:'smooth', block:'center'}); }
+    catch(e){ nodes[section].scrollIntoView(); }
+  }
+}
+recordedPlayer.addEventListener('timeupdate', updateSeekUI);
+recordedPlayer.addEventListener('timeupdate', updateRecordedHighlight);
+recordedPlayer.addEventListener('loadedmetadata', updateSeekUI);
+recordedPlayer.addEventListener('ended', () => {
+  if(!isReading) return;
+  if(readAutoMode === 'repeat'){
+    setTimeout(() => { if(isReading) beginReadCurrent(); }, 700);
+  }else if(readAutoMode === 'next' && current < DATA.length - 1){
+    render(current + 1);
+    setTimeout(beginReadCurrent, 1000);
+  }else if(readAutoMode === 'prev' && current > 0){
+    render(current - 1);
+    setTimeout(beginReadCurrent, 1000);
+  }else{
+    stopReading();
+  }
+});
+recordedPlayer.addEventListener('error', () => { if(isReading) stopReading(); });
+
+function stopReading(){
+  readSession++;
+  isReading = false;
+  releaseWakeLock();
+  readQueue = [];
+  readQueueIndex = 0;
+  recordedPlayer.pause();
+  if(recordedPlayer.currentSrc) recordedPlayer.currentTime = 0;
+  recordedSection = -1;
+  els.card.querySelectorAll('.prose [data-si].reading').forEach(node => node.classList.remove('reading'));
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+  updateReadBtn(false);
+  hideSeek();
+  updateMediaSession(false);
+  const silentAnchor = document.getElementById('silentAnchor');
+  if(silentAnchor) silentAnchor.pause();
+}
+
+function speakNextChunk(session){
+  if(session !== readSession) return;
+  if(readQueueIndex >= readQueue.length){
+    if(readAutoMode === 'repeat'){
+      setTimeout(() => { if(isReading) beginReadCurrent(); }, 700);
+      return;
+    }
+    if(readAutoMode === 'next' && current < DATA.length - 1){
+      render(current + 1);
+      beginReadCurrent();
+      return;
+    }
+    if(readAutoMode === 'prev' && current > 0){
+      render(current - 1);
+      beginReadCurrent();
+      return;
+    }
+    stopReading();
+    return;
+  }
+  const utter = new SpeechSynthesisUtterance(readQueue[readQueueIndex]);
+  utter.lang = 'ko-KR';
+  pickVoice();
+  if(koVoice) utter.voice = koVoice;
+  utter.rate = readRate;
+  utter.onstart = () => { if(session === readSession) updateSeekUI(); };
+  utter.onend = () => {
+    if(session !== readSession) return;
+    readQueueIndex++;
+    speakNextChunk(session);
+  };
+  // 한 토막이 실패해도 전체를 멈추지 않고 다음 토막으로 넘어간다
+  utter.onerror = () => {
+    if(session !== readSession) return;
+    readQueueIndex++;
+    speakNextChunk(session);
+  };
+  speechSynthesis.speak(utter);
+}
+
+function beginReadCurrent(){
+  readSession++;
+  const session = readSession;
+  isReading = true;
+  requestWakeLock();
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+  readQueue = chunkText(buildReadText(DATA[current]), 120);
+  readQueueIndex = 0;
+  updateReadBtn(true);
+  showSeek();
+  updateSeekUI();
+  updateMediaSession(true);
+  const recordedPath = RECORDED_AUDIO[String(DATA[current].num)];
+  if(recordedPath){
+    recordedPlayer.src = recordedPath;
+    recordedPlayer.playbackRate = readRate;
+    recordedPlayer.currentTime = 0;
+    recordedPlayer.play().catch(() => stopReading());
+    return;
+  }
+  const silentAnchor = document.getElementById('silentAnchor');
+  if(silentAnchor) silentAnchor.play().catch(()=>{});
+  speakNextChunk(session);
+}
+
+function toggleReading(){
+  if(!RECORDED_AUDIO[String(DATA[current].num)] && !('speechSynthesis' in window)){
+    alert('이 브라우저에서는 읽어주기 기능을 지원하지 않습니다.');
+    return;
+  }
+  if(isReading){
+    stopReading();
+    return;
+  }
+  beginReadCurrent();
+}
+
+// ===== N독 (다 읽음) 카운트: 항목별로 이 브라우저에만 저장 =====
+function readCountKey(itemNum){ return 'wmdReadCount_' + itemNum; }
+function getReadCount(itemNum){
+  return parseInt(localStorage.getItem(readCountKey(itemNum)), 10) || 0;
+}
+function bumpReadCount(itemNum){
+  const n = getReadCount(itemNum) + 1;
+  try{ localStorage.setItem(readCountKey(itemNum), String(n)); }catch(e){}
+  return n;
+}
+function lowerReadCount(itemNum){
+  const n = Math.max(0, getReadCount(itemNum) - 1);
+  try{
+    if(n === 0) localStorage.removeItem(readCountKey(itemNum));
+    else localStorage.setItem(readCountKey(itemNum), String(n));
+  }catch(e){}
+  return n;
+}
+
+els.card.addEventListener('click', e => {
+  if(e.target.closest('#readBtn')){ toggleReading(); return; }
+  if(e.target.closest('#readCountMinus')){
+    const it = DATA[current];
+    const n = lowerReadCount(it.num);
+    const label = document.getElementById('readCountLabel');
+    const minus = document.getElementById('readCountMinus');
+    if(label) label.textContent = n > 0 ? n + '독' : '읽음';
+    if(minus) minus.disabled = n === 0;
+    return;
+  }
+  if(e.target.closest('#readCountBtn')){
+    const it = DATA[current];
+    const n = bumpReadCount(it.num);
+    SayeonAnalytics.trackRead('stones', it.num, it.title, null);
+    const label = document.getElementById('readCountLabel');
+    const minus = document.getElementById('readCountMinus');
+    if(label) label.textContent = n + '독';
+    if(minus) minus.disabled = false;
+    return;
+  }
+  const markEl = e.target.closest('mark.hl');
+  if(markEl){
+    removeHighlightAt(markEl);
+    return;
+  }
+});
+
+function removeHighlightAt(markEl){
+  const container = markEl.closest('[data-si]');
+  if(!container) return;
+  const si = Number(markEl.dataset.si);
+  const start = Number(markEl.dataset.start);
+  const end = Number(markEl.dataset.end);
+  const it = DATA[current];
+  let hls = getHighlights(it.num);
+  hls = hls.filter(h => !(h.si === si && h.start === start && h.end === end));
+  setHighlights(it.num, hls);
+  paintSections();
+}
+
+// ===== 문단을 드래그해서 하이라이트 =====
+let pendingHl = null;
+
+function closestSi(node){
+  const el = node.nodeType === 3 ? node.parentElement : node;
+  return el ? el.closest('[data-si]') : null;
+}
+function offsetWithin(el, node, nodeOffset){
+  const r = document.createRange();
+  r.selectNodeContents(el);
+  r.setEnd(node, nodeOffset);
+  return r.toString().length;
+}
+function showHlToolbar(range){
+  const rect = range.getBoundingClientRect();
+  const tb = els.hlToolbar;
+  tb.style.display = 'flex';
+  const tbWidth = tb.offsetWidth || 120;
+  const tbHeight = tb.offsetHeight || 40;
+  let left = rect.left + rect.width / 2 - tbWidth / 2;
+  left = Math.min(Math.max(8, left), window.innerWidth - tbWidth - 8);
+  // 모바일 기본 선택 메뉴(복사/공유 등)가 선택 영역 위에 뜨므로,
+  // 겹치지 않게 팔레트는 선택 영역 아래에 둔다.
+  let top = rect.bottom + 10;
+  top = Math.min(top, window.innerHeight - tbHeight - 8);
+  top = Math.max(8, top);
+  tb.style.left = left + 'px';
+  tb.style.top = top + 'px';
+}
+function hideHlToolbar(){
+  pendingHl = null;
+  if(els.hlToolbar) els.hlToolbar.style.display = 'none';
+}
+function applyPendingHighlight(color){
+  if(!pendingHl) return;
+  const it = DATA[current];
+  let hls = getHighlights(it.num);
+  hls = hls.filter(h => h.si !== pendingHl.si || h.end <= pendingHl.start || h.start >= pendingHl.end);
+  hls.push({ si: pendingHl.si, start: pendingHl.start, end: pendingHl.end, color });
+  setHighlights(it.num, hls);
+  hideHlToolbar();
+  window.getSelection().removeAllRanges();
+  paintSections();
+}
+
+els.hlToolbar.addEventListener('click', e => {
+  const b = e.target.closest('.hl-swatch');
+  if(b) applyPendingHighlight(b.dataset.c);
+});
+
+function evaluateSelection(){
+  const sel = window.getSelection();
+  if(!sel || sel.rangeCount === 0 || sel.isCollapsed){ hideHlToolbar(); return; }
+  const range = sel.getRangeAt(0);
+  const startEl = closestSi(range.startContainer);
+  const endEl = closestSi(range.endContainer);
+  if(!startEl || startEl !== endEl || !els.card.contains(startEl)){ hideHlToolbar(); return; }
+  const start = offsetWithin(startEl, range.startContainer, range.startOffset);
+  const end = offsetWithin(startEl, range.endContainer, range.endOffset);
+  if(end <= start){ hideHlToolbar(); return; }
+  pendingHl = { si: Number(startEl.dataset.si), start, end };
+  showHlToolbar(range);
+}
+
+// 데스크톱: 마우스를 놓는 순간 바로 반응한다
+document.addEventListener('mouseup', e => {
+  if(e.target.closest('#hlToolbar')) return;
+  evaluateSelection();
+});
+
+// 모바일: 손가락으로 문장을 고를 때는 mouseup이 안 오는 경우가 많아
+// selectionchange(선택이 실제로 바뀔 때마다 발생)로 감지한다. 드래그 중
+// 계속 발생하므로 살짝 멈췄을 때만 반응하도록 디바운스한다.
+let hlSelectionDebounce = null;
+document.addEventListener('selectionchange', () => {
+  clearTimeout(hlSelectionDebounce);
+  hlSelectionDebounce = setTimeout(evaluateSelection, 250);
+});
+
+function snippetFor(text, query){
+  const idx = text.toLowerCase().indexOf(query);
+  if(idx === -1) return '';
+  const start = Math.max(0, idx - 18);
+  const end = Math.min(text.length, idx + query.length + 30);
+  let out = (start > 0 ? '…' : '') + text.slice(start, end).trim() + (end < text.length ? '…' : '');
+  return out;
+}
+
+function runSearch(q){
+  const query = q.trim().toLowerCase();
+  activeResult = -1;
+  if(!query){
+    renderList(DATA.map((it,i) => ({i, it, inTitle:false})), '');
+    return;
+  }
+  const hits = [];
+  for(let i=0;i<DATA.length;i++){
+    const it = DATA[i];
+    const hay = it.search.toLowerCase();
+    if(hay.includes(query)){
+      hits.push({i, it, inTitle: it.title.toLowerCase().includes(query)});
+    }
+  }
+  hits.sort((a,b) => (b.inTitle - a.inTitle));
+  renderList(hits, query);
+  searchOthers(query);
+}
+
+const FIND_BOX = 'card';   // 본문이 들어가는 칸
+/* ===== 찾은 낱말로 이동 =====
+   검색 결과를 눌러 들어오면 그 낱말을 노랗게 칠하고 첫 자리로 옮겨 준다.
+   여러 곳에 나오면 아래 막대의 ▲▼ 로 옮겨 다닐 수 있다.
+   칠하는 것은 글자를 늘리지 않으므로, 직접 칠한 하이라이트의 위치 계산에는 영향이 없다. */
+var findQuery = null, findMarks = [], findAt = -1;
+
+function clearFind() {
+  var box = document.getElementById(FIND_BOX);
+  if (box) {
+    var ms = box.querySelectorAll("mark.find");
+    for (var i = ms.length - 1; i >= 0; i--) {
+      var m = ms[i], p = m.parentNode;
+      while (m.firstChild) p.insertBefore(m.firstChild, m);
+      p.removeChild(m);
+      p.normalize();
+    }
+  }
+  findMarks = []; findAt = -1;
+  var bar = document.getElementById("findBar");
+  if (bar) bar.style.display = "none";
+}
+
+function applyFind() {
+  clearFind();
+  if (!findQuery) return;
+  var box = document.getElementById(FIND_BOX);
+  if (!box) return;
+  var needle = findQuery.replace(/\s+/g, "");
+  if (!needle) return;
+
+  // 글자만 이어 붙이고, 각 글자가 어느 텍스트 노드의 몇 번째인지 적어 둔다
+  var walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT, null);
+  var s = "", pos = [], node, i;
+  while ((node = walker.nextNode())) {
+    var t = node.nodeValue;
+    for (i = 0; i < t.length; i++) {
+      var ch = t.charAt(i);
+      if (ch === " " || ch === "\n" || ch === "\t" || ch === "\r") continue;
+      s += ch; pos.push({ node: node, at: i });
+    }
+  }
+
+  // 찾은 자리마다, 텍스트 노드별 구간으로 쪼개 둔다
+  var groups = [], from = 0, hit;
+  while ((hit = s.indexOf(needle, from)) >= 0) {
+    var piece = [], cur = null;
+    for (var k = hit; k < hit + needle.length; k++) {
+      var p = pos[k];
+      if (cur && cur.node === p.node && p.at === cur.end) cur.end = p.at + 1;
+      else { cur = { node: p.node, start: p.at, end: p.at + 1 }; piece.push(cur); }
+    }
+    groups.push(piece);
+    from = hit + needle.length;
+  }
+  if (!groups.length) return;
+
+  // 뒤에서부터 칠해야 앞쪽 글자 위치가 밀리지 않는다
+  for (var g = groups.length - 1; g >= 0; g--) {
+    var marks = [];
+    for (var q = groups[g].length - 1; q >= 0; q--) {
+      var seg = groups[g][q];
+      var tail = seg.node.splitText(seg.start);
+      if (seg.end - seg.start < tail.nodeValue.length) tail.splitText(seg.end - seg.start);
+      var mk = document.createElement("mark");
+      mk.className = "find";
+      tail.parentNode.insertBefore(mk, tail);
+      mk.appendChild(tail);
+      marks.unshift(mk);
+    }
+    findMarks.unshift(marks);
+  }
+
+  var bar = document.getElementById("findBar");
+  if (bar) {
+    bar.style.display = "flex";
+    document.getElementById("findWord").textContent = findQuery;
+  }
+  gotoFind(0);
+}
+
+function gotoFind(n) {
+  if (!findMarks.length) return;
+  if (n < 0) n = findMarks.length - 1;
+  if (n >= findMarks.length) n = 0;
+  findAt = n;
+  for (var i = 0; i < findMarks.length; i++) {
+    for (var j = 0; j < findMarks[i].length; j++) {
+      findMarks[i][j].className = (i === n) ? "find cur" : "find";
+    }
+  }
+  var el = findMarks[n][0];
+  try { el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+  catch (e) { el.scrollIntoView(); }
+  var c = document.getElementById("findCount");
+  if (c) c.textContent = (n + 1) + " / " + findMarks.length;
+}
+
+document.getElementById("findPrev").addEventListener("click", () => gotoFind(findAt - 1));
+document.getElementById("findNext").addEventListener("click", () => gotoFind(findAt + 1));
+document.getElementById("findClose").addEventListener("click", () => { findQuery = null; clearFind(); });
+// 찾던 낱말 그대로 검색 결과를 다시 펼친다
+document.getElementById("findBack").addEventListener("click", () => {
+  const kw = findQuery || '';
+  els.search.value = kw;
+  openDrawer(true);
+  runSearch(kw);
+});
+
+/* ===== 다른 카테고리도 같이 찾기 =====
+   성령사연(2026·2025)·말씀 원본을 그때그때 받아서 함께 찾는다.
+   내용이 늘어도 여기는 손댈 것이 없다. */
+const OTHER_SOURCES = [
+  { label:'성령사연 2026', url:'sayeon.json',     base:'../', year:'2026' },
+  { label:'성령사연 2025', url:'sayeon2025.json', base:'../', year:'2025' },
+  { label:'말씀',          url:'/malsseum/malsseum.json', base:'/malsseum/' }
+];
+const OTHER_CACHE = {};
+
+function squash(t){ return (t || '').replace(/\s+/g, ''); }
+
+function otherText(item){
+  const out = [];
+  for(const it of (item.paragraphs || [])){
+    if(!it || it.hr) continue;
+    if(it.h){ out.push(it.h); continue; }
+    const lines = it.p ? it.p : it;
+    if(lines && lines.join) out.push(lines.join(' '));
+  }
+  if(item.quote) out.push(item.quote);
+  return out.join('\n');
+}
+
+function fetchOther(src){
+  if(OTHER_CACHE[src.url]) return Promise.resolve(OTHER_CACHE[src.url]);
+  return SaCrypt.json(src.url).then(list => {
+    OTHER_CACHE[src.url] = list || [];
+    return OTHER_CACHE[src.url];
+  }).catch(() => []);
+}
+
+let otherSearchSeq = 0;
+function searchOthers(query){
+  const seq = ++otherSearchSeq;
+  const needle = squash(query);
+  if(!needle) return;
+  const box = document.getElementById('otherResults');
+  if(!box) return;
+  box.innerHTML = '';
+  Promise.all(OTHER_SOURCES.map(src => fetchOther(src).then(list => {
+    const hits = [];
+    for(const item of list){
+      const text = otherText(item);
+      const sq = squash(text);
+      const at = sq.indexOf(needle);
+      const inTitle = squash(item.title || '').includes(needle);
+      if(at < 0 && !inTitle) continue;
+      let snip = '';
+      if(at >= 0){
+        // 공백을 뺀 위치를 원문 위치로 되돌린다
+        let seen = 0, pos = 0;
+        for(; pos < text.length && seen < at; pos++){ if(!/\s/.test(text[pos])) seen++; }
+        const from = Math.max(0, pos - 22);
+        snip = (from > 0 ? '…' : '') + text.substr(from, 78).replace(/\s+/g, ' ') + '…';
+      }
+      hits.push({ item, snip });
+    }
+    return { src, hits };
+  }))).then(blocks => {
+    if(seq !== otherSearchSeq) return;   // 그 사이 새로 검색했으면 버린다
+    box.innerHTML = '';
+    for(const { src, hits } of blocks){
+      if(!hits.length) continue;
+      const head = document.createElement('div');
+      head.className = 'other-cat';
+      head.textContent = src.label + ' (' + hits.length + ')';
+      box.appendChild(head);
+      for(const h of hits){
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.innerHTML = `<span>${escapeHtml(h.item.title || '')}` +
+          (h.snip ? `<span class="snip">${escapeHtml(h.snip)}</span>` : '') + '</span>';
+        btn.addEventListener('click', () => {
+          location.href = src.base + '#n=' + encodeURIComponent(h.item.no) +
+            (src.year ? '&y=' + src.year : '') + '&q=' + encodeURIComponent(query);
+        });
+        box.appendChild(btn);
+      }
+    }
+  });
+}
+
+function renderList(hits, query){
+  if(!hits.length){
+    els.drawerList.innerHTML = `<div class="empty">월명동에는 '${escapeHtml(query)}' 결과가 없습니다.</div>` +
+      '<div id="otherResults"></div>';
+    return;
+  }
+  els.drawerList.innerHTML = hits.map(({i, it, inTitle}, pos) => {
+    const snip = (query && !inTitle) ? snippetFor(it.search, query) : '';
+    const cur = i === current ? ' current' : '';
+    return `<button type="button" role="option" class="${cur.trim()}" data-index="${i}" data-pos="${pos}">
+      <span class="num">${escapeHtml(it.num)}.</span>
+      <span>${escapeHtml(it.title)}${snip ? `<span class="snip">${escapeHtml(snip)}</span>` : ''}</span>
+    </button>`;
+  }).join('');
+  [...els.drawerList.querySelectorAll('button')].forEach(btn => {
+    btn.addEventListener('click', () => { findQuery = query || null; render(Number(btn.dataset.index)); });
+  });
+  const other = document.createElement('div');
+  other.id = 'otherResults';
+  els.drawerList.appendChild(other);
+}
+
+function openDrawer(focusSearch){
+  els.drawer.classList.add('open');
+  els.drawerBackdrop.classList.add('open');
+  runSearch(els.search.value);
+  if(focusSearch !== false) setTimeout(() => els.search.focus(), 200);
+}
+
+function closeDrawer(){
+  els.drawer.classList.remove('open');
+  els.drawerBackdrop.classList.remove('open');
+  activeResult = -1;
+}
+
+function isDrawerOpen(){
+  return els.drawer.classList.contains('open');
+}
+
+// 목록: 검색창은 비워 전체 목록 상태로 드로어를 연다 (검색창에 포커스는 주지 않는다)
+function openList(){
+  els.search.value = '';
+  openDrawer(false);
+}
+// 검색: 같은 드로어를 열고 바로 입력할 수 있게 검색창에 포커스한다
+function openSearch(){
+  openDrawer(true);
+}
+
+els.search.addEventListener('input', e => runSearch(e.target.value));
+els.search.addEventListener('keydown', e => {
+  const buttons = [...els.drawerList.querySelectorAll('button')];
+  if(e.key === 'ArrowDown' && buttons.length){
+    e.preventDefault();
+    activeResult = Math.min(activeResult + 1, buttons.length - 1);
+    buttons.forEach((b,i) => b.setAttribute('aria-selected', String(i===activeResult)));
+    buttons[activeResult].scrollIntoView({block:'nearest'});
+  } else if(e.key === 'ArrowUp' && buttons.length){
+    e.preventDefault();
+    activeResult = Math.max(activeResult - 1, 0);
+    buttons.forEach((b,i) => b.setAttribute('aria-selected', String(i===activeResult)));
+    buttons[activeResult].scrollIntoView({block:'nearest'});
+  } else if(e.key === 'Enter'){
+    if(activeResult >= 0 && buttons[activeResult]) buttons[activeResult].click();
+    else if(buttons.length === 1) buttons[0].click();
+  } else if(e.key === 'Escape'){
+    closeDrawer();
+    els.topSearchBtn.focus();
+  }
+});
+
+els.drawerClose.addEventListener('click', closeDrawer);
+els.drawerBackdrop.addEventListener('click', closeDrawer);
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && isDrawerOpen()) closeDrawer();
+  if(e.key === 'Escape') hideHlToolbar();
+});
+
+els.topListBtn.addEventListener('click', () => { SaSettings.close(); openList(); });
+els.pagerListBtn.addEventListener('click', () => { SaSettings.close(); openList(); });
+els.topSearchBtn.addEventListener('click', () => { SaSettings.close(); openSearch(); });
+
+els.topSettingsBtn.addEventListener('click', SaSettings.open);
+
+let fitTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(fitTimer);
+  fitTimer = setTimeout(fitTitle, 150);
+});
+
+els.prevBtn.addEventListener('click', () => { if(current > 0) render(current - 1); });
+els.nextBtn.addEventListener('click', () => { if(current < DATA.length - 1) render(current + 1); });
+
+// 화면을 좌우로 밀면(스와이프) 이전/다음 항목으로 이동
+(function(){
+  let startX = 0, startY = 0, tracking = false;
+  const THRESHOLD = 60;
+
+  function onStart(x, y){
+    startX = x; startY = y; tracking = true;
+  }
+  function onEnd(x, y){
+    if(!tracking) return;
+    tracking = false;
+    const sel = window.getSelection();
+    if(sel && !sel.isCollapsed) return; // 텍스트를 드래그해서 고르는 중이면 페이지 넘김을 막는다
+    const dx = x - startX;
+    const dy = y - startY;
+    if(Math.abs(dx) < THRESHOLD || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    if(dx < 0){
+      if(current < DATA.length - 1) render(current + 1);
+    } else {
+      if(current > 0) render(current - 1);
+    }
+  }
+
+  els.main.addEventListener('touchstart', e => {
+    if(isDrawerOpen() || !e.touches.length) return;
+    const t = e.touches[0];
+    onStart(t.clientX, t.clientY);
+  }, {passive:true});
+  els.main.addEventListener('touchend', e => {
+    if(isDrawerOpen() || !e.changedTouches.length) return;
+    const t = e.changedTouches[0];
+    onEnd(t.clientX, t.clientY);
+  }, {passive:true});
+})();
+
+/* 위 상태바 색을 지금 화면의 배경색에 맞춘다.
+   설정에서 테마나 배경색을 바꾸면 상태바도 따라 바뀐다. */
+function syncThemeColor() {
+  var meta = document.querySelector('meta[name="theme-color"]');
+  var bg = getComputedStyle(document.body).backgroundColor;
+  if (!bg || bg === "rgba(0, 0, 0, 0)" || bg === "transparent") return;
+  if (meta) meta.setAttribute("content", bg);
+
+  // 아이폰은 상태바 글자색을 따로 정해 줘야 한다.
+  // 배경이 밝으면 검은 글자(default), 어두우면 흰 글자(black).
+  var m = bg.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (!m) return;
+  var light = (m[1] * 299 + m[2] * 587 + m[3] * 114) / 1000 > 140;
+  var ios = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if (ios) ios.setAttribute("content", light ? "default" : "black");
+}
+
+/* ===== 설정 받아 쓰기 =====
+   설정 화면과 저장은 settings.js 한 곳에 있다(세 페이지가 같이 쓴다).
+   월명동은 카드·인용·테두리 색을 고른 글자색·배경색에서 뽑아 쓴다. */
+let readRate = 0.90;
+let readAutoMode = 'prev';
+
+function applyCfg(c){
+  const root = document.documentElement;
+  const mix = SaSettings.mix;
+  const dark = !SaSettings.isLight(c.bg);
+  root.setAttribute('data-theme', dark ? 'dark' : 'light');
+
+  root.style.setProperty('--bg', c.bg);
+  root.style.setProperty('--ink', c.text);
+  root.style.setProperty('--surface', mix(c.bg, c.text, 0.05));
+  root.style.setProperty('--surface-2', mix(c.bg, c.text, 0.10));
+  root.style.setProperty('--border', mix(c.bg, c.text, 0.20));
+  root.style.setProperty('--muted', mix(c.bg, c.text, 0.55));
+  root.style.setProperty('--quote-bg', mix(c.bg, c.text, 0.07));
+  root.style.setProperty('--quote-border', mix(c.bg, dark ? '#d9ae72' : '#ad8248', 0.45));
+  root.style.setProperty('--quote-ink', mix(c.text, dark ? '#d9ae72' : '#8a5a2b', 0.55));
+  root.style.setProperty('--accent', dark ? '#7bb697' : '#3b6e58');
+  root.style.setProperty('--accent-ink', c.bg);
+  root.style.setProperty('--accent-warm', dark ? '#d9ae72' : '#ad8248');
+  root.style.setProperty('--focus', dark ? '#7bb697' : '#3b6e58');
+
+  root.style.setProperty('--content-size', c.size + 'px');
+  root.style.setProperty('--content-lh', String(c.lh));
+  root.style.setProperty('--content-pad', c.pad + 'px');
+  root.style.setProperty('--content-font', c.fontFamily);
+
+  readRate = c.rate;
+  readAutoMode = c.autoMode;
+  if(recordedPlayer) recordedPlayer.playbackRate = c.rate;
+  syncThemeColor();
+}
+
+SaSettings.onChange(applyCfg);
+SaSettings.init({ unit: '항목' });
+
+els.count.textContent = `총 ${DATA.length}개 항목`;
+
+// 다른 카테고리의 검색 결과에서 넘어왔으면 (#n=12) 그 항목을 펼쳐 준다
+(function(){
+  const mq = (location.hash || '').match(/[#&]q=([^&]*)/);
+  if(mq) findQuery = decodeURIComponent(mq[1]);
+  const m = (location.hash || '').match(/[#&]n=([^&]*)/);
+  if(m){
+    const no = decodeURIComponent(m[1]);
+    const at = DATA.findIndex(d => String(d.num) === String(no));
+    if(at >= 0){ render(at); return; }
+  }
+  render(0);
+})();
+}
+
+var stonesLoaded = false;
+function loadStones() {
+  if (stonesLoaded) return;
+  stonesLoaded = true;
+  SaCrypt.json('stones/stones.json').then(function (data) {
+    if (data && data.length) bootStones(data); else throw new Error('빈 내용');
+  }).catch(function () {
+    stonesLoaded = false;
+    var c = document.getElementById('card');
+    if (c) c.innerHTML = '<p style="padding:24px 0">이야기를 불러오지 못했습니다.' +
+      ' 인터넷 연결을 확인하고 새로고침해 주세요.</p>';
+  });
+}
+
+</script>
+</head>
+<body>
+<div class="app">
+</body>
+</html>
