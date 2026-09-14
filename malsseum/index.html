@@ -836,7 +836,8 @@ function render(keepSpeaking) {
   $("prevT").textContent = pv.disabled ? "" : shortTitle(MAL[idx - 1], idx - 1);
   $("nextT").textContent = nx.disabled ? "" : shortTitle(MAL[idx + 1], idx + 1);
 
-  window.scrollTo(0, 0);
+  var viewerCard = document.querySelector(".card");
+  if (viewerCard) viewerCard.scrollIntoView({block:"start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
   applyFind();
 }
 
