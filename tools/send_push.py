@@ -15,12 +15,14 @@
 한 편은 한 번만 보낸다. 보내기 전에 Supabase 에 '이 편 보냄'을 먼저 적고,
 이미 적혀 있으면 건너뛴다(같은 편을 고쳐서 다시 올려도 알림이 또 가지 않는다).
 """
+import hashlib
 import io
 import json
 import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -46,8 +48,16 @@ def rpc(name, body):
     req = urllib.request.Request(
         url + '/rest/v1/rpc/' + name, data=json.dumps(body).encode('utf-8'),
         headers={'apikey': key, 'Content-Type': 'application/json'}, method='POST')
-    with urllib.request.urlopen(req, timeout=30) as r:
-        raw = r.read().decode('utf-8')
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            raw = r.read().decode('utf-8')
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode('utf-8', 'replace')
+        if 'forbidden' in detail:
+            # 비밀값을 잘못 넣었을 때 어느 값이 들어갔는지 가릴 수 있게 지문(해시 앞 8자리)만 남긴다
+            got = hashlib.sha256(body.get('p_token', '').encode('utf-8')).hexdigest()[:8]
+            raise SystemExit('PUSH_TOKEN 이 Supabase 에 등록된 토큰과 다릅니다 (넣은 값 지문 %s)' % got)
+        raise SystemExit('Supabase %s 실패 (%d): %s' % (name, e.code, detail[:200]))
     return json.loads(raw) if raw else None
 
 
