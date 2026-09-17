@@ -40,7 +40,7 @@ jobs:
           python-version: '3.12'
 
       - name: 준비
-        run: python -m pip install --disable-pip-version-check pywebpush==2.5.0 cryptography==46.0.3
+        run: python -m pip install --disable-pip-version-check pywebpush==2.5.0   # cryptography 47 이상을 함께 설치한다
 
       - name: 알림 보내기
         run: |
