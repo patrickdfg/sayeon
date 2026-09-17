@@ -272,6 +272,20 @@
       });
     });
   }
+  // 서버를 거치지 않고 이 기기에서 바로 알림을 띄워 본다.
+  // 이게 안 뜨면 폰의 알림 설정 문제, 이건 뜨는데 새 사연 알림만 안 오면 전달 문제다.
+  function pushSelfTest() {
+    return navigator.serviceWorker.getRegistration(SW_SCOPE).then(function (reg) {
+      if (!reg) throw new Error('no sw');
+      return reg.showNotification('알림 시험', {
+        body: '이 기기에서 알림이 잘 뜹니다.',
+        icon: '/sayeon/icons/icon-192.png?v=4',
+        badge: '/sayeon/icons/icon-192.png?v=4',
+        tag: 'sayeon-selftest',
+        data: { url: '/sayeon/' }
+      });
+    });
+  }
   function paintPush(msg) {
     if (!el.push) return;
     if (!pushSupported()) {
@@ -281,6 +295,7 @@
     }
     pushCurrent().then(function (sub) {
       markSel(el.push, sub ? 0 : 1);
+      el.pushTest.style.display = sub ? '' : 'none';
       if (msg) el.pushNote.textContent = msg;
       else if (Notification.permission === 'denied')
         el.pushNote.textContent = '알림이 막혀 있습니다. 브라우저 설정에서 이 사이트의 알림을 허용해 주세요.';
@@ -369,6 +384,18 @@
           : '알림 설정에 실패했습니다. 잠시 뒤 다시 눌러 주세요.');
       });
     });
+    el.pushTest = mk('button', 'sa-opt', '이 기기에서 시험');
+    el.pushTest.type = 'button';
+    el.pushTest.style.display = 'none';
+    el.pushTest.onclick = function () {
+      pushSelfTest().then(function () {
+        el.pushNote.textContent = '시험 알림을 띄웠습니다. 알림창을 내려 확인해 보세요. ' +
+          '안 보이면 폰 설정 → 앱 → 성령사연(또는 크롬) → 알림을 켜 주세요.';
+      }).catch(function () {
+        el.pushNote.textContent = '알림을 띄우지 못했습니다. 안 받기 → 받기를 다시 눌러 주세요.';
+      });
+    };
+    el.push.row.appendChild(el.pushTest);
     s.appendChild(el.push.row);
     el.pushNote = mk('div', 'sa-note');
     s.appendChild(el.pushNote);

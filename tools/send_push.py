@@ -114,6 +114,8 @@ def main(args):
                     data=json.dumps(payload, ensure_ascii=False),
                     vapid_private_key=vapid,
                     vapid_claims={'sub': 'https://patrickdfg.github.io'},
+                    # 보통 알림은 화면이 꺼진 폰(절전)에서 몇 시간씩 미뤄지므로 급한 알림으로 보낸다
+                    headers={'Urgency': 'high'},
                     ttl=24 * 3600)
             sent += 1
         except WebPushException as e:
