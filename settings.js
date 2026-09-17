@@ -146,7 +146,8 @@
     '.sa-color{display:flex;align-items:center;gap:12px}' +
     '.sa-color input{width:62px;height:44px;border:0;background:var(--sa-panel);' +
     'border-radius:8px;padding:4px;cursor:pointer}' +
-    '.sa-hex{font-size:15px;opacity:.7}';
+    '.sa-hex{font-size:15px;opacity:.7}' +
+    '.sa-note{font-size:14px;opacity:.75;margin-top:8px}';
 
   function mk(tag, cls, text) {
     var e = document.createElement(tag);
@@ -201,6 +202,91 @@
     return { row: row, input: input, hex: hexLabel };
   }
 
+  /* ===== 새 사연 알림 (안드로이드) =====
+   * '받기'를 누르면 이 기기를 알림 명단(Supabase)에 올린다.
+   * 새 사연을 올리면 tools/send_push.py 가 명단에 있는 기기로 알림을 보내고,
+   * 휴대폰에 온 알림은 /sayeon/sw.js 가 화면에 띄운다.
+   * 아이폰은 홈 화면에 추가한 앱에서만 되고, 카카오톡 안 브라우저는 안 된다.
+   * 아래 열쇠는 공개용이다(짝이 되는 비밀 열쇠는 깃허브 비밀값 VAPID_PRIVATE_KEY). */
+  var VAPID_PUBLIC = 'BNFzT-GlQfl3u0rzlOVNKLJNmKGfVupMr1gg-9vO-6n9UDA-5q5R_cvf1XAKe0Aq2nRFPnXNPan8AqxzXl6Wp_s';
+  var SW_URL = '/sayeon/sw.js', SW_SCOPE = '/sayeon/';
+
+  function pushSupported() {
+    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  }
+  function keyBytes(b64) {
+    var s = (b64 + '==='.slice(0, (4 - b64.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+    var raw = atob(s), out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  // 방문 통계와 같은 Supabase 에, 명단에 올리고 내리는 공개 함수만 부른다
+  function pushRpc(name, body) {
+    var c = global.SAYEON_ANALYTICS_CONFIG || {};
+    if (!c.supabaseUrl || !c.supabaseAnonKey) return Promise.reject(new Error('no config'));
+    return fetch(c.supabaseUrl.replace(/\/$/, '') + '/rest/v1/rpc/' + name, {
+      method: 'POST',
+      headers: { apikey: c.supabaseAnonKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) { if (!r.ok) throw new Error('rpc ' + r.status); });
+  }
+  function pushSave(sub) {
+    var j = sub.toJSON();
+    return pushRpc('save_push_subscription',
+      { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth });
+  }
+  // 알림을 켠 적 없는 기기에는 서비스 워커를 등록하지 않는다
+  function pushCurrent() {
+    if (!pushSupported()) return Promise.resolve(null);
+    return navigator.serviceWorker.getRegistration(SW_SCOPE).then(function (reg) {
+      return reg ? reg.pushManager.getSubscription() : null;
+    }).catch(function () { return null; });
+  }
+  function pushOn() {
+    return Notification.requestPermission().then(function (perm) {
+      if (perm !== 'granted') throw new Error('denied');
+      return navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE });
+    }).then(function () {
+      return navigator.serviceWorker.ready;
+    }).then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (sub) {
+        return sub || reg.pushManager.subscribe({
+          userVisibleOnly: true, applicationServerKey: keyBytes(VAPID_PUBLIC) });
+      });
+    }).then(pushSave);
+  }
+  function pushOff() {
+    return pushCurrent().then(function (sub) {
+      if (!sub) return;
+      var endpoint = sub.endpoint;
+      return sub.unsubscribe().then(function () {
+        return pushRpc('remove_push_subscription', { p_endpoint: endpoint })
+          .catch(function () {});   // 못 지워도 다음 발송 때 없는 기기로 걸러진다
+      });
+    });
+  }
+  function paintPush(msg) {
+    if (!el.push) return;
+    if (!pushSupported()) {
+      el.push.row.style.display = 'none';
+      el.pushNote.textContent = '이 브라우저에서는 알림을 받을 수 없습니다. 안드로이드 크롬에서 열어 주세요.';
+      return;
+    }
+    pushCurrent().then(function (sub) {
+      markSel(el.push, sub ? 0 : 1);
+      if (msg) el.pushNote.textContent = msg;
+      else if (Notification.permission === 'denied')
+        el.pushNote.textContent = '알림이 막혀 있습니다. 브라우저 설정에서 이 사이트의 알림을 허용해 주세요.';
+      else el.pushNote.textContent = sub ? '새 사연이 올라오면 알림이 옵니다.'
+                                         : '새 사연이 올라오면 휴대폰으로 알려 드립니다.';
+    });
+  }
+  // 알림을 켜 둔 기기는 들어올 때마다 명단을 새로 고친다(주소가 바뀌는 일이 있다)
+  function pushRefresh() {
+    if (!pushSupported() || Notification.permission !== 'granted') return;
+    pushCurrent().then(function (sub) { if (sub) pushSave(sub).catch(function () {}); });
+  }
+
   function build() {
     var style = document.createElement('style');
     style.textContent = CSS;
@@ -220,6 +306,22 @@
     inner.appendChild(top);
 
     var s, names = [], i;
+
+    s = section('새 사연 알림');
+    el.push = optRow(['받기', '안 받기'], function (at) {
+      el.pushNote.textContent = '잠시만요…';
+      (at === 0 ? pushOn() : pushOff()).then(function () {
+        paintPush();
+      }).catch(function (e) {
+        paintPush(e && e.message === 'denied'
+          ? '알림을 허용해야 받을 수 있습니다.'
+          : '알림 설정에 실패했습니다. 잠시 뒤 다시 눌러 주세요.');
+      });
+    });
+    s.appendChild(el.push.row);
+    el.pushNote = mk('div', 'sa-note');
+    s.appendChild(el.pushNote);
+    inner.appendChild(s);
 
     s = section('읽기');
     el.mode = optRow(['이전 ' + unit + ' 이어 듣기', '다음 ' + unit + ' 이어 듣기',
@@ -331,6 +433,7 @@
     el.bgColor.input.value = cfg.bg;
     el.bgColor.hex.textContent = cfg.bg;
     paintSkin();
+    paintPush();
   }
 
   function open() {
@@ -356,6 +459,7 @@
     build();
     paint();
     notify();
+    pushRefresh();
   }
 
   global.SaSettings = {
