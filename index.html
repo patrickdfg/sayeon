@@ -1639,6 +1639,7 @@ function loadData() {
 function enter() {
   $("lock").className = "lock hidden";
   loadData();
+  SaSettings.askPush();
 }
 
 function tryUnlock() {

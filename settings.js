@@ -11,6 +11,7 @@
  *   SaSettings.onChange(function (c) { cfg = c; 내화면에입히기(c); });
  *   SaSettings.init({ unit: '편' });        // 월명동은 '항목'
  *   설정단추.onclick = SaSettings.open;
+ *   암호를 풀고 들어간 뒤: SaSettings.askPush();   // 처음 한 번 '새 사연 알림' 묻기
  */
 (function (global) {
   var KEY = 'siteSettings';
@@ -147,7 +148,13 @@
     '.sa-color input{width:62px;height:44px;border:0;background:var(--sa-panel);' +
     'border-radius:8px;padding:4px;cursor:pointer}' +
     '.sa-hex{font-size:15px;opacity:.7}' +
-    '.sa-note{font-size:14px;opacity:.75;margin-top:8px}';
+    '.sa-note{font-size:14px;opacity:.75;margin-top:8px}' +
+    '.sa-ask{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));' +
+    'z-index:9997;max-width:520px;margin:0 auto;border-radius:14px;padding:16px;' +
+    'background:var(--sa-bg);color:var(--sa-text);font-family:var(--sa-font);line-height:1.5;' +
+    'box-shadow:0 6px 24px rgba(0,0,0,.35);border:1px solid var(--sa-panel)}' +
+    '.sa-ask-msg{font-size:16px;margin-bottom:12px;word-break:keep-all}' +
+    '.sa-ask .sa-opts{justify-content:flex-end}';
 
   function mk(tag, cls, text) {
     var e = document.createElement(tag);
@@ -281,6 +288,50 @@
                                          : '새 사연이 올라오면 휴대폰으로 알려 드립니다.';
     });
   }
+  /* 처음 들어온 기기에 한 번만 묻는다. 각 페이지가 암호를 풀고 들어간 뒤 부른다.
+   * 알림이 안 되는 브라우저, 이미 허용했거나 막아 둔 기기, 전에 답한 기기에는 안 뜬다.
+   * 답을 누르지 않고 지나가면 다음에 다시 묻는다. */
+  var ASKED = 'sayeonPushAsked';
+  function askPush() {
+    if (!pushSupported() || Notification.permission !== 'default') return;
+    try { if (localStorage.getItem(ASKED)) return; } catch (e) { return; }
+    setTimeout(function () {
+      if (document.querySelector('.sa-ask') || isOpen()) return;
+      pushCurrent().then(function (sub) {
+        if (sub) return;
+        if (!cfg) cfg = read();
+        var box = mk('div', 'sa-ask');
+        var s = box.style;
+        s.setProperty('--sa-bg', cfg.bg);
+        s.setProperty('--sa-text', cfg.text);
+        s.setProperty('--sa-font', FONTS[cfg.font].v);
+        s.setProperty('--sa-panel', mix(cfg.bg, cfg.text, 0.14));
+        s.setProperty('--sa-accent', mix(cfg.bg, cfg.text, 0.72));
+        s.setProperty('--sa-on-accent', cfg.bg);
+        var msg = mk('div', 'sa-ask-msg', '🔔 새 사연이 올라오면 알림을 받으시겠어요?');
+        var btns = optRow(['나중에', '받기'], function (at) {
+          try { localStorage.setItem(ASKED, at === 1 ? 'yes' : 'later'); } catch (e) {}
+          if (at === 0) { box.parentNode.removeChild(box); return; }
+          btns.row.style.display = 'none';
+          msg.textContent = '잠시만요…';
+          pushOn().then(function () {
+            msg.textContent = '알림을 받습니다. 설정에서 언제든 끌 수 있습니다.';
+          }).catch(function (e) {
+            msg.textContent = e && e.message === 'denied'
+              ? '알림을 허용하지 않았습니다. 나중에 설정에서 켤 수 있습니다.'
+              : '알림 설정에 실패했습니다. 설정 → 새 사연 알림에서 다시 눌러 주세요.';
+          }).then(function () {
+            setTimeout(function () { if (box.parentNode) box.parentNode.removeChild(box); }, 3000);
+          });
+        });
+        btns.bs[1].className = 'sa-opt sel';
+        box.appendChild(msg);
+        box.appendChild(btns.row);
+        document.body.appendChild(box);
+      });
+    }, 2500);   // 들어오자마자 가리지 않도록 조금 뒤에
+  }
+
   // 알림을 켜 둔 기기는 들어올 때마다 명단을 새로 고친다(주소가 바뀌는 일이 있다)
   function pushRefresh() {
     if (!pushSupported() || Notification.permission !== 'granted') return;
@@ -464,7 +515,7 @@
 
   global.SaSettings = {
     init: init, get: get, set: set, onChange: onChange,
-    open: open, close: close, isOpen: isOpen,
+    open: open, close: close, isOpen: isOpen, askPush: askPush,
     fonts: FONTS, themes: THEMES, mix: mix, isLight: isLight
   };
 })(window);
