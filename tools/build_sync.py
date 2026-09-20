@@ -50,7 +50,7 @@ def main(model_size='base'):
                 print('  %s 편: 파일 없음' % no)
                 continue
 
-            tag = ('mal' if base == MAL else 'sa') + no
+            tag = 'sa' + no
             seg_path = os.path.join(CACHE, '%s.json' % tag)
             if os.path.exists(seg_path):
                 segs = json.load(io.open(seg_path, encoding='utf-8'))
