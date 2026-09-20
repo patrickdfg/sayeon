@@ -1059,25 +1059,10 @@ function render(index){
 // 녹음이 아직 없는 편만 기기가 읽어 준다. 구글 한국어 목소리를 먼저 쓴다.
 let koVoice = null;
 
-// 'kok'(코카니어) 처럼 ko 로 시작만 하는 다른 언어가 섞이지 않게 정확히 걸러낸다
-function isKorean(v){
-  if(!v || !v.lang) return false;
-  const l = v.lang.toLowerCase().replace('_','-');
-  return l === 'ko' || l.startsWith('ko-');
-}
-
-function koVoices(){
-  if(!('speechSynthesis' in window)) return [];
-  return speechSynthesis.getVoices().filter(isKorean);
-}
-
-function isGoogle(v){ return /google|구글/i.test(v.name) || /^ko-kr-x-/i.test(v.voiceURI || ''); }
-
-function voiceId(v){ return v.voiceURI || v.name; }
-
+// 어느 목소리로 읽을지는 설정에서 고른다 — 고르는 일은 settings.js 한 곳에서만 한다.
+// 설정을 안 건드렸으면 기기에 있는 한국어 목소리 중 구글 것을 먼저 쓴다.
 function pickVoice(){
-  const vs = koVoices();
-  koVoice = vs.find(isGoogle) || vs[0] || null;
+  koVoice = (window.SaSettings && SaSettings.pickVoice) ? SaSettings.pickVoice() : null;
 }
 
 
