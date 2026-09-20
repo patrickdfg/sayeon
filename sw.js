@@ -28,11 +28,14 @@ self.addEventListener('notificationclick', function (event) {
   // 주소 뒤 #n= 만 바뀌면 이미 열린 화면은 다시 읽지 않으므로 ?p= 를 붙여 새로 연다
   var url = new URL(target, self.location.origin);
   url.searchParams.set('p', String(Date.now()));
+  // 이 워커는 말씀(/malsseum/) 알림도 띄운다 — 같은 호스트라 명단이 하나다.
+  // 그래서 '이미 열린 창'은 /sayeon/ 이 아니라 **보낼 주소와 같은 쪽**을 찾아야 한다.
+  // 안 그러면 말씀 알림을 눌렀을 때 열려 있던 사연 창이 말씀으로 끌려간다.
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     .then(function (list) {
       for (var i = 0; i < list.length; i++) {
         var c = list[i];
-        if (new URL(c.url).pathname === '/sayeon/' && 'navigate' in c) {
+        if (new URL(c.url).pathname === url.pathname && 'navigate' in c) {
           // 서비스 워커가 맡지 않은 창이면 navigate 가 거절되므로 그때는 새로 연다
           return c.navigate(url.href)
             .then(function (w) { return (w || c).focus(); })
