@@ -1,0 +1,6 @@
+interface:
+  display_name: "성령 사연 업로드"
+  short_description: "원고 작업표 게시부터 자동 배포 확인까지 안전하게 처리"
+  default_prompt: "Use $seongnyeong-sayeon-upload to upload the provided 성령 사연 manuscript and verify the automated deployment."
+policy:
+  allow_implicit_invocation: true
