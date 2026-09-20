@@ -18,13 +18,13 @@ import crypt
 
 REPO = '..'          # tools/ 에서 실행한다
 CACHE = '../.seg_cache'          # 받아쓴 결과를 편별로 남겨 둔다 (다시 돌릴 때 아낀다)
-# (원고 파일, 기준 폴더, 결과 파일) — 성령사연과 말씀을 따로 관리한다
-MAL = os.path.join(REPO, 'malsseum')
+# (원고 파일, 기준 폴더, 결과 파일)
+# 말씀은 2026-09-14 에 별도 저장소 `malsseum` 로 나갔다. 여기서 `../malsseum` 을
+# 보던 줄이 남아 있었는데, 그 폴더에는 이제 화면 코드만 있어서 말씀 시간표가
+# 만들어지지 않았다(9/20 편이 그래서 빠졌다). 말씀은 그 저장소의
+# `tools/build_sync.py` 로 만든다.
 SOURCES = [
     ('sayeon.json', REPO, os.path.join(REPO, 'audio', 'sync.json')),
-    # malsseum.json 의 "audio" 필드는 malsseum/ 폴더 기준 상대경로이므로
-    # base 도 malsseum/ 으로 줘야 실제 파일을 찾는다.
-    ('malsseum.json', MAL, os.path.join(MAL, 'audio', 'sync.json')),
 ]
 
 
