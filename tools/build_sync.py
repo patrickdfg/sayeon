@@ -38,12 +38,16 @@ def main(model_size='base'):
         if os.path.exists(out):
             sync = json.load(io.open(out, encoding='utf-8'))
         data = crypt.read_json(os.path.join(base, src))
+        # 올린 음성(육성)만 맞춘다. 현수 음성은 make_tts.py 가 만들 때 시간표까지 낸다.
         targets = [e for e in data if e.get('audio')]
         print('%s: 육성 %d편' % (src, len(targets)))
 
         for e in targets:
             no = str(e['no'])
-            if no in sync:
+            # 한 편에 육성과 현수가 둘 다 있으면 번호 하나로는 못 가린다.
+            # 그래서 열쇠는 음성 파일 이름(164.m4a)을 쓴다. 옛 자료는 번호 열쇠다.
+            key = os.path.basename(e['audio'])
+            if key in sync or no in sync:
                 continue
             audio = os.path.join(base, e['audio'])
             if not os.path.exists(audio):
@@ -72,7 +76,7 @@ def main(model_size='base'):
 
             times = align.align(e, segs)
             if times:
-                sync[no] = times
+                sync[key] = times
             else:
                 print('  %s 편: 맞추지 못함' % no)
 

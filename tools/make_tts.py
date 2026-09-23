@@ -151,31 +151,36 @@ def paragraph_times(starts, boundaries):
     return times
 
 
-def save_sync(no, times):
+def save_sync(no, times, rel_path=None):
+    """문단 시간표를 넣는다.
+
+    한 편에 올린 음성(육성)과 현수 음성이 둘 다 있을 수 있으므로
+    **음성 파일 이름**(170.mp3)을 열쇠로 쓴다. 편 번호 하나로는 둘을 못 가린다.
+    옛 자료는 번호 열쇠로 들어 있고 뷰어가 둘 다 읽는다.
+    """
     sync = (json.load(io.open(SYNC, encoding='utf-8'))
             if os.path.exists(SYNC) else {})
-    sync[str(no)] = times
+    sync[os.path.basename(rel_path) if rel_path else str(no)] = times
     io.open(SYNC, 'w', encoding='utf-8', newline='').write(
         json.dumps(sync, ensure_ascii=False, separators=(',', ':')))
 
 
 def link_audio(no, rel_path):
-    """sayeon.json 의 그 항목에 audio 줄을 끼워 넣는다.
+    """sayeon.json 의 그 항목에 tts 줄을 끼워 넣는다.
 
     통째로 다시 쓰지 않고 문자열만 갈아 끼워, diff 가 그 한 줄만 바뀌게 한다.
     """
     text = crypt.read_text(SAYEON)
     e = [x for x in json.loads(text) if x['no'] == no][0]
-    if e.get('audio'):
+    if e.get('tts'):
         return False
     needle = ' {\n  "no": %d,\n  "title": "%s",\n' % (no, e['title'])
     if text.count(needle) != 1:
         raise SystemExit('%d 편 위치를 찾지 못했다 (%d 군데)' % (no, text.count(needle)))
-    # "tts": true 로 컴퓨터 목소리임을 표시한다.
-    # 뷰어는 이것으로 육성 녹음(🎙️)과 컴퓨터 목소리(🤖)를 가른다.
-    # 나중에 육성이 오면 파일을 바꿔 끼우고 이 줄을 지운다.
+    # 현수 음성은 "tts" 에, 올린 육성은 "audio" 에 적는다. 둘 다 있을 수 있고,
+    # 뷰어는 설정의 '먼저 들을 음성' 에 따라 고른다(🎙️ 육성 / 🤖 현수).
     text = text.replace(
-        needle, needle + '  "audio": "%s",\n  "tts": true,\n' % rel_path, 1)
+        needle, needle + '  "tts": "%s",\n' % rel_path, 1)
     crypt.write_text(SAYEON, text)
     return True
 
@@ -189,7 +194,7 @@ async def main(args):
 
     data = crypt.read_json(SAYEON)
     by_no = {x['no']: x for x in data}
-    targets = ([x['no'] for x in data if not x.get('audio')]
+    targets = ([x['no'] for x in data if not x.get('tts')]
                if args == ['--all'] else [int(a) for a in args])
     if limit:
         targets = targets[:limit]
@@ -200,13 +205,13 @@ async def main(args):
         if e is None:
             print('  %d 편: 원고 없음' % no)
             continue
-        if e.get('audio'):
-            print('  %d 편: 이미 음성 있음 (%s)' % (no, e['audio']))
+        if e.get('tts'):
+            print('  %d 편: 이미 현수 음성 있음 (%s)' % (no, e['tts']))
             continue
         out = os.path.join(REPO, 'audio', '%d.mp3' % no)
         text, starts = build_text(e)
         boundaries = await synthesize(text, out)
-        save_sync(no, paragraph_times(starts, boundaries))
+        save_sync(no, paragraph_times(starts, boundaries), 'audio/%d.mp3' % no)
         print('  %d 편: 문단 %d, 글자 %d → %s (%s bytes)'
               % (no, len(e.get('paragraphs', [])), len(text),
                  out, format(os.path.getsize(out), ',')))

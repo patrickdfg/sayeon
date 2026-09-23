@@ -87,8 +87,12 @@ def install_entry(entry, replace):
         raise ValueError('%d편이 이미 있습니다. 교체하려면 replace: true를 넣으세요.' % entry['no'])
     if matches:
         old = data[matches[0]]
-        if old.get('audio'):
-            audio_path = os.path.join(REPO, old['audio'].replace('/', os.sep))
+        # 올린 음성과 현수 음성이 둘 다 있을 수 있으니 둘 다 치운다
+        for key in ('audio', 'tts'):
+            path = old.get(key)
+            if not isinstance(path, str):
+                continue
+            audio_path = os.path.join(REPO, path.replace('/', os.sep))
             if os.path.exists(audio_path):
                 os.remove(audio_path)
         data[matches[0]] = entry

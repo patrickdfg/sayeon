@@ -16,7 +16,7 @@
 <script src="/sayeon/analytics-config.js"></script>
 <script src="/sayeon/analytics.js"></script>
 <script src="/sayeon/crypt.js"></script>
-<script src="/sayeon/settings.js?v=2"></script>
+<script src="/sayeon/settings.js?v=3"></script>
 <script>
 /* 화면이 그려지기 전에 상태바 색을 정한다.
    브라우저가 이 색을 보고 상태바 글자(시계·배터리) 색을 정하기 때문에,
@@ -784,6 +784,19 @@ var queue = [], qi = 0, speaking = false, playbackHadError = false;
 
 if (!synth) { $("speak").disabled = true; $("warn").style.display = "block"; }
 
+/* ===== 어느 음성을 틀까 =====
+   한 편에 올린 음성(육성, `audio`)과 현수 음성(`tts`)이 둘 다 있을 수 있다.
+   설정의 '먼저 들을 음성' 이 어느 쪽을 먼저 볼지 정하고, 그쪽이 없으면 남은 쪽을 쓴다.
+   둘 다 없으면 null 이고, 그때만 기기가 그 자리에서 읽어 준다. */
+function audioFor(s) {
+  if (!s) return null;
+  var human = s.audio || null;
+  var tts = (typeof s.tts === 'string') ? s.tts : null;
+  var first = (window.SaSettings && cfg && cfg.audioFirst === 'tts') ? tts : human;
+  return first || human || tts;
+}
+function isHumanAudio(s) { return !!(s && s.audio && audioFor(s) === s.audio); }
+
 /* ===== 목소리 =====
    녹음이 아직 없는 편만 기기가 그 자리에서 읽어 준다(2025 성령사연).
    어느 목소리로 읽을지는 설정에서 고른다 — 고르는 일은 settings.js 한 곳에서만 한다.
@@ -859,7 +872,7 @@ seekRange.addEventListener("change", function () {
   seekDragging = false;
   var frac = Number(seekRange.value) / 1000;
   var s = SAYEON[idx];
-  if (s && s.audio) {
+  if (s && audioFor(s)) {
     var d = player.duration;
     if (isFinite(d) && d > 0) player.currentTime = frac * d;
   } else if (queue.length) {
@@ -893,7 +906,7 @@ function updateMediaSession(playing) {
 
 function updateSpeakBtn() {
   var s = SAYEON[idx];
-  var human = !!(s && s.audio && !s.tts);   // 컴퓨터 목소리는 육성이 아니다
+  var human = isHumanAudio(s);   // 컴퓨터 목소리(현수)는 육성이 아니다
   var btn = $("speak");
   btn.className = "speakbtn" + (human ? " human" : "") + (speaking ? " on" : "");
   btn.textContent = speaking ? "■ 정지" : ((human ? "🎙️" : "🤖") + " 듣기");
@@ -953,10 +966,23 @@ function startSyncFollow(s) {
   syncPi = -1;
 }
 
+/* 문단 시간표는 음성 파일마다 다르다(육성과 현수는 읽는 속도가 다르다).
+   둘 다 가진 편은 파일 이름(164.m4a / 164.mp3)을 열쇠로 쓰고,
+   하나뿐인 편은 예전처럼 편 번호를 쓴다. */
+function syncFor(s, i) {
+  if (!SYNC || !s) return null;
+  var f = audioFor(s);
+  if (f) {
+    var m = f.match(/(?:^|\/)([^\/]+)$/);
+    if (m && SYNC[m[1]]) return SYNC[m[1]];
+  }
+  return SYNC[String(numOf(s, i))] || null;
+}
+
 player.ontimeupdate = function () {
   if (!speaking) return;
   // sync.json 이 늦게 도착할 수 있으므로, 아직 없으면 재생 중에도 다시 찾는다
-  if (!syncTimes && SYNC) syncTimes = SYNC[String(numOf(SAYEON[idx], idx))] || null;
+  if (!syncTimes && SYNC) syncTimes = syncFor(SAYEON[idx], idx);
   if (!syncTimes) return;
   var t = player.currentTime, pi = -1;
   for (var i = 0; i < syncTimes.length; i++) {
@@ -1005,7 +1031,7 @@ function playAudioNow(s) {
   // 교체한 음성만 버전을 붙여 새 파일을 확실히 받게 한다.
   var audioVersions = { "2026_159": "2", "2026_163": "6" };
   var audioVersion = audioVersions[currentYear + "_" + numOf(s, idx)];
-  player.src = s.audio + (audioVersion ? "?v=" + audioVersion : "");
+  player.src = audioFor(s) + (audioVersion ? "?v=" + audioVersion : "");
   player.playbackRate = cfg.rate;
   player.currentTime = 0;
   player.play();
@@ -1022,8 +1048,8 @@ function startSpeak() {
   updateMediaSession(true);
 
   var silentAnchor = document.getElementById("silentAnchor");
-  if (s.audio) {
-    // 육성 낭독은 녹음 자체가 "성령 사연 157" 하고 시작하므로 제목을 또 읽지 않는다
+  if (audioFor(s)) {
+    // 녹음은 그 자체가 "성령 사연 157" 하고 시작하므로 제목을 또 읽지 않는다
     playAudioNow(s);
     return;
   }
