@@ -95,7 +95,7 @@
   <nav class="tabs">
     <a class="tab" href="/sayeon/">성령사연</a>
     <a class="tab" href="/sayeon/stones/">월명동사연</a>
-    <a class="tab" href="/malsseum/">말씀</a>
+    <a class="tab" href="/sayeon/malsseum/">말씀</a>
   </nav>
   <div class="headrow"><h1 class="head">⭐ 저장칸</h1></div>
   <div class="topbar">
@@ -240,7 +240,7 @@ function render() {
       }).filter(function (it) { return it.text; });
       if (!items.length) return;
       totalCount += items.length;
-      entries3.push({ no: no, year: null, title: entry.title || (no + "편"), base: "/malsseum/", items: items });
+      entries3.push({ no: no, year: null, title: entry.title || (no + "편"), base: "/sayeon/malsseum/", items: items });
     });
     html += buildGroup("말씀", entries3);
   }

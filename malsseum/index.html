@@ -1,22 +1,23 @@
 <!DOCTYPE html>
-<!-- 성령 사연 뷰어 — 사연 154편을 카드로 넘겨 보며 읽고 듣고, 글꼴·여백·테마를 설정할 수 있는 단일 HTML 문서 -->
+<!-- 말씀 뷰어 — 주일·수요 말씀을 카드로 넘겨 보며 읽고 듣는 단일 HTML 문서.
+     하나님·성령님·예수님·선생님·성자 말씀 인용은 화자별 색으로 표시된다. -->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
 <!-- 홈 화면에 추가했을 때 앱처럼 보이게 -->
-<link rel="manifest" href="manifest.json?v=20261004-inapp">
+<link rel="manifest" href="/sayeon/manifest.json?v=20261004-inapp">
 <meta name="theme-color" content="#1b2018">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=4">
-<link rel="icon" href="icons/icon-192.png?v=4">
+<link rel="apple-touch-icon" href="/sayeon/icons/apple-touch-icon.png?v=4">
+<link rel="icon" href="/sayeon/icons/icon-192.png?v=4">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<script src="/sayeon/analytics-config.js"></script>
-<script src="/sayeon/analytics.js"></script>
-<script src="/sayeon/crypt.js"></script>
-<script src="/sayeon/settings.js?v=5"></script>
+<script src="/malsseum/analytics-config.js"></script>
+<script src="/malsseum/analytics.js"></script>
+<script src="/malsseum/crypt.js"></script>
+<script src="/malsseum/settings.js?v=5"></script>
 <script>
 /* 화면이 그려지기 전에 상태바 색을 정한다.
    브라우저가 이 색을 보고 상태바 글자(시계·배터리) 색을 정하기 때문에,
@@ -39,8 +40,8 @@
   } catch (e) {}
 })();
 </script>
-<meta name="apple-mobile-web-app-title" content="2026년 성령 사연">
-<title>2026년 성령 사연</title>
+<meta name="apple-mobile-web-app-title" content="2026년 말씀">
+<title>2026년 말씀</title>
 <style>
   :root {
     --bg: #1b2018;
@@ -105,14 +106,14 @@
 
   .card-head {
     background: var(--green); color: #14180f;
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
     gap: 10px; padding: 14px 16px; border-radius: 4px;
   }
   .card-head .t {
     font-size: 21px; font-weight: 600; flex: 1 1 auto; min-width: 0;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.4;
   }
-  .card-head-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+  .card-head-actions { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; margin-left: auto; }
   .speakbtn {
     background: rgba(20,24,15,.14); color: #14180f; border: 0;
     border-radius: 999px; padding: 8px 14px; font-size: 15px;
@@ -122,12 +123,18 @@
   .speakbtn.on { background: #14180f; color: var(--green); }
   .speakbtn.human { background: var(--gold); color: #2a2200; }
   .speakbtn.human.on { background: #2a2200; color: var(--gold); }
-  .speakbtn.readcount.done { background: #14180f; color: var(--green); }
+  .speakbtn.readcount {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 9px; font-size: 12px;
+    border: 1px solid rgba(20,24,15,.45);
+  }
+  .speakbtn.readcount svg { width: 12px; height: 12px; flex: 0 0 auto; }
+  .speakbtn.readcount:focus-visible { outline: 2px solid #14180f; outline-offset: 2px; }
   .speakbtn.readminus { min-width: 40px; padding-left: 11px; padding-right: 11px; font-size: 21px; line-height: 1; }
   .speakbtn:disabled { opacity: .35; cursor: default; }
   @media (max-width: 420px) {
     .card-head { gap: 6px; padding: 12px 12px; }
-    .card-head .t { font-size: 17px; }
+    .card-head .t { font-size: 17px; flex-basis: 100%; }
     .speakbtn { padding: 7px 10px; font-size: 12px; min-height: 34px; }
     .card-head-actions { gap: 5px; }
   }
@@ -177,6 +184,24 @@
   .hl-swatch.hl-2{background:#9fe0b8;}
   .hl-swatch.hl-3{background:#a7c8f5;}
   .hl-swatch:hover{transform:scale(1.1);}
+
+  /* 화자별 말씀 인용 색 — 반투명이라 밝은 테마/어두운 테마 모두에서 보인다 */
+  .sp {
+    border-radius: 3px; padding: .04em .12em;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  }
+  .sp-god     { background: rgba(230,196,90,.26);  box-shadow: inset 0 -2px 0 rgba(230,196,90,.8); }
+  .sp-spirit  { background: rgba(120,210,150,.26); box-shadow: inset 0 -2px 0 rgba(120,210,150,.8); }
+  .sp-jesus   { background: rgba(130,180,245,.26); box-shadow: inset 0 -2px 0 rgba(130,180,245,.8); }
+  .sp-teacher { background: rgba(196,150,240,.26); box-shadow: inset 0 -2px 0 rgba(196,150,240,.8); }
+  .sp-son     { background: rgba(245,150,175,.26); box-shadow: inset 0 -2px 0 rgba(245,150,175,.8); }
+
+  .splegend {
+    display: flex; flex-wrap: wrap; gap: 7px 12px;
+    margin: 0 0 18px; font-size: 13px; opacity: .8;
+  }
+  .splegend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .splegend i { width: 13px; height: 13px; border-radius: 3px; display: inline-block; }
 
   .nav { display: flex; gap: 12px; margin-top: 26px; }
   .navbtn {
@@ -269,6 +294,17 @@
     border-bottom: 1px solid; border-color: rgba(147,196,165,.3);
   }
   .hit b { color: var(--green); }
+
+  /* 말씀 목록: 날짜에 이어 말씀 제목을 죽 쓴다.
+     줄이 넘어가면 날짜 밑까지 써서 폭을 다 쓴다. */
+  .mrow { margin-bottom: 8px; }
+  .mrow .hit {
+    margin-bottom: 0; padding: 10px 13px;
+    line-height: 1.6;              /* 목록은 줄 간격 설정을 따르지 않고 촘촘하게 */
+    word-break: keep-all;          /* 낱말 가운데서 끊기지 않게 */
+  }
+  .mrow .date { color: var(--green); font-weight: 700; white-space: nowrap; margin-right: 8px; }
+  .mrow .mtitle { opacity: .85; }
   .hit .snip { display: block; opacity: .6; font-size: 14px; margin-top: 4px; line-height: 1.6; }
 
   /* 잠금화면 */
@@ -291,46 +327,6 @@
     cursor: pointer; font-family: inherit; min-height: 46px;
   }
   .lockwarn { color: #d8837f; font-size: 14px; margin-top: 12px; display: none; }
-
-  /* 아이폰 Safari 홈 화면 설치 안내 */
-  .install-guide {
-    position: fixed; inset: 0; z-index: 80; display: flex;
-    align-items: flex-end; justify-content: center;
-    background: rgba(0,0,0,.58); padding: 18px 14px calc(18px + env(safe-area-inset-bottom));
-  }
-  .install-guide.hidden { display: none; }
-  .install-sheet {
-    width: 100%; max-width: 440px; max-height: calc(100vh - 36px); overflow-y: auto;
-    background: var(--bg); color: var(--text); border: 1px solid rgba(255,255,255,.14);
-    border-radius: 20px; padding: 20px 18px 18px;
-    box-shadow: 0 18px 60px rgba(0,0,0,.45);
-  }
-  .install-sheet-head { display: flex; align-items: flex-start; gap: 12px; }
-  .install-sheet-title { flex: 1; font-size: 20px; font-weight: 800; line-height: 1.35; }
-  .install-close {
-    flex: 0 0 auto; width: 38px; height: 38px; border: 0; border-radius: 50%;
-    background: var(--panel); color: var(--text); font-size: 22px; line-height: 1;
-    cursor: pointer;
-  }
-  .install-sheet-desc { margin: 8px 0 16px; opacity: .72; font-size: 14px; }
-  .install-steps { display: grid; gap: 10px; }
-  .install-step {
-    display: flex; align-items: center; gap: 12px; padding: 12px;
-    background: var(--panel); border-radius: 12px; font-size: 15px; line-height: 1.55;
-  }
-  .install-step-num {
-    flex: 0 0 30px; width: 30px; height: 30px; display: grid; place-items: center;
-    border-radius: 50%; background: var(--green); color: #14180f; font-weight: 800;
-  }
-  .install-share-hint {
-    margin-top: 14px; padding: 12px; text-align: center; border-radius: 12px;
-    border: 1px solid rgba(147,196,165,.45); color: var(--green); font-weight: 700;
-  }
-  .install-share-icon { font-size: 25px; vertical-align: -2px; margin: 0 3px; }
-  .install-done {
-    width: 100%; margin-top: 14px; min-height: 48px; border: 0; border-radius: 10px;
-    background: var(--green); color: #14180f; font: 700 16px var(--font); cursor: pointer;
-  }
 
 /* 세 자료실의 이동 탭과 설정은 좁은 휴대폰에서도 같은 한 줄에 둔다. */
 .site-tabs {
@@ -361,40 +357,19 @@
 
 <div class="wrap" id="wrap">
   <nav class="tabs site-tabs" aria-label="자료실 이동">
-    <span class="tab on" aria-current="page">성령사연</span>
-    <a class="tab" href="stones/">월명동사연</a>
-    <a class="tab" href="/sayeon/malsseum/">말씀</a>
+    <a class="tab" href="/sayeon/">성령사연</a>
+    <a class="tab" href="/sayeon/stones/">월명동사연</a>
+    <span class="tab on" aria-current="page">말씀</span>
     <button type="button" class="gearbtn" id="opensettings" aria-label="설정">⚙</button>
   </nav>
-  <nav class="tabs" id="yearTabs">
-    <button type="button" class="tab on" id="yearBtn2026" data-year="2026">2026</button>
-    <button type="button" class="tab" id="yearBtn2025" data-year="2025">2025</button>
-  </nav>
   <div class="headrow">
-    <h1 class="head" id="pageHead">2026년 성령 사연</h1>
+    <h1 class="head">2026년 말씀</h1>
   </div>
   <div class="topbar">
     <button class="topbtn" id="openlist">📋 목록</button>
     <a class="topbtn" href="/sayeon/saved/">⭐ 저장칸</a>
     <button class="topbtn" id="opensearch">🔍 검색</button>
     <button class="topbtn" id="installBtn" style="display:none">📲 앱 설치</button>
-  </div>
-
-  <div class="install-guide hidden" id="iosInstallGuide" role="dialog" aria-modal="true" aria-labelledby="iosInstallTitle">
-    <div class="install-sheet">
-      <div class="install-sheet-head">
-        <div class="install-sheet-title" id="iosInstallTitle">아이폰 홈 화면에 추가</div>
-        <button class="install-close" id="closeIosInstall" type="button" aria-label="설치 안내 닫기">×</button>
-      </div>
-      <p class="install-sheet-desc">이 성령 사연 화면을 그대로 둔 채 아래 순서대로 눌러 주세요.</p>
-      <div class="install-steps">
-        <div class="install-step"><span class="install-step-num">1</span><span>Safari의 <b>공유</b> 버튼 <span class="install-share-icon">□↑</span>을 누릅니다.</span></div>
-        <div class="install-step"><span class="install-step-num">2</span><span>공유 메뉴를 위로 올려 <b>홈 화면에 추가</b>를 누릅니다.</span></div>
-        <div class="install-step"><span class="install-step-num">3</span><span><b>웹 앱으로 열기</b>를 켜고 오른쪽 위 <b>추가</b>를 누릅니다.</span></div>
-      </div>
-      <div class="install-share-hint">↓ 화면 아래의 <span class="install-share-icon">□↑</span> 공유 버튼</div>
-      <button class="install-done" id="closeIosInstallDone" type="button">확인했어요</button>
-    </div>
   </div>
 
   <div class="total" id="total"></div>
@@ -405,7 +380,7 @@
       <div class="t"><span id="ctitle"></span></div>
       <div class="card-head-actions">
         <button class="speakbtn readminus" id="readCountMinus" type="button" aria-label="읽은 횟수 1회 줄이기" disabled>−</button>
-        <button class="speakbtn readcount" id="readCountBtn" type="button" aria-label="다 읽었으면 눌러서 기록">다 읽음</button>
+        <button class="speakbtn readcount" id="readCountBtn" type="button" aria-label="다 읽었으면 눌러서 기록"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span id="readCountLabel">읽음</span></button>
         <button class="speakbtn" id="speak">🔊 듣기</button>
       </div>
     </div>
@@ -416,6 +391,7 @@
     <div class="card-body">
       <div class="sub" id="csub"></div>
       <a class="linkbtn" id="clink" target="_blank" rel="noopener" style="display:none"></a>
+      <div class="splegend" id="splegend"></div>
       <div id="body"></div>
     </div>
   </div>
@@ -426,7 +402,7 @@
     <button class="navbtn right" id="next"><span class="k">다음</span><span class="v" id="nextT"></span></button>
   </div>
 
-  <footer>성령의 사연 자료실</footer>
+  <footer>말씀 자료실</footer>
   <div class="warn" id="warn">이 브라우저에서는 읽어주기를 지원하지 않습니다.</div>
 </div>
 
@@ -490,16 +466,9 @@
      "link": { "label": "영상 보기", "url": "https://..." }
    }
 */
-var SAYEON = [];
-var YEAR_URLS = { "2026": "sayeon.json", "2025": "sayeon2025.json" };
-var currentYear = "2026";
-var DATA_URL = YEAR_URLS[currentYear];
-SayeonAnalytics.trackSectionVisit("sayeon");
-// 다른 페이지 검색 결과에서 #y=2025 로 넘어오면 그 해 자료로 시작한다
-(function () {
-  var m = (location.hash || "").match(/[#&]y=(\d{4})/);
-  if (m && YEAR_URLS[m[1]]) { currentYear = m[1]; DATA_URL = YEAR_URLS[currentYear]; }
-})();
+var MAL = [];
+SayeonAnalytics.trackSectionVisit("malsseum");
+var DATA_URL = "/malsseum/malsseum.json";
 
 /* ===== 설정 =====
    설정 화면과 저장은 settings.js 한 곳에 있다(세 페이지가 같이 쓴다).
@@ -544,7 +513,7 @@ function escapeHtml(s) {
   });
 }
 /* ===== N독 (다 읽음) 카운트: 편별로 이 브라우저에만 저장 ===== */
-function readCountKey(epNum) { return "sayeonReadCount_" + currentYear + "_" + epNum; }
+function readCountKey(epNum) { return "malReadCount_" + epNum; }
 function getReadCount(epNum) {
   return parseInt(localStorage.getItem(readCountKey(epNum)), 10) || 0;
 }
@@ -562,7 +531,7 @@ function lowerReadCount(epNum) {
   return n;
 }
 
-function hlKey(epNum) { return "sayeonHl_" + currentYear + "_" + epNum; }
+function hlKey(epNum) { return "malHl_" + epNum; }
 function getHighlights(epNum) {
   try { return JSON.parse(localStorage.getItem(hlKey(epNum)) || "[]"); } catch (e) { return []; }
 }
@@ -611,8 +580,116 @@ function renderLinesWithHighlights(lines, hls) {
   }
   return htmlParts.join("");
 }
+/* ===== 화자별 말씀 인용 =====
+   문단은 ["줄", ...] 또는 {p:["줄", ...], sp:["god", ...]} 두 가지 꼴이다.
+   sp 는 그 문단에 나오는 “…” 인용을 순서대로 누구 말씀인지 적어 둔 것이다. */
+var SPEAKER_NAME = {
+  god: "하나님", spirit: "성령님", jesus: "예수님",
+  teacher: "선생님", son: "성자"
+};
+function linesOf(item) { return (item && item.p) ? item.p : item; }
+function spOf(item) { return (item && item.p) ? item.sp : null; }
+
+// 문단 안 “…” 인용의 위치를 찾아 화자 구간 목록으로 만든다.
+// 오프셋은 줄들을 구분자 없이 이어붙인 기준 — 수동 하이라이트와 같은 기준이다.
+function speakerRanges(lines, sp) {
+  if (!sp || !sp.length) return [];
+  var text = lines.join(""), out = [], qi = 0, i = 0;
+  while (i < text.length && qi < sp.length) {
+    var open = text.indexOf("“", i);
+    if (open < 0) break;
+    var close = text.indexOf("”", open + 1);
+    var end = (close < 0) ? text.length : close + 1;
+    if (sp[qi]) out.push({ start: open, end: end, sp: sp[qi] });
+    qi++;
+    i = end;
+  }
+  return out;
+}
+
+// 직접 칠한 하이라이트가 화자색보다 우선한다. 겹치는 화자 구간은 잘라 낸다.
+function mergeSpans(hls, sps) {
+  var out = [], i, j, k;
+  for (i = 0; i < hls.length; i++) {
+    out.push({ start: hls[i].start, end: hls[i].end, mark: hls[i] });
+  }
+  for (i = 0; i < sps.length; i++) {
+    var pieces = [{ start: sps[i].start, end: sps[i].end }];
+    for (j = 0; j < hls.length; j++) {
+      var next = [];
+      for (k = 0; k < pieces.length; k++) {
+        var p = pieces[k], h = hls[j];
+        if (h.end <= p.start || h.start >= p.end) { next.push(p); continue; }
+        if (h.start > p.start) next.push({ start: p.start, end: h.start });
+        if (h.end < p.end) next.push({ start: h.end, end: p.end });
+      }
+      pieces = next;
+    }
+    for (k = 0; k < pieces.length; k++) {
+      out.push({ start: pieces[k].start, end: pieces[k].end, sp: sps[i].sp });
+    }
+  }
+  out.sort(function (a, b) { return a.start - b.start; });
+  return out;
+}
+
+// 화자 구간과 수동 하이라이트를 함께 입혀 문단 HTML을 만든다
+function renderParagraph(item, hls) {
+  var lines = linesOf(item);
+  var spans = mergeSpans(hls, speakerRanges(lines, spOf(item)));
+  var htmlParts = [], pos = 0;
+  for (var li = 0; li < lines.length; li++) {
+    if (li > 0) htmlParts.push("<br>");
+    var lineText = lines[li];
+    var lineStart = pos, lineEnd = pos + lineText.length;
+    var out = "", cur = lineStart;
+    for (var i = 0; i < spans.length; i++) {
+      var sp = spans[i];
+      if (sp.end <= lineStart || sp.start >= lineEnd) continue;
+      var s = Math.max(sp.start, lineStart), e = Math.min(sp.end, lineEnd);
+      if (s < cur) continue;
+      out += escapeHtml(lineText.slice(cur - lineStart, s - lineStart));
+      var inner = escapeHtml(lineText.slice(s - lineStart, e - lineStart));
+      if (sp.mark) {
+        var h = sp.mark;
+        out += '<mark class="hl hl-' + h.color + '" data-pi="' + h.pi +
+          '" data-start="' + h.start + '" data-end="' + h.end + '">' + inner + '</mark>';
+      } else {
+        out += '<span class="sp sp-' + sp.sp + '">' + inner + '</span>';
+      }
+      cur = e;
+    }
+    out += escapeHtml(lineText.slice(cur - lineStart));
+    htmlParts.push(out);
+    pos = lineEnd;
+  }
+  return htmlParts.join("");
+}
+
+// 이 편에 실제로 나오는 화자만 범례로 보여 준다
+function buildLegend(s) {
+  var box = $("splegend");
+  box.innerHTML = "";
+  var seen = {}, order = [], ps = s.paragraphs || [];
+  for (var i = 0; i < ps.length; i++) {
+    var sp = spOf(ps[i]);
+    if (!sp) continue;
+    for (var j = 0; j < sp.length; j++) {
+      if (sp[j] && !seen[sp[j]]) { seen[sp[j]] = 1; order.push(sp[j]); }
+    }
+  }
+  for (var k = 0; k < order.length; k++) {
+    var row = document.createElement("span");
+    var chip = document.createElement("i");
+    chip.className = "sp sp-" + order[k];
+    row.appendChild(chip);
+    row.appendChild(document.createTextNode(SPEAKER_NAME[order[k]] + " 말씀"));
+    box.appendChild(row);
+  }
+}
+
 function paintHighlights() {
-  var s = SAYEON[idx];
+  var s = MAL[idx];
   var epNum = numOf(s, idx);
   var hls = getHighlights(epNum);
   var els = document.querySelectorAll("#body [data-pi]");
@@ -626,7 +703,7 @@ function paintHighlights() {
       var item = s.paragraphs[pi];
       el.innerHTML = renderTextWithHighlights(item.h, mine);
     } else {
-      el.innerHTML = renderLinesWithHighlights(s.paragraphs[pi], mine);
+      el.innerHTML = renderParagraph(s.paragraphs[pi], mine);
     }
   }
   applyFind();
@@ -637,7 +714,7 @@ function removeHighlightAt(markEl) {
   var pi = Number(markEl.getAttribute("data-pi"));
   var start = Number(markEl.getAttribute("data-start"));
   var end = Number(markEl.getAttribute("data-end"));
-  var s = SAYEON[idx];
+  var s = MAL[idx];
   var epNum = numOf(s, idx);
   var hls = getHighlights(epNum).filter(function (h) {
     return !(h.pi === pi && h.start === start && h.end === end);
@@ -676,7 +753,7 @@ function hideHlToolbar() {
 }
 function applyPendingHighlight(color) {
   if (!pendingHl) return;
-  var s = SAYEON[idx];
+  var s = MAL[idx];
   var epNum = numOf(s, idx);
   var hls = getHighlights(epNum).filter(function (h) {
     return h.pi !== pendingHl.pi || h.end <= pendingHl.start || h.start >= pendingHl.end;
@@ -703,7 +780,6 @@ function evaluateSelection() {
 }
 
 /* ===== 뷰어 ===== */
-var TOTAL = 155;
 var idx = 0;
 
 function numOf(s, i) { return (s && s.no) ? s.no : (i + 1); }
@@ -712,9 +788,9 @@ function fullTitle(s, i) { return s.title || (numOf(s, i) + "편"); }
 
 function render(keepSpeaking) {
   if (!keepSpeaking) stopSpeak();
-  var s = SAYEON[idx];
+  var s = MAL[idx];
   updateSpeakBtn();
-  $("total").textContent = currentYear + "년 · 총 " + SAYEON.length + "개 항목";
+  $("total").textContent = "총 " + MAL.length + "편";
   $("ctitle").textContent = s.title || "";
   var sub = $("csub");
   sub.innerHTML = "";
@@ -737,12 +813,13 @@ function render(keepSpeaking) {
 
   hideHlToolbar();
   var epNum = numOf(s, idx);
-  SayeonAnalytics.trackPage("sayeon", epNum, fullTitle(s, idx), currentYear);
+  SayeonAnalytics.trackPage("malsseum", epNum, fullTitle(s, idx), "2026");
   var hls = getHighlights(epNum);
   var rc = getReadCount(epNum);
-  $("readCountBtn").textContent = rc > 0 ? rc + "독" : "다 읽음";
+  $("readCountLabel").textContent = rc > 0 ? rc + "독" : "읽음";
   $("readCountBtn").classList.toggle("done", rc > 0);
   $("readCountMinus").disabled = rc === 0;
+  buildLegend(s);
   var body = $("body");
   body.innerHTML = "";
 
@@ -766,11 +843,10 @@ function render(keepSpeaking) {
         body.appendChild(hd);
         continue;
       }
-      var lines = item;
       var p = document.createElement("p");
       p.className = "para";
       p.setAttribute("data-pi", pi);
-      p.innerHTML = renderLinesWithHighlights(lines, hls.filter(function(h){ return h.pi === pi; }));
+      p.innerHTML = renderParagraph(item, hls.filter(function(h){ return h.pi === pi; }));
       body.appendChild(p);
     }
   }
@@ -785,36 +861,31 @@ function render(keepSpeaking) {
 
   var pv = $("prev"), nx = $("next");
   pv.disabled = (idx === 0);
-  nx.disabled = (idx === SAYEON.length - 1);
-  $("prevT").textContent = pv.disabled ? "" : shortTitle(SAYEON[idx - 1], idx - 1);
-  $("nextT").textContent = nx.disabled ? "" : shortTitle(SAYEON[idx + 1], idx + 1);
+  nx.disabled = (idx === MAL.length - 1);
+  $("prevT").textContent = pv.disabled ? "" : shortTitle(MAL[idx - 1], idx - 1);
+  $("nextT").textContent = nx.disabled ? "" : shortTitle(MAL[idx + 1], idx + 1);
 
-  var viewerCard = document.querySelector(".card");
-  if (viewerCard) viewerCard.scrollIntoView({block:"start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+  window.scrollTo(0, 0);
   applyFind();
 }
 
 function go(delta) {
   var n = idx + delta;
-  if (n < 0 || n >= SAYEON.length) return;
+  if (n < 0 || n >= MAL.length) return;
   idx = n;
   render();
 }
 
 /* ===== 읽어주기 ===== */
 var synth = window.speechSynthesis;
-var queue = [], qi = 0, speaking = false, playbackHadError = false;
+var queue = [], qi = 0, speaking = false;
 
 if (!synth) { $("speak").disabled = true; $("warn").style.display = "block"; }
 
 /* ===== 어느 음성을 틀까 =====
-   들려줄 수 있는 것이 셋이다.
-     녹음(`audio`)  — 올린 육성
-     현수(`tts`)    — 깃허브에서 만든 남자 목소리 파일
-     기기 목소리    — 폰에 깔린 것으로 그 자리에서 읽기 (파일이 없다)
-   설정의 '먼저 들을 음성' 이 어느 것을 먼저 볼지 정하고,
-   그것이 없으면 녹음 → 현수 → 기기 차례로 넘어간다.
-   null 을 돌려주면 파일을 틀지 않는다는 뜻이고, 그때 기기가 읽는다. */
+   성령사연과 같은 규칙을 쓴다. `audio` 는 올린 음성, `tts` 는 현수 음성이고
+   설정의 '먼저 들을 음성' 이 어느 쪽을 먼저 볼지 정한다.
+   말씀은 아직 편마다 하나뿐이라 실제로는 있는 것을 튼다. */
 function audioFor(s) {
   if (!s) return null;
   var human = s.audio || null;
@@ -832,9 +903,8 @@ function audioFor(s) {
 function isHumanAudio(s) { return !!(s && s.audio && audioFor(s) === s.audio); }
 
 /* ===== 목소리 =====
-   녹음이 아직 없는 편만 기기가 그 자리에서 읽어 준다(2025 성령사연).
-   어느 목소리로 읽을지는 설정에서 고른다 — 고르는 일은 settings.js 한 곳에서만 한다.
-   설정을 안 건드렸으면 기기에 있는 한국어 목소리 중 구글 것을 먼저 쓴다. */
+   녹음이 아직 없는 편만 기기가 그 자리에서 읽어 준다(지금 말씀은 69편 모두 음성이 있다).
+   어느 목소리로 읽을지는 설정에서 고른다 — 고르는 일은 settings.js 한 곳에서만 한다. */
 function pickVoice() {
   return (window.SaSettings && SaSettings.pickVoice) ? SaSettings.pickVoice() : null;
 }
@@ -905,7 +975,7 @@ seekRange.addEventListener("input", function () { seekDragging = true; });
 seekRange.addEventListener("change", function () {
   seekDragging = false;
   var frac = Number(seekRange.value) / 1000;
-  var s = SAYEON[idx];
+  var s = MAL[idx];
   if (s && audioFor(s)) {
     var d = player.duration;
     if (isFinite(d) && d > 0) player.currentTime = frac * d;
@@ -921,10 +991,10 @@ seekRange.addEventListener("change", function () {
 function updateMediaSession(playing) {
   if (!("mediaSession" in navigator)) return;
   try {
-    var s = SAYEON[idx];
+    var s = MAL[idx];
     navigator.mediaSession.metadata = new MediaMetadata({
       title: s.title || "",
-      artist: "2026년 성령 사연"
+      artist: "2026년 말씀"
     });
     navigator.mediaSession.playbackState = playing ? "playing" : "paused";
     navigator.mediaSession.setActionHandler("play", function () { if (!speaking) startSpeak(); });
@@ -939,31 +1009,18 @@ function updateMediaSession(playing) {
 }
 
 function updateSpeakBtn() {
-  var s = SAYEON[idx];
+  var s = MAL[idx];
   var human = isHumanAudio(s);   // 컴퓨터 목소리(현수)는 육성이 아니다
   var btn = $("speak");
   btn.className = "speakbtn" + (human ? " human" : "") + (speaking ? " on" : "");
   btn.textContent = speaking ? "■ 정지" : ((human ? "🎙️" : "🤖") + " 듣기");
 }
 
-function recordReadCompletion() {
-  var s = SAYEON[idx];
-  if (!s) return;
-  var epNum = numOf(s, idx);
-  var n = bumpReadCount(epNum);
-  SayeonAnalytics.trackRead("sayeon", epNum, fullTitle(s, idx), currentYear);
-  $("readCountBtn").textContent = n + "독";
-  $("readCountBtn").classList.add("done");
-  $("readCountMinus").disabled = false;
-}
-
 function advanceOrStop(completed) {
-  // 녹음이나 TTS를 오류 없이 끝까지 들은 경우에도 '다 읽음'과 같이 1독 기록한다.
-  // 반복듣기에서는 한 번 끝날 때마다 1회씩 올라간다.
-  if (completed) recordReadCompletion();
+  // 끝까지 들었을 때만 되풀이한다. 파일을 못 읽어 멈춘 것이면 그대로 선다.
   if (speaking && cfg.autoMode === "repeat" && completed) {
     setTimeout(function () { if (speaking && cfg.autoMode === "repeat") startSpeak(); }, 700);
-  } else if (speaking && cfg.autoMode === "next" && idx < SAYEON.length - 1) {
+  } else if (speaking && cfg.autoMode === "next" && idx < MAL.length - 1) {
     idx++;
     render(true);
     setTimeout(function () { if (speaking) startSpeak(); }, 1000);
@@ -979,7 +1036,7 @@ function advanceOrStop(completed) {
 /* ===== 육성 낭독에 맞춰 문단 짚어 주기 =====
    녹음마다 '몇 초에 어느 문단을 읽는지'를 audio/sync.json 에 미리 넣어 두었다.
    (녹음을 받아쓴 뒤 원고에 시간을 맞춰 붙여 만든 것이다)
-   재생 위치를 보고 지금 읽고 있는 문단을 짚어 주며 따라 내려간다. */
+   시간 자료가 없는 편은 그냥 넘어간다. */
 var SYNC = null, syncTimes = null, syncPi = -1;
 
 function loadSync() {
@@ -987,7 +1044,7 @@ function loadSync() {
   SYNC = {};
   var xhr = new XMLHttpRequest();
   // 편을 새로 넣으면 시간 자료도 같이 바뀌므로, 캐시된 옛 파일을 쓰지 않게 한다
-  xhr.open("GET", "audio/sync.json?v=" + (new Date()).getTime(), true);
+  xhr.open("GET", "/malsseum/audio/sync.json?v=" + (new Date()).getTime(), true);
   xhr.onreadystatechange = function () {
     if (xhr.readyState !== 4) return;
     try { SYNC = JSON.parse(xhr.responseText) || {}; } catch (e) { SYNC = {}; }
@@ -1000,15 +1057,17 @@ function startSyncFollow(s) {
   syncPi = -1;
 }
 
-/* 문단 시간표는 음성 파일마다 다르다(육성과 현수는 읽는 속도가 다르다).
-   둘 다 가진 편은 파일 이름(164.m4a / 164.mp3)을 열쇠로 쓰고,
-   하나뿐인 편은 예전처럼 편 번호를 쓴다. */
+// 열쇠가 세 가지로 섞여 있다. 파일 이름 그대로(0920.mp3), 확장자 뺀 것(0913),
+// 그리고 예전 말씀 번호(34). 위에서부터 차례로 찾는다.
+// 한 편에 음성이 둘이면 확장자까지 있어야 가려지므로 그것을 먼저 본다.
 function syncFor(s, i) {
   if (!SYNC || !s) return null;
   var f = audioFor(s);
-  if (f) {
-    var m = f.match(/(?:^|\/)([^\/]+)$/);
-    if (m && SYNC[m[1]]) return SYNC[m[1]];
+  var m = f && f.match(/(?:^|\/)([^\/]+)$/);
+  if (m) {
+    if (SYNC[m[1]]) return SYNC[m[1]];
+    var stem = m[1].replace(/\.[^.]+$/, '');
+    if (SYNC[stem]) return SYNC[stem];
   }
   return SYNC[String(numOf(s, i))] || null;
 }
@@ -1016,7 +1075,7 @@ function syncFor(s, i) {
 player.ontimeupdate = function () {
   if (!speaking) return;
   // sync.json 이 늦게 도착할 수 있으므로, 아직 없으면 재생 중에도 다시 찾는다
-  if (!syncTimes && SYNC) syncTimes = syncFor(SAYEON[idx], idx);
+  if (!syncTimes && SYNC) syncTimes = syncFor(MAL[idx], idx);
   if (!syncTimes) return;
   var t = player.currentTime, pi = -1;
   for (var i = 0; i < syncTimes.length; i++) {
@@ -1029,7 +1088,7 @@ player.onended = function () { advanceOrStop(true); };
 player.onerror = function () { advanceOrStop(false); };
 
 function speakNext() {
-  if (qi >= queue.length) { advanceOrStop(!playbackHadError); return; }
+  if (qi >= queue.length) { advanceOrStop(true); return; }
   var item = queue[qi];
   var u = new SpeechSynthesisUtterance(item.text);
   u.lang = "ko-KR";
@@ -1038,14 +1097,13 @@ function speakNext() {
   u.rate = cfg.rate;
   u.onstart = function () { highlight(item.pi); updateSeekQueue(); };
   u.onend = function () { qi++; if (speaking) speakNext(); };
-  u.onerror = function () { playbackHadError = true; qi++; if (speaking) speakNext(); };
+  u.onerror = function () { qi++; if (speaking) speakNext(); };
   synth.speak(u);
 }
 
 // 육성 녹음이 있는 편도, 이어 들을 때 몇 편인지 알 수 있게
 // 제목을 짧게 TTS로 먼저 읽고 나서 실제 녹음을 재생한다
 function speakTitleThenPlayAudio(s) {
-  var silentAnchor = document.getElementById("silentAnchor");
   if (!synth) { playAudioNow(s); return; }
   var u = new SpeechSynthesisUtterance(s.title);
   u.lang = "ko-KR";
@@ -1061,20 +1119,16 @@ function playAudioNow(s) {
   var silentAnchor = document.getElementById("silentAnchor");
   if (silentAnchor) silentAnchor.pause();
   startSyncFollow(s);
-  // 같은 파일명으로 음성을 다시 만들면 휴대폰이 옛 파일을 계속 쓸 수 있다.
-  // 교체한 음성만 버전을 붙여 새 파일을 확실히 받게 한다.
-  var audioVersions = { "2026_159": "2", "2026_163": "6" };
-  var audioVersion = audioVersions[currentYear + "_" + numOf(s, idx)];
-  player.src = audioFor(s) + (audioVersion ? "?v=" + audioVersion : "");
+  var audioPath = audioFor(s);
+  player.src = audioPath.charAt(0) === "/" ? audioPath : "/malsseum/" + audioPath;
   player.playbackRate = cfg.rate;
   player.currentTime = 0;
   player.play();
 }
 
 function startSpeak() {
-  var s = SAYEON[idx];
+  var s = MAL[idx];
   speaking = true;
-  playbackHadError = false;
   requestWakeLock();
   updateSpeakBtn();
   showSeek();
@@ -1083,19 +1137,17 @@ function startSpeak() {
 
   var silentAnchor = document.getElementById("silentAnchor");
   if (audioFor(s)) {
-    // 녹음은 그 자체가 "성령 사연 157" 하고 시작하므로 제목을 또 읽지 않는다
-    playAudioNow(s);
+    speakTitleThenPlayAudio(s);
     return;
   }
   if (silentAnchor) silentAnchor.play().catch(function () {});
 
   if (!s.paragraphs || !s.paragraphs.length) { speaking = false; return; }
-  // 이어 들을 때 몇 편인지 구분되도록 제목을 먼저 읽는다
   queue = [{ pi: -2, text: s.title }];
   for (var i = 0; i < s.paragraphs.length; i++) {
     var it = s.paragraphs[i];
     if (it && it.hr) continue;
-    queue.push({ pi: i, text: (it && it.h) ? it.h : it.join(" ") });
+    queue.push({ pi: i, text: (it && it.h) ? it.h : linesOf(it).join(" ") });
   }
   if (s.quote) queue.push({ pi: -1, text: s.quote });
   qi = 0;
@@ -1122,27 +1174,17 @@ function stopSpeak() {
 /* ===== 검색 ===== */
 /* 어느 페이지에서든 세 카테고리를 모두 찾는다 */
 var SEARCH_SOURCES = [
-  { label: "성령사연 2026", kind: "sayeon", url: "sayeon.json", base: "", year: "2026",
-    local: function () { return currentYear === "2026" ? SAYEON : null; } },
-  { label: "성령사연 2025", kind: "sayeon", url: "sayeon2025.json", base: "", year: "2025",
-    local: function () { return currentYear === "2025" ? SAYEON : null; } },
-  { label: "월명동사연", kind: "stones", url: "stones/stones.json", base: "stones/" },
-  { label: "말씀", kind: "sayeon", url: "/malsseum/malsseum.json", base: "/sayeon/malsseum/" }
+  { label: "성령사연 2026", kind: "sayeon", url: "/sayeon/sayeon.json", base: "/sayeon/", year: "2026" },
+  { label: "성령사연 2025", kind: "sayeon", url: "/sayeon/sayeon2025.json", base: "/sayeon/", year: "2025" },
+  { label: "월명동사연", kind: "stones", url: "/sayeon/stones/stones.json", base: "/sayeon/stones/" },
+  { label: "말씀", kind: "sayeon", url: "/malsseum/malsseum.json", base: "/sayeon/malsseum/",
+    local: function () { return MAL; } }
 ];
 
 // 검색 결과를 눌렀을 때: 같은 페이지면 바로 넘기고, 다른 페이지면 주소로 넘어간다
 function gotoHit(src, h) {
   var kw = $("q").value.replace(/^\s+|\s+$/g, "");
-  if (src.base === "" && src.year === currentYear) {
-    idx = h.idx; findQuery = kw; closeAll(); render(); return;
-  }
-  if (src.base === "") {           // 같은 성령사연인데 해가 다르다
-    pendingJumpNo = h.item.no;
-    findQuery = kw;
-    closeAll();
-    switchYear(src.year);
-    return;
-  }
+  if (src.base === "") { idx = h.idx; findQuery = kw; closeAll(); render(); return; }
   location.href = src.base + "#n=" + encodeURIComponent(h.item.no || h.item.num) +
     (src.year ? "&y=" + src.year : "") + "&q=" + encodeURIComponent(kw);
 }
@@ -1153,20 +1195,13 @@ function hashParam(name) {
   var m = (location.hash || "").match(new RegExp("[#&]" + name + "=([^&]*)"));
   return m ? decodeURIComponent(m[1]) : null;
 }
-var pendingJumpNo = null;   // 연도를 바꿔 다시 읽은 뒤 펼칠 편 번호
-function jumpToNo(no) {
-  for (var i = 0; i < SAYEON.length; i++) {
-    if (String(SAYEON[i].no) === String(no)) { idx = i; return true; }
-  }
-  return false;
-}
 function jumpToHashItem() {
   var q = hashParam("q");
   if (q) findQuery = q;
   var no = hashParam("n");
   if (no === null) return false;
-  for (var i = 0; i < SAYEON.length; i++) {
-    if (String(SAYEON[i].no) === String(no)) { idx = i; return true; }
+  for (var i = 0; i < MAL.length; i++) {
+    if (String(MAL[i].no) === String(no)) { idx = i; return true; }
   }
   return false;
 }
@@ -1407,15 +1442,46 @@ function paintResults(blocks, total) {
   });
 }
 
+/* '9월 6일 주일말씀' -> '9월 6일 (주)' */
+var DAY_MARK = { "주일": "(주)", "수요": "(수)", "금요": "(금)", "토요": "(토)", "월요": "(월)" };
+function dateLabel(s, i) {
+  var m = (s.title || "").match(/^\s*(\d+월\s*\d+일)\s*(주일|수요|금요|토요|월요)?/);
+  if (!m) return fullTitle(s, i);
+  var mark = DAY_MARK[m[2]] || "";
+  return m[1] + (mark ? " " + mark : "");
+}
+
+// 말씀 제목(부제)을 한 줄로 이어 붙인다
+function subText(s) {
+  if (!s.subtitle) return "";
+  var subs = (typeof s.subtitle === "string") ? [s.subtitle] : s.subtitle;
+  return subs.join("  ");
+}
+
 function buildList() {
   var box = $("listresults");
   box.innerHTML = "";
-  for (var i = 0; i < SAYEON.length; i++) {
-    var btn = document.createElement("button");
-    btn.className = "hit";
-    btn.textContent = fullTitle(SAYEON[i], i);
-    (function (t) { btn.onclick = function () { idx = t; closeAll(); render(); }; })(i);
-    box.appendChild(btn);
+  for (var i = 0; i < MAL.length; i++) {
+    (function (at) {
+      var s = MAL[at];
+      var row = document.createElement("div");
+      row.className = "mrow";
+
+      var btn = document.createElement("button");
+      btn.className = "hit";
+      var d = document.createElement("span");
+      d.className = "date";
+      d.textContent = dateLabel(s, at);
+      var t = document.createElement("span");
+      t.className = "mtitle";
+      t.textContent = subText(s);
+      btn.appendChild(d);
+      btn.appendChild(t);   // 이어 붙여 한 덩어리 글로 흐르게 한다
+      btn.onclick = function () { idx = at; closeAll(); render(); };
+
+      row.appendChild(btn);
+      box.appendChild(row);
+    })(i);
   }
 }
 
@@ -1449,13 +1515,19 @@ $("prev").onclick = function () { go(-1); };
 $("next").onclick = function () { go(1); };
 $("speak").onclick = function () { if (speaking) { stopSpeak(); } else { startSpeak(); } };
 $("readCountBtn").onclick = function () {
-  recordReadCompletion();
+  var s = MAL[idx];
+  var epNum = numOf(s, idx);
+  var n = bumpReadCount(epNum);
+  SayeonAnalytics.trackRead("malsseum", epNum, fullTitle(s, idx), "2026");
+  $("readCountLabel").textContent = n + "독";
+  $("readCountBtn").classList.add("done");
+  $("readCountMinus").disabled = false;
 };
 $("readCountMinus").onclick = function () {
-  var s = SAYEON[idx];
+  var s = MAL[idx];
   if (!s) return;
   var n = lowerReadCount(numOf(s, idx));
-  $("readCountBtn").textContent = n > 0 ? n + "독" : "다 읽음";
+  $("readCountLabel").textContent = n > 0 ? n + "독" : "읽음";
   $("readCountBtn").classList.toggle("done", n > 0);
   $("readCountMinus").disabled = n === 0;
 };
@@ -1529,9 +1601,9 @@ function showLoadError(msg) {
   var d = document.createElement("div");
   d.className = "empty";
   var lines = [
-    "사연 파일(sayeon.json)을 읽지 못했습니다.",
+    "말씀 파일(malsseum.json)을 읽지 못했습니다.",
     msg,
-    "index.html 과 sayeon.json 이 같은 폴더에 있어야 하고,",
+    "index.html 과 malsseum.json 이 같은 폴더에 있어야 하고,",
     "웹 주소(http/https)로 열어야 동작합니다."
   ];
   for (var i = 0; i < lines.length; i++) {
@@ -1549,29 +1621,13 @@ function showLoadError(msg) {
   $("opensearch").disabled = true;
 }
 
-function switchYear(year) {
-  if (year === currentYear || !YEAR_URLS[year]) return;
-  stopSpeak();
-  currentYear = year;
-  DATA_URL = YEAR_URLS[year];
-  $("yearBtn2026").className = "tab" + (year === "2026" ? " on" : "");
-  $("yearBtn2025").className = "tab" + (year === "2025" ? " on" : "");
-  $("pageHead").textContent = year + "년 성령 사연";
-  document.title = year + "년 성령 사연";
-  SAYEON = [];
-  loadData();
-}
-$("yearBtn2026").onclick = function () { switchYear("2026"); };
-$("yearBtn2025").onclick = function () { switchYear("2025"); };
-
 function loadData() {
   $("total").textContent = "불러오는 중…";
   SaCrypt.json(DATA_URL).then(function (list) {
-    SAYEON = list || [];
-    if (!SAYEON.length) { showLoadError("(내용이 비어 있음)"); return; }
-    idx = SAYEON.length - 1;
-    if (pendingJumpNo !== null) { jumpToNo(pendingJumpNo); pendingJumpNo = null; }
-    else jumpToHashItem();
+    MAL = list || [];
+    if (!MAL.length) { showLoadError("(내용이 비어 있음)"); return; }
+    idx = MAL.length - 1;
+    jumpToHashItem();
     buildList();
     render();
   }).catch(function () { showLoadError("(읽지 못했습니다)"); });
@@ -1580,107 +1636,68 @@ function loadData() {
 
 /* ===== 홈 화면에 추가 =====
    안드로이드 크롬은 설치할 수 있을 때 beforeinstallprompt 를 보내 준다.
-   그때 상단에 단추를 띄운다. 아이폰은 현재 페이지를 유지한 채
-   Safari의 공유 메뉴에서 홈 화면에 추가하도록 안내한다.
-   이미 홈 화면 앱으로 실행 중이면 단추를 보이지 않는다. */
+   그때만 상단에 단추를 띄우고, 설치했거나 한 번 닫으면 다시 띄우지 않는다.
+   (아이폰은 이 신호가 없어서 install.html 안내로 대신한다) */
 (function () {
   var deferred = null;
   var btn = document.getElementById("installBtn");
-  var guide = document.getElementById("iosInstallGuide");
-  var closeGuide = document.getElementById("closeIosInstall");
-  var closeGuideDone = document.getElementById("closeIosInstallDone");
   if (!btn) return;
 
-  function savedAsInstalled() {
-    try { return localStorage.getItem("sayeon_app_installed") === "1"; }
-    catch (e) { return false; }
+  function hidden() {
+    try {
+      return localStorage.getItem("installHidden") === "1" ||
+        localStorage.getItem("sayeon_app_installed") === "1";
+    } catch (e) { return false; }
   }
   function rememberInstalled() {
-    try { localStorage.setItem("sayeon_app_installed", "1"); } catch (e) {}
+    try {
+      localStorage.setItem("installHidden", "1");
+      localStorage.setItem("sayeon_app_installed", "1");
+    } catch (e) {}
   }
   function runningAsApp() {
     var modes = ["standalone", "fullscreen", "minimal-ui", "window-controls-overlay"];
-    var matched = false;
     if (window.matchMedia) {
       for (var i = 0; i < modes.length; i++) {
-        if (window.matchMedia("(display-mode: " + modes[i] + ")").matches) {
-          matched = true;
-          break;
-        }
+        if (window.matchMedia("(display-mode: " + modes[i] + ")").matches) return true;
       }
     }
-    return matched || window.navigator.standalone === true ||
+    return window.navigator.standalone === true ||
       document.referrer.indexOf("android-app://") === 0;
   }
-  function installed() {
-    return runningAsApp() || savedAsInstalled();
-  }
-  function iosDevice() {
-    return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  }
-  function showIosGuide() {
-    if (!guide) return;
-    guide.className = "install-guide";
-    document.body.style.overflow = "hidden";
-  }
-  function hideIosGuide() {
-    if (!guide) return;
-    guide.className = "install-guide hidden";
-    document.body.style.overflow = "";
-  }
-
-  if (closeGuide) closeGuide.onclick = hideIosGuide;
-  if (closeGuideDone) closeGuideDone.onclick = hideIosGuide;
-  if (guide) guide.onclick = function (e) { if (e.target === guide) hideIosGuide(); };
 
   if (runningAsApp()) rememberInstalled();
-  if (installed()) {
+  if (runningAsApp() || hidden()) {
     btn.style.display = "none";
     return;
   }
-  if (iosDevice()) btn.style.display = "inline-flex";
 
   window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault();
     deferred = e;
-    if (!installed()) btn.style.display = "inline-flex";
+    if (!hidden()) btn.style.display = "inline-flex";
   });
 
   btn.onclick = function () {
-    if (!deferred) {
-      if (iosDevice()) {
-        showIosGuide();
-        return;
-      }
-      window.location.href = "install.html";
-      return;
-    }
+    if (!deferred) return;
     deferred.prompt();
-    deferred.userChoice.then(function (choice) {
+    deferred.userChoice.then(function () {
       deferred = null;
-      if (choice && choice.outcome === "accepted") {
-        rememberInstalled();
-        btn.style.display = "none";
-      }
+      btn.style.display = "none";
+      rememberInstalled();
     });
   };
 
   window.addEventListener("appinstalled", function () {
-    deferred = null;
-    rememberInstalled();
-    hideIosGuide();
     btn.style.display = "none";
+    rememberInstalled();
   });
 })();
 
-/* ===== 잠금화면 =====
-   원고는 잠겨 있고(.enc), 암호로만 풀린다. 암호는 이 파일 어디에도 없다.
-   맞는 암호인지는 내용이 풀리는지로 가린다. */
+/* ===== 잠금화면 ===== */
 function enter() {
   $("lock").className = "lock hidden";
   loadData();
-  SaSettings.askPush();
 }
 
 function tryUnlock() {

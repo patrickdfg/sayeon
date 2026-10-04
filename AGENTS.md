@@ -34,11 +34,12 @@ GitHub Pages 로 <https://patrickdfg.github.io/sayeon/> 에 올라간다.
 | `index.html` | 성령 사연 (2026 / 2025 두 해) | `sayeon.json`, `sayeon2025.json` |
 | `stones/index.html` | 월명동 돌과 나무 이야기 | `stones/stones.json` + `stones/img/` |
 
-**말씀은 2026-09-14 에 별도 저장소 `malsseum` 로 옮겼다** (음성이 커서, 약 570MB).
-`patrickdfg.github.io/malsseum/` 로 올라가고, 이 저장소와 **같은 호스트라
-같은 출처**라서 설정·암호·검색이 그대로 이어진다. 말씀 탭은 `/malsseum/` 로
-가고, 검색은 `/malsseum/malsseum.json` 을 절대경로로 받아 온다(같은 소금이라
-같은 암호로 풀린다). 말씀 자체를 고칠 일은 그 저장소에서 한다.
+**말씀 자료는 별도 저장소 `malsseum`에서 관리한다.** 설치 앱에서 여는 말씀 화면은
+`/sayeon/malsseum/`이고, 원고는 `/malsseum/malsseum.json.enc`, 녹음·현수 음성과
+시간표는 `/malsseum/audio/`에서 가져온다. 2026-10-04 사용자 결정으로 이 구조를 유지한다.
+말씀 탭·검색·저장칸은 모두 `/sayeon/malsseum/`으로 연결한다.
+화면 코드 변경 시 이 저장소의 `malsseum/index.html`과 별도 저장소의 `index.html`을
+동일하게 갱신한다. 원고·음성은 복제하지 않는다. PWA scope는 `/sayeon/`이다.
 
 음성 파일은 `audio/` 에 편 번호로 넣는다.
 JSON 항목에 `"audio": "audio/22.m4a"` 처럼 적어 두면 그 편은 그 파일을 틀어 주고,
@@ -187,14 +188,9 @@ python make_tts.py 159             # 한 편 (여러 편은 번호를 나열, �
 - **이동은 기존 검색-이동 방식을 그대로 썼다.** `<주소>#n=편번호&y=연도&q=하이라이트한글`
   로 이동하면 그 페이지가 알아서 그 편을 펼치고 `q` 글자를 노랗게 찾아 스크롤해 준다
   (검색 결과를 누를 때 쓰던 바로 그 길). 문단으로 바로 가는 새 기능을 따로 안 만들어도 됐다.
-- **말씀으로 가는 주소는 `/malsseum/` 다.** 분리 전(2026-09-14) 주소이던
-  `/sayeon/malsseum/`(이 저장소에 남아 있던 옛 `malsseum/index.html` 사본)으로
-  탭·검색이 여전히 가고 있던 것을 2026-10-04 에 발견해 고쳤다 — 그 사본은 오늘
-  바뀐 내용이 하나도 없어서, 성령사연 앱 안에서 '말씀' 탭을 누르면 설정 아이콘화·
-  저장칸 추가 같은 최근 변경이 전혀 안 보였다(캐시 문제가 아니라 아예 다른 옛 파일을
-  보고 있었던 것). `index.html`·`stones/index.html`의 탭 href 와 검색(SEARCH_SOURCES/
-  OTHER_SOURCES)의 `base` 를 `/malsseum/` 로 고치고, 옛 사본(`malsseum/` 디렉터리)은
-  지웠다.
+- **말씀 이동 주소는 `/sayeon/malsseum/`이다.** 화면만 이 앱 범위 안에 두고,
+  원고·음성·시간표는 `/malsseum/`에서 불러온다. 화면을 고칠 때 두 저장소의
+  HTML을 함께 갱신해 오래된 화면이 남지 않도록 한다.
 - 삭제 기능은 없다. 지우려면 원래 페이지에서 칠한 글자를 다시 눌러 지운다(기존 방식).
 
 ## 손볼 때 알아 둘 것
@@ -333,7 +329,7 @@ python make_tts.py 159             # 한 편 (여러 편은 번호를 나열, �
   python -c "import re,io;s=re.findall(r'<script>(.*?)</script>',io.open('index.html',encoding='utf-8').read(),re.S)[0];io.open('chk.js','w',encoding='utf-8').write(s)" && node --check chk.js
   ```
 
-- **암호**는 세 페이지 모두 `7125` (브라우저 안에서만 막는 것이라 진짜 보안은
+- **암호**는 세 페이지 모두 저장소 비밀값 `SAYEON_PASS` (브라우저 안에서만 막는 것이라 진짜 보안은
   아니다). 성령사연과 말씀은 잠금 상태를 같이 쓰고(`sayeon_unlocked`),
   월명동은 따로 쓴다(`wmdUnlocked`).
 
