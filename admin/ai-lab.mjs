@@ -1,4 +1,4 @@
-import {MODELS,SOURCES,toChunks,retrieve,verifyAdmin,generate,clean} from './ai-core.mjs';
+import {MODELS,SOURCES,toChunks,retrieve,verifyAdmin,generate,clean} from './ai-core.mjs?v=2';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
 let token=sessionStorage.getItem('sayeonAdminToken')||'',authorized=false,chunks=[],cache=new Map(),requests=0,controller=null,busy=false;
 const text=(el,s)=>{el.textContent=s;};

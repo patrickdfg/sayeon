@@ -1,6 +1,6 @@
 export const MODELS = Object.freeze({
-  'gemini-lite': {label:'Gemini 2.5 Flash-Lite',provider:'gemini',model:'gemini-2.5-flash-lite'},
-  'gemini-flash': {label:'Gemini 2.5 Flash',provider:'gemini',model:'gemini-2.5-flash'},
+  'gemini-lite': {label:'Gemini 3.5 Flash-Lite',provider:'gemini',model:'gemini-3.5-flash-lite'},
+  'gemini-flash': {label:'Gemini 3.8 Flash',provider:'gemini',model:'gemini-3.8-flash'},
   'groq-oss': {label:'Groq · GPT OSS 20B',provider:'groq',model:'openai/gpt-oss-20b'}
 });
 export const SOURCES = Object.freeze([
@@ -60,10 +60,10 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
  const m=MODELS[modelId];if(!m)throw new Error('허용되지 않은 모델입니다.');if(!key.trim())throw new Error(m.provider+' 무료 API 키를 입력해 주세요.');
  const gem=m.provider==='gemini',url=gem?'https://generativelanguage.googleapis.com/v1beta/models/'+m.model+':generateContent':'https://api.groq.com/openai/v1/chat/completions';
  const headers=gem?{'Content-Type':'application/json','x-goog-api-key':key.trim()}:{'Content-Type':'application/json',Authorization:'Bearer '+key.trim()};
- const body=gem?{systemInstruction:{parts:[{text:SYSTEM}]},contents:[{role:'user',parts:[{text:prompt(question,evidence)}]}],generationConfig:{temperature:.1,maxOutputTokens:1800,responseMimeType:'application/json'}}:{model:m.model,messages:[{role:'system',content:SYSTEM},{role:'user',content:prompt(question,evidence)}],temperature:.1,max_completion_tokens:1800,response_format:{type:'json_object'}};
+ const body=gem?{systemInstruction:{parts:[{text:SYSTEM}]},contents:[{role:'user',parts:[{text:prompt(question,evidence)}]}],generationConfig:{maxOutputTokens:4096,responseMimeType:'application/json',thinkingConfig:{thinkingLevel:'LOW'}}}:{model:m.model,messages:[{role:'system',content:SYSTEM},{role:'user',content:prompt(question,evidence)}],temperature:.1,max_completion_tokens:1800,response_format:{type:'json_object'}};
  const r=await fetcher(url,{method:'POST',headers,body:JSON.stringify(body),signal});
  if(!r.ok){const msg=r.status===429?'무료 한도 또는 호출 속도 제한에 도달했습니다. 원문을 확인하거나 다른 모델을 선택해 주세요.':r.status===401||r.status===403?'API 키 또는 모델 사용 권한을 확인해 주세요.':r.status===404?'이 모델은 계정에서 사용할 수 없거나 종료됐습니다. 다른 모델을 선택해 주세요.':'AI 요청을 처리하지 못했습니다 ('+r.status+').';throw new Error(msg);}
- const d=await r.json(),raw=gem?(d.candidates?.[0]?.content?.parts||[]).filter(x=>!x.thought).map(x=>x.text||'').join(''):d.choices?.[0]?.message?.content||'';
+ const d=await r.json();if(gem&&d.candidates?.[0]?.finishReason==='MAX_TOKENS')throw new Error('답변 길이 제한으로 생성이 중단됐습니다. 질문 범위를 좁혀 주세요.');const raw=gem?(d.candidates?.[0]?.content?.parts||[]).filter(x=>!x.thought).map(x=>x.text||'').join(''):d.choices?.[0]?.message?.content||'';
  if(!raw)throw new Error('AI가 답변을 반환하지 않았습니다. 원문을 확인해 주세요.');
  return {answer:validateAnswer(raw,evidence),usage:gem?d.usageMetadata:d.usage,model:m.label};
 }

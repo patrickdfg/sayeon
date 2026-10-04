@@ -25,7 +25,10 @@
 8. 새 원고는 테스트 화면 새로고침 시 자동으로 읽는다. 테스트 자료와 답변 캐시는 현재 화면 메모리에만 있다.
 
 ## 지원 모델과 무료 조건
-- Gemini 2.5 Flash-Lite / Gemini 2.5 Flash: Google 공식 가격표의 무료 등급 지원 모델.
+- Gemini 3.5 Flash-Lite / Gemini 3.8 Flash: 2026-10-04 Google 공식 모델 목록과 가격표에서 안정 버전·무료 등급 확인. 기존 2.5 선택지를 교체했다.
+- 공식 모델 목록은 새 프로젝트에 3.5 Flash-Lite 또는 3.8 Flash를 권장한다. 2.5는 기존 사용 이력이 있는 사용자로 접근이 제한된다.
+- 확인 자료: https://ai.google.dev/gemini-api/docs/models 및 https://ai.google.dev/gemini-api/docs/pricing
+- Gemini 3 요청은 낮은 temperature 강제를 제거하고 기본값을 사용한다. thinkingLevel LOW, 생각 토큰 포함 최대 출력 4096, MAX_TOKENS 종료 시 잘린 답변 보류. 무료 계정의 실제 사용 가능 여부·한도는 키로 확인해야 한다.
 - Groq openai/gpt-oss-20b: Groq 무료 등급 모델. OpenAI ChatGPT 유료 계정·API를 사용하는 것이 아니다.
 - 업체별 키·접근 권한·일일/분당 토큰 한도는 계정에 따라 달라진다.
 - 화면에서 키가 무료인지 자동 판별할 수 없다. 유료 결제 없는 프로젝트/계정의 키만 사용한다.
@@ -58,4 +61,4 @@
 node --test tests/ai-lab.test.mjs
 node --check admin/ai-lab.mjs
 
-11개 검사: 원고 구조·월명동 및 연도 키·검색 범위·무관 질문·인용 검증·조작 인용·미로그인·비관리자·RPC 확인·Gemini/Groq 요청·429 및 없는 모델.
+12개 검사: 원고 구조·월명동 및 연도 키·검색 범위·무관 질문·인용 검증·조작 인용·미로그인·비관리자·RPC 확인·Gemini/Groq 요청·429 및 없는 모델·최신 모델 경로와 추론 설정·출력 중단 보류.
