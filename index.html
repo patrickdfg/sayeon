@@ -83,6 +83,13 @@
     min-height: 44px; cursor: pointer;
   }
   .tab.on { background: var(--green); color: #14180f; font-weight: 700; cursor: default; }
+  .gearbtn {
+    margin-left: auto; flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px;
+    background: var(--panel); color: var(--text);
+    border: 0; border-radius: 999px; font-size: 18px; cursor: pointer;
+  }
 
   .topbar { display: flex; gap: 5px; flex-wrap: wrap; }
   .topbtn {
@@ -342,6 +349,7 @@
     <span class="tab on" aria-current="page">성령사연</span>
     <a class="tab" href="stones/">월명동사연</a>
     <a class="tab" href="/sayeon/malsseum/">말씀</a>
+    <button type="button" class="gearbtn" id="opensettings" aria-label="설정">⚙</button>
   </nav>
   <nav class="tabs" id="yearTabs">
     <button type="button" class="tab on" id="yearBtn2026" data-year="2026">2026</button>
@@ -352,7 +360,6 @@
   </div>
   <div class="topbar">
     <button class="topbtn" id="openlist">📋 목록</button>
-    <button class="topbtn" id="opensettings">⚙ 설정</button>
     <a class="topbtn" href="/sayeon/saved/">⭐ 저장칸</a>
     <button class="topbtn" id="opensearch">🔍 검색</button>
     <button class="topbtn" id="installBtn" style="display:none">📲 앱 설치</button>
