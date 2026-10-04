@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<!-- 저장칸 — 성령사연·월명동사연·말씀에서 칠한 하이라이트를 한 곳에 모아 보여주는 페이지 -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b2018">
+<link rel="apple-touch-icon" href="/sayeon/icons/apple-touch-icon.png?v=4">
+<link rel="icon" href="/sayeon/icons/icon-192.png?v=4">
+<script src="/sayeon/analytics-config.js"></script>
+<script src="/sayeon/analytics.js"></script>
+<script src="/sayeon/crypt.js"></script>
+<script src="/sayeon/settings.js?v=5"></script>
+<title>저장칸 — 하이라이트 모음</title>
+<style>
+  :root {
+    --bg: #1b2018;
+    --text: #e9ece4;
+    --green: #93c4a5;
+    --gold: #e6d5a0;
+    --panel: rgba(140,150,130,.14);
+    --size: 16px;
+    --font: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: var(--size);
+    line-height: 1.6;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 22px 18px 40px; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
+  .tab {
+    padding: 7px 14px; border-radius: 999px; background: var(--panel);
+    color: var(--text); text-decoration: none; font-size: 14px;
+  }
+  .headrow { margin: 6px 0 14px; }
+  .head { font-size: 20px; margin: 0; }
+  .topbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .topbtn {
+    padding: 8px 14px; border-radius: 10px; border: none; background: var(--panel);
+    color: var(--text); font-size: 14px; cursor: pointer; font-family: inherit;
+  }
+  .total { font-size: 13px; opacity: .72; margin-bottom: 18px; }
+
+  .group { margin-bottom: 28px; }
+  .group-title {
+    font-size: 15px; font-weight: 700; color: var(--gold); margin: 0 0 12px;
+    padding-bottom: 6px; border-bottom: 1px solid var(--panel);
+  }
+  .ep { margin-bottom: 16px; }
+  .ep-title { font-size: 14px; opacity: .85; margin-bottom: 7px; }
+  .snippet {
+    display: block; width: 100%; text-align: left; background: var(--panel);
+    border: none; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px;
+    color: var(--text); font-size: var(--size); line-height: 1.6; cursor: pointer;
+    font-family: inherit;
+  }
+  .snippet mark.hl { cursor: inherit; border-radius: 3px; padding: .05em .1em; color: #2a2823; }
+  .snippet mark.hl-1 { background: #ffe08a; }
+  .snippet mark.hl-2 { background: #9fe0b8; }
+  .snippet mark.hl-3 { background: #a7c8f5; }
+  .empty { opacity: .7; padding: 60px 10px; text-align: center; line-height: 1.8; }
+
+  .lock { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .lock.hidden { display: none; }
+  .lockbox { width: 100%; max-width: 300px; text-align: center; }
+  .locktitle { font-size: 18px; margin-bottom: 18px; }
+  .lockbox input {
+    width: 100%; padding: 12px; font-size: 18px; text-align: center; border-radius: 10px;
+    border: 1px solid var(--panel); background: var(--panel); color: var(--text); margin-bottom: 12px;
+  }
+  .lockbtn {
+    width: 100%; padding: 12px; font-size: 16px; border-radius: 10px; border: none;
+    background: var(--green); color: #14180f; font-weight: 700; cursor: pointer;
+  }
+  .lockwarn { color: #d8837f; font-size: 14px; margin-top: 12px; display: none; }
+</style>
+</head>
+<body>
+
+<div class="lock" id="lock">
+  <div class="lockbox">
+    <div class="locktitle">비밀번호를 입력하세요</div>
+    <input id="pw" type="password" inputmode="numeric" autocomplete="off" placeholder="••••">
+    <button class="lockbtn" id="pwok">확인</button>
+    <div class="lockwarn" id="pwwarn">비밀번호가 틀렸습니다.</div>
+  </div>
+</div>
+
+<div class="wrap" id="wrap" style="display:none">
+  <nav class="tabs">
+    <a class="tab" href="/sayeon/">성령사연</a>
+    <a class="tab" href="/sayeon/stones/">월명동사연</a>
+    <a class="tab" href="/malsseum/">말씀</a>
+  </nav>
+  <div class="headrow"><h1 class="head">⭐ 저장칸</h1></div>
+  <div class="topbar">
+    <button type="button" class="topbtn" id="opensettings">⚙ 설정</button>
+  </div>
+  <div class="total" id="total"></div>
+  <div id="body"></div>
+</div>
+
+<script>
+function $(id) { return document.getElementById(id); }
+function setVar(n, v) { document.documentElement.style.setProperty(n, v); }
+var cfg = null;
+function applyCfg() {
+  setVar("--size", cfg.size + "px");
+  setVar("--font", cfg.fontFamily);
+  setVar("--bg", cfg.bg);
+  setVar("--text", cfg.text);
+  syncThemeColor();
+}
+function syncThemeColor() {
+  var m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute("content", cfg.bg);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function renderSnippet(text, color) {
+  return '<mark class="hl hl-' + color + '">' + escapeHtml(text) + '</mark>';
+}
+
+/* 세 사이트가 각기 다른 이름으로 하이라이트를 저장해 둔다 — 여기서 한데 모은다.
+   sayeonHl_연도_편번호 (성령사연), wmdHl_번호 (월명동사연), malHl_편번호 (말씀) */
+function scanKeys() {
+  var out = { sayeon: {}, stones: {}, malsseum: {} };
+  for (var i = 0; i < localStorage.length; i++) {
+    var k = localStorage.key(i), m, list;
+    if ((m = k.match(/^sayeonHl_(\d{4})_(.+)$/))) {
+      list = JSON.parse(localStorage.getItem(k) || "[]");
+      if (list.length) {
+        out.sayeon[m[1]] = out.sayeon[m[1]] || {};
+        out.sayeon[m[1]][m[2]] = list;
+      }
+    } else if ((m = k.match(/^wmdHl_(.+)$/))) {
+      list = JSON.parse(localStorage.getItem(k) || "[]");
+      if (list.length) out.stones[m[1]] = list;
+    } else if ((m = k.match(/^malHl_(.+)$/))) {
+      list = JSON.parse(localStorage.getItem(k) || "[]");
+      if (list.length) out.malsseum[m[1]] = list;
+    }
+  }
+  return out;
+}
+
+// 성령사연·말씀은 구조가 같다: paragraphs[pi]가 {h:제목}, {hr:true}, 또는 줄 배열(말씀은 {p:줄배열}도 있음)
+function linesOf(item) { return (item && item.p) ? item.p : item; }
+function textForParagraphHighlight(entry, h) {
+  if (h.pi === -1) return entry.quote || "";
+  var item = entry.paragraphs[h.pi];
+  if (!item) return "";
+  var full = item.h ? item.h : linesOf(item).join("");
+  return full.slice(h.start, h.end);
+}
+function textForStonesHighlight(entry, h) {
+  var section = entry.sections[h.si];
+  if (!section) return "";
+  return section.text.slice(h.start, h.end);
+}
+
+function sortNum(a, b) { return Number(a) - Number(b); }
+
+function hitUrl(base, no, year, text) {
+  return base + "#n=" + encodeURIComponent(no) + (year ? "&y=" + year : "") +
+    "&q=" + encodeURIComponent(text);
+}
+
+function buildGroup(title, entries) {
+  if (!entries.length) return "";
+  var html = '<div class="group"><div class="group-title">' + escapeHtml(title) + '</div>';
+  entries.forEach(function (ep) {
+    html += '<div class="ep"><div class="ep-title">' + escapeHtml(ep.title) + '</div>';
+    ep.items.forEach(function (it) {
+      html += '<button type="button" class="snippet" data-href="' +
+        escapeHtml(hitUrl(ep.base, ep.no, ep.year, it.text)) + '">' +
+        renderSnippet(it.text, it.color) + '</button>';
+    });
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+var SAYEON2026 = null, SAYEON2025 = null, STONES = null, MALSSEUM = null;
+
+function render() {
+  var keys = scanKeys();
+  var html = "", totalCount = 0;
+
+  [["2026", SAYEON2026], ["2025", SAYEON2025]].forEach(function (pair) {
+    var year = pair[0], data = pair[1];
+    var byNo = keys.sayeon[year];
+    if (!byNo || !data) return;
+    var entries = [];
+    Object.keys(byNo).sort(sortNum).forEach(function (no) {
+      var entry = data.filter(function (e) { return String(e.no) === String(no); })[0];
+      if (!entry) return;
+      var items = byNo[no].map(function (h) {
+        return { text: textForParagraphHighlight(entry, h), color: h.color };
+      }).filter(function (it) { return it.text; });
+      if (!items.length) return;
+      totalCount += items.length;
+      entries.push({ no: no, year: year, title: entry.title || (no + "편"), base: "/sayeon/", items: items });
+    });
+    html += buildGroup("성령사연 " + year, entries);
+  });
+
+  if (Object.keys(keys.stones).length && STONES) {
+    var entries2 = [];
+    Object.keys(keys.stones).sort(sortNum).forEach(function (num) {
+      var entry = STONES.filter(function (e) { return String(e.num) === String(num); })[0];
+      if (!entry) return;
+      var items = keys.stones[num].map(function (h) {
+        return { text: textForStonesHighlight(entry, h), color: h.color };
+      }).filter(function (it) { return it.text; });
+      if (!items.length) return;
+      totalCount += items.length;
+      entries2.push({ no: num, year: null, title: entry.title || (num + "항목"), base: "/sayeon/stones/", items: items });
+    });
+    html += buildGroup("월명동사연", entries2);
+  }
+
+  if (Object.keys(keys.malsseum).length && MALSSEUM) {
+    var entries3 = [];
+    Object.keys(keys.malsseum).sort(sortNum).forEach(function (no) {
+      var entry = MALSSEUM.filter(function (e) { return String(e.no) === String(no); })[0];
+      if (!entry) return;
+      var items = keys.malsseum[no].map(function (h) {
+        return { text: textForParagraphHighlight(entry, h), color: h.color };
+      }).filter(function (it) { return it.text; });
+      if (!items.length) return;
+      totalCount += items.length;
+      entries3.push({ no: no, year: null, title: entry.title || (no + "편"), base: "/malsseum/", items: items });
+    });
+    html += buildGroup("말씀", entries3);
+  }
+
+  if (!html) {
+    html = '<div class="empty">아직 하이라이트한 부분이 없습니다.<br>' +
+      '사연·말씀을 읽다가 문장을 길게 눌러 칠해 보세요.</div>';
+  }
+  $("body").innerHTML = html;
+  $("total").textContent = "총 " + totalCount + "개";
+
+  var btns = document.querySelectorAll(".snippet");
+  for (var i = 0; i < btns.length; i++) {
+    (function (btn) {
+      btn.onclick = function () { location.href = btn.getAttribute("data-href"); };
+    })(btns[i]);
+  }
+}
+
+function loadNeeded(keys) {
+  var jobs = [];
+  if (keys.sayeon["2026"]) jobs.push(SaCrypt.json("sayeon.json").then(function (d) { SAYEON2026 = d; }));
+  if (keys.sayeon["2025"]) jobs.push(SaCrypt.json("sayeon2025.json").then(function (d) { SAYEON2025 = d; }));
+  if (Object.keys(keys.stones).length) jobs.push(SaCrypt.json("stones/stones.json").then(function (d) { STONES = d; }));
+  if (Object.keys(keys.malsseum).length) jobs.push(SaCrypt.json("/malsseum/malsseum.json").then(function (d) { MALSSEUM = d; }));
+  return Promise.all(jobs);
+}
+
+function enter() {
+  $("lock").className = "lock hidden";
+  $("wrap").style.display = "";
+  SayeonAnalytics.trackPage("saved", 0, "저장칸", null);
+  var keys = scanKeys();
+  loadNeeded(keys).then(render).catch(function (e) {
+    $("body").innerHTML = '<div class="empty">불러오지 못했습니다: ' + escapeHtml(e.message || String(e)) + '</div>';
+  });
+}
+
+function tryUnlock() {
+  var pw = $("pw").value;
+  $("pwok").disabled = true;
+  SaCrypt.unlock(pw).then(function (ok) {
+    $("pwok").disabled = false;
+    if (ok) { enter(); return; }
+    $("pwwarn").style.display = "block";
+    $("pw").value = "";
+    $("pw").focus();
+  });
+}
+$("pwok").onclick = tryUnlock;
+$("pw").onkeydown = function (e) { if (e.keyCode === 13) tryUnlock(); };
+
+SaSettings.onChange(function (c) { cfg = c; applyCfg(); });
+SaSettings.init({ unit: "편" });
+$("opensettings").onclick = SaSettings.open;
+
+SaCrypt.resume().then(function (ok) {
+  if (ok) enter(); else $("pw").focus();
+});
+</script>
+</body>
+</html>
