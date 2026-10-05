@@ -13,7 +13,7 @@ function clearAll(){controller?.abort();chunks=[];cache.clear();['contentPasswor
 async function check(){const current=sessionStorage.getItem('sayeonAdminToken')||'';if(!current||current!==token){authorized=false;clearAll();$('lab').classList.add('hidden');$('gate').classList.remove('hidden');throw new Error('관리자 로그인이 필요합니다.');}try{await verifyAdmin(config,current,fetch,controller?.signal);authorized=true;}catch(e){authorized=false;clearAll();$('lab').classList.add('hidden');$('gate').classList.remove('hidden');text($('gateMessage'),e.message);throw e;}}
 function node(tag,s,cls){const el=document.createElement(tag);if(s!=null)el.textContent=s;if(cls)el.className=cls;return el;}
 function link(doc){const a=node('a',sourceCaption(doc));if(doc.url){a.href=doc.url;a.target='_blank';a.rel='noopener noreferrer';}return a;}
-function showEvidence(found){$('evidence').replaceChildren();if(!found.length){text($('evidence'),'등록된 자료에서 질문에 맞는 근거를 찾지 못했습니다. 질문을 구체적으로 바꿔 주세요.');return;}found.forEach(doc=>{const box=node('details',null,'source');box.append(node('summary',doc.label+' · '+doc.title+' · '+(doc.pi+1)+'번째 문단'),node('p',doc.text),link(doc));$('evidence').append(box);});}
+function showEvidence(found){$('evidence').replaceChildren();if(!found.length){text($('evidence'),'등록된 자료에서 질문에 맞는 근거를 찾지 못했습니다. 질문을 구체적으로 바꿔 주세요.');return;}found.forEach(doc=>{const box=node('details',null,'source');box.append(node('summary',sourceCaption(doc)),node('p',doc.text),link(doc));$('evidence').append(box);});}
 function overviewText(sections){
  return sections.map((section,i)=>(i+1)+'. '+section.title+'\n\n'+section.points.map(p=>'- '+p.label+': '+p.text).join('\n\n')).join('\n\n');
 }
