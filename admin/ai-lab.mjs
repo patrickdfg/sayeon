@@ -14,12 +14,37 @@ async function check(){const current=sessionStorage.getItem('sayeonAdminToken')|
 function node(tag,s,cls){const el=document.createElement(tag);if(s!=null)el.textContent=s;if(cls)el.className=cls;return el;}
 function link(doc){const a=node('a',doc.label+' · '+doc.title+' · '+(doc.pi+1)+'번째 문단');if(doc.url){a.href=doc.url;a.target='_blank';a.rel='noopener noreferrer';}return a;}
 function showEvidence(found){$('evidence').replaceChildren();if(!found.length){text($('evidence'),'등록된 자료에서 질문에 맞는 근거를 찾지 못했습니다. 질문을 구체적으로 바꿔 주세요.');return;}found.forEach(doc=>{const box=node('details',null,'source');box.append(node('summary',doc.label+' · '+doc.title+' · '+(doc.pi+1)+'번째 문단'),node('p',doc.text),link(doc));$('evidence').append(box);});}
+function overviewText(sections){
+ return sections.map((section,i)=>(i+1)+'. '+section.title+'\n\n'+section.points.map(p=>'- '+p.label+': '+p.text).join('\n\n')).join('\n\n');
+}
+async function copyOverview(sections,button){
+ if(!authorized||sessionStorage.getItem('sayeonAdminToken')!==token)return;
+ button.disabled=true;
+ try{
+  const value=overviewText(sections);
+  try{
+   if(!navigator.clipboard?.writeText)throw new Error('clipboard unavailable');
+   await navigator.clipboard.writeText(value);
+  }catch{
+   const input=document.createElement('textarea'),active=document.activeElement;
+   input.value=value;input.setAttribute('readonly','');input.style.cssText='position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
+   document.body.append(input);
+   try{input.select();if(!document.execCommand('copy'))throw new Error('copy failed');}
+   finally{input.remove();active?.focus();}
+  }
+  button.textContent='복사됨';button.title='출처를 제외한 종합 정리를 복사했습니다.';
+ }catch{button.textContent='복사 실패';button.title='브라우저의 클립보드 권한을 확인해 주세요.';}
+ finally{button.disabled=false;setTimeout(()=>{button.textContent='복사';button.title='출처를 제외하고 종합 정리 복사';},2000);}
+}
 function showAnswer(result){
  $('answer').replaceChildren();
  if(!result.answer.supported){text($('answer'),'등록된 자료에서 답을 뒷받침할 근거를 찾지 못했습니다.');return;}
  $('answer').append(node('p',result.model+' · 인용 원문 확인','fine'));
  if(result.answer.overview?.length){
-  const overview=node('section',null,'overview');overview.append(node('h3','근거 원문 종합 정리'));
+  const overview=node('section',null,'overview'),heading=node('div',null,'overview-heading');
+  const copy=node('button','복사','secondary overview-copy');copy.type='button';copy.title='출처를 제외하고 종합 정리 복사';copy.setAttribute('aria-label','출처를 제외하고 종합 정리 복사');
+  copy.onclick=()=>copyOverview(result.answer.overview,copy);
+  heading.append(node('h3','근거 원문 종합 정리'),copy);overview.append(heading);
   result.answer.overview.forEach((section,i)=>{
    overview.append(node('h4',(i+1)+'. '+section.title));
    const list=node('ul');
