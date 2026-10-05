@@ -1,7 +1,13 @@
 import {MODELS,SOURCES,toChunks,retrieve,verifyAdmin,generateViaServer,requestServer,clean} from './ai-core.mjs?v=4';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
-let token=sessionStorage.getItem('sayeonAdminToken')||'',authorized=false,chunks=[],cache=new Map(),requests=0,controller=null,busy=false;
+let token=sessionStorage.getItem('sayeonAdminToken')||'',authorized=false,chunks=[],cache=new Map(),controller=null,busy=false;
 const text=(el,s)=>{el.textContent=s;};
+function showQuota(quota){
+ const remaining=quota?.remaining;
+ if(typeof remaining!=='number'||!Number.isFinite(remaining)){text($('usage'),'오늘 테스트 한도를 확인하지 못했습니다.');return;}
+ const left=Math.max(0,Math.min(30,Math.floor(remaining)));
+ text($('usage'),'오늘 테스트 한도 '+Math.round(left/30*100)+'% 남음 · '+left+'/30회');
+}
 function status(s,error=false){text($('status'),s);$('status').classList.toggle('error',error);}
 function clearAll(){controller?.abort();chunks=[];cache.clear();['contentPassword','question'].forEach(id=>$(id).value='');$('freeOnly').checked=false;text($('answer'),'질문하면 여기에 결과가 나옵니다.');text($('evidence'),'관련 원문을 먼저 찾아보세요.');text($('corpusStatus'),'기존 등록 자료를 자동으로 확인합니다.');status('');}
 async function check(){const current=sessionStorage.getItem('sayeonAdminToken')||'';if(!current||current!==token){authorized=false;clearAll();$('lab').classList.add('hidden');$('gate').classList.remove('hidden');throw new Error('관리자 로그인이 필요합니다.');}try{await verifyAdmin(config,current,fetch,controller?.signal);authorized=true;}catch(e){authorized=false;clearAll();$('lab').classList.add('hidden');$('gate').classList.remove('hidden');text($('gateMessage'),e.message);throw e;}}
@@ -26,7 +32,7 @@ async function serverInfo(){
   if(d.ready!==true||!Array.isArray(d.models))throw new Error('서버 연결 응답을 확인하지 못했습니다.');
   text($('serverStatus'),'서버 연결됨 · 키는 Supabase에만 보관됩니다.');
   document.querySelectorAll('#model option').forEach(o=>{if(o.value!=='search')o.disabled=!d.models.includes(o.value);});
-  if(d.quota)text($('usage'),'오늘 서버 호출: '+d.quota.used+'회 · 남은 테스트 호출: '+d.quota.remaining+'회');
+  showQuota(d.quota);
  }catch(e){
   const message=timedOut?'서버가 15초 안에 응답하지 않았습니다.':e.name==='AbortError'?'서버 확인을 중단했습니다.':e instanceof TypeError?'서버 연결 실패: 배포 함수의 주소·CORS·인증 설정 확인이 필요합니다.':e.message;
   text($('serverStatus'),message+' 원문 검색은 계속 사용할 수 있습니다.');
@@ -40,9 +46,9 @@ $('ask').onclick=()=>operation(async()=>{
  const modelId=$('model').value;if(modelId==='search'){text($('answer'),'아래 검색 결과에서 원문과 출처를 확인해 주세요.');status('원문 검색만 실행 · API 사용 없음');return;}
  if(!$('freeOnly').checked)throw new Error('결제를 연결하지 않은 무료 등급 API 키인지 먼저 확인해 주세요.');const model=MODELS[modelId];if(!model)throw new Error('모델을 선택해 주세요.');
  const ck=JSON.stringify([modelId,clean(q),$('scope').value,found.map(c=>[c.id,c.text])]);if($('useCache').checked&&cache.has(ck)){showAnswer(cache.get(ck));status('이 화면에 저장된 동일 질문 답변 재사용 · 새 API 호출 없음');return;}
- status(model.label+' 답변 생성 중…');requests++;text($('usage'),'이 화면에서 시도한 AI 요청: '+requests+'회 · 실제 남은 한도는 업체 콘솔에서 확인');
- let result;try{result=await generateViaServer(config,token,modelId,q,found,true,fetch,controller.signal);}catch(e){if(e instanceof TypeError)throw new Error('관리자 AI 서버에 연결하지 못했습니다. 서버 연결 상태를 확인해 주세요.');throw e;}
- if(controller.signal.aborted||!authorized)return;showAnswer(result);cache.set(ck,result);if(result.quota)text($('usage'),'오늘 서버 호출: '+result.quota.used+'회 · 남은 테스트 호출: '+result.quota.remaining+'회');status('완료 · 원문 인용 검사 통과'+(result.usage?' · 토큰 정보: '+JSON.stringify(result.usage):''));
+ status(model.label+' 답변 생성 중…');
+ let result;try{result=await generateViaServer(config,token,modelId,q,found,true,fetch,controller.signal);}catch(e){if(!controller.signal.aborted&&authorized)await serverInfo();if(e instanceof TypeError)throw new Error('관리자 AI 서버에 연결하지 못했습니다. 서버 연결 상태를 확인해 주세요.');throw e;}
+ if(controller.signal.aborted||!authorized)return;showAnswer(result);cache.set(ck,result);showQuota(result.quota);status('완료 · 원문 인용 검사 통과');
 });
 $('cancel').onclick=()=>controller?.abort();$('clear').onclick=()=>{controller?.abort();cache.clear();['question'].forEach(id=>$(id).value='');$('freeOnly').checked=false;text($('answer'),'질문하면 여기에 결과가 나옵니다.');text($('evidence'),'관련 원문을 먼저 찾아보세요.');status('답변을 지웠습니다. 기존 등록 자료는 그대로 검색할 수 있습니다.');};$('logout').onclick=()=>{authorized=false;clearAll();sessionStorage.removeItem('sayeonAdminToken');token='';location.href='./';};document.querySelectorAll('.example').forEach(b=>b.onclick=()=>{$('question').value=b.textContent;});window.addEventListener('pagehide',()=>{authorized=false;clearAll();});
 try{await check();$('gate').classList.add('hidden');$('lab').classList.remove('hidden');await operation(async()=>{await serverInfo();await load();});}catch(e){text($('gateMessage'),e.message);}
