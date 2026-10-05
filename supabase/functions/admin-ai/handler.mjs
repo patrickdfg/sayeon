@@ -28,14 +28,23 @@ export function createHandler({env,fetcher=fetch}){
    let raw='';if(req.body){const reader=req.body.getReader(),decoder=new TextDecoder();let bytes=0;while(true){const part=await reader.read();if(part.done)break;bytes+=part.value.byteLength;if(bytes>40000){await reader.cancel();return reply({error:'요청 크기가 너무 큽니다.'},413);}raw+=decoder.decode(part.value,{stream:true});}raw+=decoder.decode();}
    let body;try{body=JSON.parse(raw);}catch{return reply({error:'요청 형식을 확인해 주세요.'},400);}
    if(!body||typeof body!=='object'||Array.isArray(body))return reply({error:'요청 형식을 확인해 주세요.'},400);
-   const rpc=async reserve=>{
-    const r=await fetcher(config.supabaseUrl+'/rest/v1/rpc/'+(shared?'ai_lab_public_quota':'ai_lab_quota'),{method:'POST',headers:{apikey:shared?serviceKey:config.supabaseAnonKey,Authorization:shared?'Bearer '+serviceKey:auth,'Content-Type':'application/json'},body:JSON.stringify(shared?{p_client:publicId,p_reserve:reserve}:{p_reserve:reserve}),signal:controller.signal});
+   const rpc=async (reserve,provider=null)=>{
+    const r=await fetcher(config.supabaseUrl+'/rest/v1/rpc/'+'ai_lab_model_quota',{method:'POST',headers:{apikey:shared?serviceKey:config.supabaseAnonKey,Authorization:shared?'Bearer '+serviceKey:auth,'Content-Type':'application/json'},body:JSON.stringify({p_client:shared?publicId:null,p_provider:provider,p_reserve:reserve}),signal:controller.signal});
     if(!r.ok)throw new Error('서버 호출 제한 설정이 준비되지 않았습니다. 관리자에게 확인해 주세요.');
     const d=await r.json();if(!d||typeof d.allowed!=='boolean'||!Number.isInteger(d.used)||!Number.isInteger(d.remaining))throw new Error('서버 호출 제한 응답을 확인하지 못했습니다.');return d;
    };
    if(body.action==='status'){
     const quota=await rpc(false);
-    return reply({ready:true,models:Object.entries(MODELS).filter(([,m])=>!!env(m.provider==='gemini'?'GEMINI_API_KEY':'GROQ_API_KEY')).map(([id])=>id),quota});
+    return reply({ready:true,providers:{gemini:{configured:!!env('GEMINI_API_KEY')},groq:{configured:!!env('GROQ_API_KEY')}},models:Object.entries(MODELS).filter(([,m])=>!!env(m.provider==='gemini'?'GEMINI_API_KEY':'GROQ_API_KEY')).map(([id])=>id),quota});
+   }
+   if(body.action==='check-provider'){
+    if(body.provider!=='groq'||Object.keys(body).some(k=>!['action','provider'].includes(k)))return reply({error:'허용되지 않은 연결 확인입니다.'},400);
+    const key=env('GROQ_API_KEY');
+    if(!key?.trim())return reply({connected:false,reason:'key_missing',message:'Supabase Secrets에 GROQ_API_KEY가 등록되지 않았습니다.'});
+    const r=await fetcher('https://api.groq.com/openai/v1/models',{headers:{Authorization:'Bearer '+key.trim()},signal:controller.signal});
+    if(!r.ok)return reply({connected:false,reason:'provider_error',message:r.status===401?'Groq API 키가 유효하지 않거나 만료되었습니다. GROQ_API_KEY를 다시 저장해 주세요.':r.status===403?'Groq 계정 또는 모델 사용 권한을 확인해 주세요.':r.status===429?'Groq 호출 속도 제한입니다. 잠시 후 다시 확인해 주세요.':'Groq 연결을 확인하지 못했습니다 ('+r.status+').'});
+    const data=await r.json(),active=Array.isArray(data.data)&&data.data.some(m=>m.id===MODELS['groq-oss'].model);
+    return reply({connected:active,reason:active?'ready':'model_unavailable',message:active?'Groq 연결 확인 완료 · GPT OSS 20B 사용 가능':'Groq에는 연결됐지만 GPT OSS 20B 모델을 사용할 수 없습니다.'});
    }
    if(body.action!=='generate'||Object.keys(body).some(k=>!['action','modelId','question','evidence','freeOnly'].includes(k)))return reply({error:'허용되지 않은 요청입니다.'},400);
    if(body.freeOnly!==true)return reply({error:'결제가 연결되지 않은 무료 키인지 확인해 주세요.'},400);
@@ -50,7 +59,7 @@ export function createHandler({env,fetcher=fetch}){
    }
    if(total>8000)return reply({error:'근거 원문은 총 8,000글자 이하로 제한합니다.'},400);
    const key=env(model.provider==='gemini'?'GEMINI_API_KEY':'GROQ_API_KEY');if(!key)return reply({error:'선택한 모델의 서버 키가 등록되지 않았습니다.'},503);
-   const quota=await rpc(true);if(!quota.allowed)return reply({error:quota.reason==='rate'?'요청 간격은 10초 이상입니다. 잠시 후 다시 질문해 주세요.':'AI 챗봇의 하루 호출 한도에 도달했습니다.',quota},429);
+   const quota=await rpc(true,model.provider);if(!quota.allowed)return reply({error:quota.reason==='rate'?'요청 간격은 10초 이상입니다. 잠시 후 다시 질문해 주세요.':'AI 챗봇의 하루 호출 한도에 도달했습니다.',quota},429);
    const result=await generate(body.modelId,key,clean(body.question),evidence,fetcher,controller.signal);
    const strip=c=>({text:c.text,kind:c.kind,sources:c.sources.map(s=>({id:s.id,quote:s.quote}))});
    const answer={supported:result.answer.supported,overview:result.answer.overview.map(section=>({title:section.title,points:section.points.map(p=>({label:p.label,...strip(p)}))})),claims:result.answer.claims.map(strip)};
@@ -63,3 +72,4 @@ export function createHandler({env,fetcher=fetch}){
   }finally{clearTimeout(timer);}
  };
 }
+

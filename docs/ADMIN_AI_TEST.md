@@ -14,6 +14,18 @@
 - `GEMINI_API_KEY`는 기존 Secret을 사용한다. `SUPABASE_SERVICE_ROLE_KEY`는 Edge Function 런타임 기본 값으로만 사용하며 브라우저에 넣지 않는다.
 - 오른쪽 사용자 브라우저의 로그인은 조작 도구와 공유되지 않는다. 실제 서버 적용을 확인하지 못한 상태를 완료로 기록하지 않는다.
 
+## 2026-10-06 기본값·업체별 표시·Groq 진단
+- 사용자 요청으로 무료 키 확인 체크는 checked 기본값으로 유지하고 화면의 확인 체크/서버 연결 안내/연결 확인 버튼을 숨긴다. 기존 무료 요청 필드는 true로 전송하며 서버 검사는 유지한다. 이 기본값은 계정 결제 상태를 자동 검증한 뜻이 아니다.
+- Gemini/Groq별 하루 30회, 브라우저·관리자별 합계 60회, 앱 전체 합계 100회, 요청 간격10초. Gemini 두 모델은 같은 Gemini 집계를 쓴다. 전체100회 제한은 유지한다.
+- 신규 ai_lab_provider_usage 테이블과 ai_lab_model_quota RPC. 기존 ai_lab_daily_usage 기록을 지우지 않고 공통 한도에 반영한다. 예전 기록에는 provider가 없어 업체별로 소급 추측하지 않는다.
+- 표시: Gemini 57% 남음 / Groq 100% 남음 등 서버 SQL 업체별 remaining/limit 기준. 업체 실제 무료 잔여량과 구분하여 오늘 챗봇 한도로 표시한다. 미등록 키는 연결 필요, 구 서버에 업체별 통계가 없으면 집계 준비 중이다.
+- 새 SQL 실행 → 새 index.ts 교체/배포가 필요하다. JWT 옵션 OFF와 AI_LAB_PASSWORD는 그대로 유지한다.
+- 실제 배포 서버 status를 지정 비밀번호로 확인한 결과 ready=true, 모델 목록 Gemini 둘만 등록, Groq 미등록. 이 확인은 원고/질문을 AI로 보내지 않았다. 새 Groq Secret과 모델 연결 성공은 미확인이다.
+- Secrets에 GROQ_API_KEY 저장(값을 공개하지 않는다) → 화면의 Groq 다시 연결. 서버에서 GET /openai/v1/models로 GPT OSS20B 확인한다. 진단은 생성 호출/한도 예약 없이 키 누락·401·403·429·모델 미지원 구분. 업체 원문 오류/키 값은 반환하지 않는다.
+- Groq 생성은 reasoning_effort low/include_reasoning false/출력4096으로 줄이고, finish_reason length면 잘린 답변을 보류한다. 자동 재시도·유료 전환 없음.
+- 41개 모의 검사 통과. 실제 새로운 모델별 SQL/서버 적용, Groq 키 등록/응답 생성은 별도 확인 대상이다.
+- 공식 참고: https://console.groq.com/docs/rate-limits (RPD/TPM 응답 헤더와 구분), https://ai.google.dev/gemini-api/docs/rate-limits (프로젝트·모델별 한도), https://console.groq.com/docs/reasoning (GPT OSS 추론 옵션).
+
 ## 비밀번호·권한·호출 제한
 - AI_LAB_PASSWORD는 서버 Secret, 입력 비밀번호는 HTTPS 요청 헤더와 화면 메모리에만 보관한다. URL·local/session storage·응답에는 넣지 않는다. 새로고침·나가기·페이지 이탈 시 재입장한다.
 - 원고 검색은 기존 SaCrypt 암호화 자료를 사용한다. 원고 암호 저장 여부에 따라 기존 앱의 원고 암호가 별도로 필요할 수 있다.
@@ -144,4 +156,5 @@
 - 성령사연 출처는 자료 연도·카테고리·편 번호를 표시한다(예: 2025년 성령사연 174번). 고유 제목은 함께 유지한다.
 - 종합 정리 출처 링크·근거별 인용 링크·검색 근거 접힘 제목에 같은 형식을 적용한다. 문단 번호와 기존 이동 주소 유지.
 - 복사 텍스트에는 연도 출처를 포함하지 않는다. 화면 표시 변경이며 현재 Supabase 함수 교체는 필요 없음.
+
 
