@@ -6,6 +6,7 @@
  */
 window.SAYEON_ANALYTICS_CONFIG = Object.freeze({
   enabled: true,
+  aiFunctionName: "clever-action",
   supabaseUrl: "https://maoylwwnluyyfmwqfkfl.supabase.co",
   supabaseAnonKey: "sb_publishable_RR5lrEd5ZidVI1fY1v9haw_Hd7pOH1V"
 });

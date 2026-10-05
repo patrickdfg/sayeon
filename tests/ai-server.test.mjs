@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import {createHandler} from '../supabase/functions/admin-ai/handler.mjs';
-import {generateViaServer} from '../admin/ai-core.mjs';
+import {generateViaServer,requestServer} from '../admin/ai-core.mjs';
 const secret='server-test-secret-never-return',config={supabaseUrl:'https://maoylwwnluyyfmwqfkfl.supabase.co',supabaseAnonKey:'public'};
 const evidence=[{id:'malsseum:7:0',title:'인내',text:'끝까지 인내하며 믿음을 지켜야 합니다.',label:'말씀',pi:0,url:'/sayeon/malsseum/#n=7'}];
 const answer={supported:true,claims:[{text:'인내하며 믿음을 지키라고 설명합니다.',kind:'source',sources:[{id:evidence[0].id,quote:evidence[0].text}]}]};
@@ -14,3 +14,5 @@ test('모델 변조·임의 원문 ID·큰 근거·중복 ID·클라이언트 �
 test('상태 확인은 키 값 없이 사용 가능한 모델만, 호출 한도 예약 없음',async()=>{const s=setup();const r=await s.handler(req({action:'status'}));const d=await r.json();assert.equal(d.ready,true);assert.deepEqual(d.models,['gemini-lite','gemini-flash']);assert(!JSON.stringify(d).includes(secret));assert.equal(JSON.parse(s.calls.find(x=>x.url.endsWith('/ai_lab_quota')).o.body).p_reserve,false);});
 test('업체 무료 한도 오류를 서버에서 429로 전달',async()=>{const s=setup({upstream:429});const r=await s.handler(req());assert.equal(r.status,429);assert.match((await r.json()).error,/무료 한도/);});
 test('브라우저는 사용자 토큰과 근거만 서버로 전달, 응답 인용 다시 검증',async()=>{const result=await generateViaServer(config,'user-token','gemini-lite','인내',evidence,true,async(url,o)=>{assert(url.endsWith('/functions/v1/admin-ai'));assert.equal(o.headers.Authorization,'Bearer user-token');const b=JSON.parse(o.body);assert.deepEqual(b.evidence,[{id:evidence[0].id,title:'인내',text:evidence[0].text}]);assert(!('key' in b));return new Response(JSON.stringify({answer,quota:{used:1,remaining:29}}));});assert.equal(result.answer.claims[0].sources[0].doc.url,evidence[0].url);await assert.rejects(generateViaServer(config,'user-token','gemini-lite','인내',evidence,true,async()=>new Response(JSON.stringify({answer:{...answer,claims:[{...answer.claims[0],sources:[{id:'fake',quote:evidence[0].text}]}]}}))),/없는 인용/);});
+
+test('기존 clever-action 함수로 연결 및 잘못된 함수 경로 차단',async()=>{let calls=0;const c={...config,aiFunctionName:'clever-action'};await requestServer(c,'user-token',{action:'status'},async(url)=>{calls++;assert.equal(url,config.supabaseUrl+'/functions/v1/clever-action');return new Response('{"ready":true}');});assert.equal(calls,1);await assert.rejects(requestServer({...c,aiFunctionName:'../other'},'user-token',{action:'status'},async()=>{calls++;}),/함수 이름/);assert.equal(calls,1);});

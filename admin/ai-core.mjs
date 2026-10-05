@@ -69,7 +69,9 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
 }
 export async function requestServer(config,token,body,fetcher=fetch,signal){
  if(!token)throw new Error('관리자 로그인이 필요합니다.');
- const endpoint=config.supabaseUrl.replace(/\/$/,'')+'/functions/v1/admin-ai';
+ const functionName=config.aiFunctionName||'admin-ai';
+ if(!['admin-ai','clever-action'].includes(functionName))throw new Error('AI 서버 함수 이름을 확인해 주세요.');
+ const endpoint=config.supabaseUrl.replace(/\/$/,'')+'/functions/v1/'+functionName;
  const r=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.supabaseAnonKey,Authorization:'Bearer '+token},body:JSON.stringify(body),signal});
  let d;try{d=await r.json();}catch{throw new Error('AI 서버 응답을 확인하지 못했습니다.');}
  if(!r.ok)throw new Error(typeof d.error==='string'?d.error:r.status===404?'AI 서버 함수가 아직 배포되지 않았습니다.':'AI 서버 연결을 확인해 주세요.');

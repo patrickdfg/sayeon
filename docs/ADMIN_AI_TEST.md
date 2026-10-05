@@ -8,7 +8,7 @@
 
 ## 서버 키 연결
 - 사용자가 Supabase Edge Functions Secrets에 GEMINI_API_KEY를 저장했다고 확인했다.
-- 브라우저 키 입력을 제거했다. 질문은 /functions/v1/admin-ai로 보내며, 서버가 GEMINI_API_KEY 또는 GROQ_API_KEY를 환경변수로 읽는다.
+- 브라우저 키 입력을 제거했다. 질문은 /functions/v1/clever-action로 보내며, 서버가 GEMINI_API_KEY 또는 GROQ_API_KEY를 환경변수로 읽는다.
 - 키 값은 브라우저·저장소·응답·로그에 넣지 않는다. 외부 업체에는 서버에서 인증 헤더로만 전송한다.
 - Supabase URL·공개 publishable key는 기존 analytics-config.js를 사용한다. service_role key를 화면에 넣지 않는다.
 - 서버 status는 관리자 권한과 SQL 호출 제한 설정을 확인하고 사용 가능한 모델 ID만 반환한다. 키 값을 반환하지 않는다.
@@ -17,7 +17,7 @@
 ## 서버 배포 순서
 1. 현재 앱 프로젝트: maoylwwnluyyfmwqfkfl. 다른 프로젝트에 저장했으면 현재 프로젝트에도 GEMINI_API_KEY를 저장한다.
 2. Supabase SQL Editor에서 supabase/ai-lab-quota.sql을 실행한다. 기존 analytics_admin_emails 관리자 목록을 그대로 사용한다.
-3. Edge Functions에서 새 함수 admin-ai를 만든다. 대시보드 편집기에 supabase/functions/admin-ai/index.ts 내용을 넣고 배포한다.
+3. 사용자 첨부 화면에서 기존 배포 함수 clever-action을 확인했다. 이 함수를 그대로 사용하며 새로 만들거나 삭제할 필요가 없다. 대시보드 편집기에 supabase/functions/admin-ai/index.ts 내용을 넣고 배포한다.
 4. 플랫폼 JWT 검증은 켜 둔다. 코드 내부도 사용자 JWT로 기존 get_analytics_dashboard RPC를 호출하여 서버의 관리자 목록을 검사한다.
 5. Secrets에 GEMINI_API_KEY가 있으면 Gemini 두 모델, GROQ_API_KEY가 있으면 Groq 모델이 활성화된다. 값은 공개하지 않는다.
 6. 관리자 테스트 화면 새로고침 → 서버 연결 확인 → 무료 키 확인 체크 → 기존 원고 질문 테스트.
@@ -51,8 +51,14 @@
 - 배포 후 브라우저는 서버만 호출하며 API 키 입력란은 없다.
 - node --test tests/ai-lab.test.mjs tests/ai-server.test.mjs
 - 19개 모의 검사 통과: 기존 검색/인용 검사, 관리자 차단, 키 노출 차단, 한도·미등록 키 차단, 요청 변조·크기 제한, 서버 상태 확인, 브라우저 인용 재검증.
-- SQL 실제 실행·함수 배포·저장된 실제 API 키 호출은 Supabase 배포 로그인 후 확인해야 한다. 모의 검사를 실제 API 성공으로 보고하지 않는다.
+- SQL 실제 실행·함수 배포·저장된 실제 API 키 호출은 실제 로그인된 Supabase 접근과 API 호출로 확인해야 한다. 모의 검사를 실제 API 성공으로 보고하지 않는다.
 
 ## 앱 통합 승인 후 필요한 일
 - 사용자 승인 기록 후에만 일반 앱 연결을 별도 작업으로 진행한다.
 - 회원별 원고 접근, 서버 원문 검색·검증, 실제 모델 품질·동시 사용량·무료 토큰 한도·데이터 처리 조건을 검증한다.
+
+## 2026-10-05 실제 배포 함수 이름 맞춤
+- 첨부 화면에서 프로젝트 maoylwwnluyyfmwqfkfl의 clever-action 배포와 Supabase 로그인, 플랫폼 JWT 검증 켜짐을 확인했다.
+- analytics-config.js의 aiFunctionName을 clever-action으로 지정하고 관리자 화면에서 설정 캐시 버전을 갱신했다. 기본 함수 이름 admin-ai도 지원한다.
+- 앱이 admin-ai를 호출하던 이름 차이를 수정했다. 첨부 화면은 서버 코드 내용·SQL 실행·실제 API 답변 성공을 증명하지 않는다.
+- 사용자 오른쪽 화면의 로그인과 조작 도구의 로그인 세션이 공유되지 않는 문제가 있으므로 로그인 미완료라고 단정하지 않는다.
