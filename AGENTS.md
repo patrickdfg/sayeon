@@ -40,6 +40,8 @@ GitHub Pages 로 <https://patrickdfg.github.io/sayeon/> 에 올라간다.
 말씀 탭·검색·저장칸은 모두 `/sayeon/malsseum/`으로 연결한다.
 화면 코드 변경 시 이 저장소의 `malsseum/index.html`과 별도 저장소의 `index.html`을
 동일하게 갱신한다. 원고·음성은 복제하지 않는다. PWA scope는 `/sayeon/`이다.
+2020~2023 말씀은 `/malsseum/malsseum_old.json.enc`(글만, 편 번호 1000부터, 연도 탭)이다.
+검색·저장칸도 이 파일을 함께 읽는다. 자세한 것은 malsseum 저장소 `AGENTS.md`.
 
 음성 파일은 `audio/` 에 편 번호로 넣는다.
 JSON 항목에 `"audio": "audio/22.m4a"` 처럼 적어 두면 그 편은 그 파일을 틀어 주고,

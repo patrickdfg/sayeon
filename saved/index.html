@@ -240,7 +240,7 @@ function render() {
       }).filter(function (it) { return it.text; });
       if (!items.length) return;
       totalCount += items.length;
-      entries3.push({ no: no, year: null, title: entry.title || (no + "편"), base: "/sayeon/malsseum/", items: items });
+      entries3.push({ no: no, year: entry.year ? String(entry.year) : null, title: (entry.year ? entry.year + "년 " : "") + (entry.title || (no + "편")), base: "/sayeon/malsseum/", items: items });
     });
     html += buildGroup("말씀", entries3);
   }
@@ -265,7 +265,10 @@ function loadNeeded(keys) {
   if (keys.sayeon["2026"]) jobs.push(SaCrypt.json("sayeon.json").then(function (d) { SAYEON2026 = d; }));
   if (keys.sayeon["2025"]) jobs.push(SaCrypt.json("sayeon2025.json").then(function (d) { SAYEON2025 = d; }));
   if (Object.keys(keys.stones).length) jobs.push(SaCrypt.json("stones/stones.json").then(function (d) { STONES = d; }));
-  if (Object.keys(keys.malsseum).length) jobs.push(SaCrypt.json("/malsseum/malsseum.json").then(function (d) { MALSSEUM = d; }));
+  if (Object.keys(keys.malsseum).length) jobs.push(SaCrypt.json("/malsseum/malsseum.json").then(function (d) { MALSSEUM = (MALSSEUM || []).concat(d || []); }));
+  // 2020~2023 말씀(편 번호 1000부터)은 따로 둔 파일에 있다
+  if (Object.keys(keys.malsseum).some(function (no) { return +no >= 1000; }))
+    jobs.push(SaCrypt.json("/malsseum/malsseum_old.json").then(function (d) { MALSSEUM = (MALSSEUM || []).concat(d || []); }));
   return Promise.all(jobs);
 }
 
