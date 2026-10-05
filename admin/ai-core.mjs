@@ -62,7 +62,23 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
  const headers=gem?{'Content-Type':'application/json','x-goog-api-key':key.trim()}:{'Content-Type':'application/json',Authorization:'Bearer '+key.trim()};
  const body=gem?{systemInstruction:{parts:[{text:SYSTEM}]},contents:[{role:'user',parts:[{text:prompt(question,evidence)}]}],generationConfig:{maxOutputTokens:4096,responseMimeType:'application/json',thinkingConfig:{thinkingLevel:'LOW'}}}:{model:m.model,messages:[{role:'system',content:SYSTEM},{role:'user',content:prompt(question,evidence)}],temperature:.1,max_completion_tokens:1800,response_format:{type:'json_object'}};
  const r=await fetcher(url,{method:'POST',headers,body:JSON.stringify(body),signal});
- if(!r.ok){const msg=r.status===429?'무료 한도 또는 호출 속도 제한에 도달했습니다. 원문을 확인하거나 다른 모델을 선택해 주세요.':r.status===401||r.status===403?'API 키 또는 모델 사용 권한을 확인해 주세요.':r.status===404?'이 모델은 계정에서 사용할 수 없거나 종료됐습니다. 다른 모델을 선택해 주세요.':'AI 요청을 처리하지 못했습니다 ('+r.status+').';throw new Error(msg);}
+ if(!r.ok){
+  if(gem&&r.status===400){
+   let error={};try{error=(await r.json()).error||{};}catch{}
+   const reasons=Array.isArray(error.details)?error.details.map(d=>d?.reason):[];
+   const message=typeof error.message==='string'?error.message:'';
+   let hint='Gemini가 요청 형식을 거절했습니다 (400). 모델 또는 요청 옵션을 확인해야 합니다.';
+   if(reasons.includes('API_KEY_INVALID')||/API key not valid|invalid api key|api key.*expired/i.test(message))hint='Gemini API 키가 유효하지 않거나 만료됐습니다 (400). Supabase Secrets의 GEMINI_API_KEY를 확인해 주세요.';
+   else if(reasons.includes('API_KEY_SERVICE_BLOCKED')||/API_KEY_SERVICE_BLOCKED/i.test(message))hint='API 키의 서비스 제한이 Gemini API 호출을 막고 있습니다 (400). 키 제한 설정을 확인해 주세요.';
+   else if(/user location is not supported|unsupported.*location/i.test(message))hint='Gemini가 서버 지역에서의 호출을 지원하지 않습니다 (400).';
+   else if(/free tier.*not available|billing.*enable|FAILED_PRECONDITION/i.test(message))hint='현재 프로젝트 또는 지역에서 무료 API 사용이 허용되지 않습니다 (400). 결제를 연결하지 말고 무료 사용 가능 여부를 확인해 주세요.';
+   else if(/thinkingLevel|thinking_level|thinkingConfig|thinking_config/i.test(message))hint='Gemini가 이 모델의 추론 옵션을 거절했습니다 (400). 서버 요청 옵션 수정이 필요합니다.';
+   else if(/responseMimeType|response_mime_type|responseSchema|response_schema/i.test(message))hint='Gemini가 JSON 출력 옵션을 거절했습니다 (400). 서버 요청 옵션 수정이 필요합니다.';
+   // Classify privately; never forward provider text, keys or request contents.
+   throw new Error(hint);
+  }
+  const msg=r.status===429?'무료 한도 또는 호출 속도 제한에 도달했습니다. 원문을 확인하거나 다른 모델을 선택해 주세요.':r.status===401||r.status===403?'API 키 또는 모델 사용 권한을 확인해 주세요.':r.status===404?'이 모델은 계정에서 사용할 수 없거나 종료됐습니다. 다른 모델을 선택해 주세요.':'AI 요청을 처리하지 못했습니다 ('+r.status+').';throw new Error(msg);
+ }
  const d=await r.json();if(gem&&d.candidates?.[0]?.finishReason==='MAX_TOKENS')throw new Error('답변 길이 제한으로 생성이 중단됐습니다. 질문 범위를 좁혀 주세요.');const raw=gem?(d.candidates?.[0]?.content?.parts||[]).filter(x=>!x.thought).map(x=>x.text||'').join(''):d.choices?.[0]?.message?.content||'';
  if(!raw)throw new Error('AI가 답변을 반환하지 않았습니다. 원문을 확인해 주세요.');
  return {answer:validateAnswer(raw,evidence),usage:gem?d.usageMetadata:d.usage,model:m.label};

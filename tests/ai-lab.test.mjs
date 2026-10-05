@@ -15,3 +15,18 @@ test('Groq 경로, JSON 답변과 키 헤더',async()=>{const r=await generate('
 test('429·없는 모델·없는 키를 숨기거나 유료 자동전환하지 않음',async()=>{let calls=0;await assert.rejects(generate('paid-unknown','key','질문',documents,async()=>{calls++;}));assert.equal(calls,0);await assert.rejects(generate('gemini-lite','','질문',documents));await assert.rejects(generate('gemini-lite','key','질문',documents,async()=>({ok:false,status:429})),/무료 한도/);});
 
 test('최신 Gemini 두 모델의 실제 요청 경로와 추론 설정',async()=>{for(const [id,model] of [['gemini-lite','gemini-3.5-flash-lite'],['gemini-flash','gemini-3.8-flash']]){await generate(id,'test-key','인내',documents,async(url,o)=>{assert(url.endsWith('/'+model+':generateContent'));const config=JSON.parse(o.body).generationConfig;assert.equal(config.thinkingConfig.thinkingLevel,'LOW');assert.equal(config.maxOutputTokens,4096);assert(!('temperature' in config));return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:good}]}}]})};});}await assert.rejects(generate('gemini-flash','test-key','인내',documents,async()=>({ok:true,json:async()=>({candidates:[{finishReason:'MAX_TOKENS',content:{parts:[{text:good}]}}]})})),/길이 제한/);});
+
+test('Gemini 400 원인은 분류하되 업체 메시지·키·원문은 반환하지 않음',async()=>{
+ const cases=[
+  [{message:'API key not valid: AIza-secret 원문',details:[{reason:'API_KEY_INVALID'}]},/키가 유효하지/],
+  [{message:'Unsupported thinkingLevel LOW: 비공개원문'},/추론 옵션/],
+  [{message:'Unsupported responseMimeType: 비공개원문'},/JSON 출력 옵션/],
+  [{message:'User location is not supported: 비공개원문'},/서버 지역/],
+  [{message:'Unknown invalid input AIza-secret 비공개원문'},/요청 형식/]
+ ];
+ for(const [error,pattern] of cases){
+  await assert.rejects(generate('gemini-lite','key','질문',documents,async()=>({ok:false,status:400,json:async()=>({error})})),e=>{
+   assert.match(e.message,pattern);assert.doesNotMatch(e.message,/AIza-secret|비공개원문/);return true;
+  });
+ }
+});
