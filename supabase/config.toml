@@ -1,2 +1,5 @@
 [functions.admin-ai]
-verify_jwt = true
+verify_jwt = false
+
+[functions.clever-action]
+verify_jwt = false

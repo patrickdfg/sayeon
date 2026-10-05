@@ -87,7 +87,7 @@ export function validateAnswer(raw,evidence,{requireOverview=false}={}){
  return {supported:true,overview,claims};
 }
 export async function verifyAdmin(config,token,fetcher=fetch,signal){
- if(!token)throw new Error('관리자 로그인이 필요합니다.');
+ if(!token||typeof token!=='string')throw new Error('관리자 로그인이 필요합니다.');
  if(config.enabled!==true||!/^https:\/\//.test(config.supabaseUrl||'')||!config.supabaseAnonKey)throw new Error('관리자 인증 연결을 확인해 주세요.');
  const now=new Date().toISOString();const r=await fetcher(config.supabaseUrl.replace(/\/$/,'')+'/rest/v1/rpc/get_analytics_dashboard',{method:'POST',headers:{apikey:config.supabaseAnonKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({p_from:now,p_to:now}),signal});
  if(!r.ok)throw new Error('관리자 권한을 확인하지 못했습니다. admin에서 다시 로그인해 주세요.');const d=await r.json();if(!d||typeof d!=='object'||!('totalVisitors'in d))throw new Error('관리자 인증 응답을 확인하지 못했습니다.');return true;
@@ -120,11 +120,13 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
  return {answer:validateAnswer(raw,evidence,{requireOverview:true}),usage:gem?d.usageMetadata:d.usage,model:m.label};
 }
 export async function requestServer(config,token,body,fetcher=fetch,signal){
- if(!token)throw new Error('관리자 로그인이 필요합니다.');
+ const shared=token&&typeof token==='object';
+ if(shared?!token.password:!token)throw new Error(shared?'AI 챗봇 비밀번호가 필요합니다.':'관리자 로그인이 필요합니다.');
  const functionName=config.aiFunctionName||'admin-ai';
  if(!['admin-ai','clever-action'].includes(functionName))throw new Error('AI 서버 함수 이름을 확인해 주세요.');
  const endpoint=config.supabaseUrl.replace(/\/$/,'')+'/functions/v1/'+functionName;
- const r=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.supabaseAnonKey,Authorization:'Bearer '+token},body:JSON.stringify(body),signal});
+ const authHeaders=shared?{'X-AI-Password':token.password,'X-AI-Client':token.clientId}:{Authorization:'Bearer '+token};
+ const r=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.supabaseAnonKey,...authHeaders},body:JSON.stringify(body),signal});
  let d;try{d=await r.json();}catch{throw new Error('AI 서버 응답을 확인하지 못했습니다.');}
  if(!r.ok)throw new Error(typeof d.error==='string'?d.error:r.status===404?'AI 서버 함수가 아직 배포되지 않았습니다.':'AI 서버 연결을 확인해 주세요.');
  return d;
@@ -136,25 +138,36 @@ export async function generateViaServer(config,token,modelId,question,evidence,f
 }
 
 const ORIGIN='https://patrickdfg.github.io';
+async function digest(value){return new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)));}
+async function sameSecret(a,b){const x=await digest(a),y=await digest(b);let diff=0;for(let i=0;i<x.length;i++)diff|=x[i]^y[i];return diff===0;}
 export function createHandler({env,fetcher=fetch}){
  return async function handler(req){
   const origin=req.headers.get('Origin');
-  const headers={'Content-Type':'application/json','Cache-Control':'no-store','Vary':'Origin',...(origin===ORIGIN?{'Access-Control-Allow-Origin':ORIGIN,'Access-Control-Allow-Headers':'authorization,apikey,content-type','Access-Control-Allow-Methods':'POST,OPTIONS'}:{})};
+  const headers={'Content-Type':'application/json','Cache-Control':'no-store','Vary':'Origin',...(origin===ORIGIN?{'Access-Control-Allow-Origin':ORIGIN,'Access-Control-Allow-Headers':'authorization,apikey,content-type,x-ai-password,x-ai-client','Access-Control-Allow-Methods':'POST,OPTIONS'}:{})};
   const reply=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});
   if(origin&&origin!==ORIGIN)return reply({error:'허용되지 않은 요청 출처입니다.'},403);
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
   if(req.method!=='POST')return reply({error:'POST 요청만 허용합니다.'},405);
   const auth=req.headers.get('Authorization')||'';
-  if(!/^Bearer \S+$/.test(auth))return reply({error:'관리자 로그인이 필요합니다.'},401);
+  const shared=req.headers.has('X-AI-Password'),password=req.headers.get('X-AI-Password')||'',client=req.headers.get('X-AI-Client')||'';
+  if(!shared&&!/^Bearer \S+$/.test(auth))return reply({error:'AI 챗봇 비밀번호 또는 관리자 로그인이 필요합니다.'},401);
   const token=auth.slice(7),config={enabled:true,supabaseUrl:env('SUPABASE_URL')||'https://maoylwwnluyyfmwqfkfl.supabase.co',supabaseAnonKey:env('SUPABASE_ANON_KEY')||'sb_publishable_RR5lrEd5ZidVI1fY1v9haw_Hd7pOH1V'};
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),50000);
   try{
-   try{await verifyAdmin(config,token,fetcher,controller.signal);}catch{return reply({error:'관리자 권한을 확인하지 못했습니다. 다시 로그인해 주세요.'},403);}
+   let publicId='',serviceKey='';
+   if(shared){
+    const expected=env('AI_LAB_PASSWORD');serviceKey=env('SUPABASE_SERVICE_ROLE_KEY');
+    if(!expected||!serviceKey)return reply({error:'서버의 AI 챗봇 비밀번호 설정이 아직 준비되지 않았습니다.'},503);
+    if(!password||password.length>128||!await sameSecret(password,expected))return reply({error:'AI 챗봇 비밀번호가 맞지 않습니다.'},401);
+    if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(client))return reply({error:'브라우저 식별 정보를 확인해 주세요.'},400);
+    const hash=Array.from(await digest('ai-lab-public:'+client.toLowerCase()),x=>x.toString(16).padStart(2,'0')).join('').slice(0,32);
+    publicId=hash.slice(0,8)+'-'+hash.slice(8,12)+'-'+hash.slice(12,16)+'-'+hash.slice(16,20)+'-'+hash.slice(20);
+   }else{try{await verifyAdmin(config,token,fetcher,controller.signal);}catch{return reply({error:'관리자 권한을 확인하지 못했습니다. 다시 로그인해 주세요.'},403);}}
    let raw='';if(req.body){const reader=req.body.getReader(),decoder=new TextDecoder();let bytes=0;while(true){const part=await reader.read();if(part.done)break;bytes+=part.value.byteLength;if(bytes>40000){await reader.cancel();return reply({error:'요청 크기가 너무 큽니다.'},413);}raw+=decoder.decode(part.value,{stream:true});}raw+=decoder.decode();}
    let body;try{body=JSON.parse(raw);}catch{return reply({error:'요청 형식을 확인해 주세요.'},400);}
    if(!body||typeof body!=='object'||Array.isArray(body))return reply({error:'요청 형식을 확인해 주세요.'},400);
    const rpc=async reserve=>{
-    const r=await fetcher(config.supabaseUrl+'/rest/v1/rpc/ai_lab_quota',{method:'POST',headers:{apikey:config.supabaseAnonKey,Authorization:auth,'Content-Type':'application/json'},body:JSON.stringify({p_reserve:reserve}),signal:controller.signal});
+    const r=await fetcher(config.supabaseUrl+'/rest/v1/rpc/'+(shared?'ai_lab_public_quota':'ai_lab_quota'),{method:'POST',headers:{apikey:shared?serviceKey:config.supabaseAnonKey,Authorization:shared?'Bearer '+serviceKey:auth,'Content-Type':'application/json'},body:JSON.stringify(shared?{p_client:publicId,p_reserve:reserve}:{p_reserve:reserve}),signal:controller.signal});
     if(!r.ok)throw new Error('서버 호출 제한 설정이 준비되지 않았습니다. 관리자에게 확인해 주세요.');
     const d=await r.json();if(!d||typeof d.allowed!=='boolean'||!Number.isInteger(d.used)||!Number.isInteger(d.remaining))throw new Error('서버 호출 제한 응답을 확인하지 못했습니다.');return d;
    };
@@ -175,7 +188,7 @@ export function createHandler({env,fetcher=fetch}){
    }
    if(total>8000)return reply({error:'근거 원문은 총 8,000글자 이하로 제한합니다.'},400);
    const key=env(model.provider==='gemini'?'GEMINI_API_KEY':'GROQ_API_KEY');if(!key)return reply({error:'선택한 모델의 서버 키가 등록되지 않았습니다.'},503);
-   const quota=await rpc(true);if(!quota.allowed)return reply({error:quota.reason==='rate'?'요청 간격은 10초 이상입니다. 잠시 후 다시 질문해 주세요.':'관리자 테스트의 하루 호출 한도에 도달했습니다.',quota},429);
+   const quota=await rpc(true);if(!quota.allowed)return reply({error:quota.reason==='rate'?'요청 간격은 10초 이상입니다. 잠시 후 다시 질문해 주세요.':'AI 챗봇의 하루 호출 한도에 도달했습니다.',quota},429);
    const result=await generate(body.modelId,key,clean(body.question),evidence,fetcher,controller.signal);
    const strip=c=>({text:c.text,kind:c.kind,sources:c.sources.map(s=>({id:s.id,quote:s.quote}))});
    const answer={supported:result.answer.supported,overview:result.answer.overview.map(section=>({title:section.title,points:section.points.map(p=>({label:p.label,...strip(p)}))})),claims:result.answer.claims.map(strip)};

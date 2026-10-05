@@ -28,3 +28,32 @@ test('서버 종합 정리가 브라우저까지 전달되고 모든 항목의 �
  const changed=structuredClone(d);changed.answer.overview[0].points[0].sources[0].quote='원문에 없는 인용입니다.';
  await assert.rejects(generateViaServer(config,'user-token','gemini-lite','인내',evidence,true,async()=>new Response(JSON.stringify(changed))),/없는 인용/);
 });
+
+const clientId='12345678-1234-4123-8123-123456789abc',fixturePassword='fixture-pass',serviceSecret='fixture-service-role-secret';
+function sharedSetup({password=fixturePassword,service=serviceSecret,quota=true}={}){
+ const base=setup({quota});const env=name=>({AI_LAB_PASSWORD:password,SUPABASE_SERVICE_ROLE_KEY:service,GEMINI_API_KEY:secret})[name];
+ const fetcher=async(url,o)=>{if(url.endsWith('/ai_lab_public_quota')){base.calls.push({url,o});return new Response(JSON.stringify({allowed:quota,used:1,remaining:29,reason:quota?'':'daily'}));}if(url.endsWith('/get_analytics_dashboard'))throw new Error('public request must not use admin RPC');base.calls.push({url,o});return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(answer)}]}}]}));};
+ return {handler:createHandler({env,fetcher}),calls:base.calls};
+}
+function sharedReq(body=payload,{password=fixturePassword,client=clientId}={}){return new Request('https://example/functions/v1/clever-action',{method:'POST',headers:{Origin:'https://patrickdfg.github.io','X-AI-Password':password,'X-AI-Client':client,'Content-Type':'application/json'},body:JSON.stringify(body)});}
+test('공유 비밀번호 오류·빈 값·서버 설정 누락은 DB와 AI 호출 전에 차단',async()=>{
+ for(const [settings,options,status] of [[{}, {password:'wrong'},401],[{}, {password:''},401],[{password:null},{},503],[{service:null},{},503],[{}, {client:'invalid'},400]]){
+  const s=sharedSetup(settings),r=await s.handler(sharedReq(payload,options));assert.equal(r.status,status);assert.equal(s.calls.length,0);assert(!(await r.text()).includes(serviceSecret));
+ }
+});
+test('공유 비밀번호 상태 확인은 서버 전용 RPC 사용, 비밀·비밀번호 반환 없이 예약 없음',async()=>{
+ const s=sharedSetup(),r=await s.handler(sharedReq({action:'status'}));assert.equal(r.status,200);const raw=await r.text();assert(!raw.includes(fixturePassword));assert(!raw.includes(serviceSecret));assert(!raw.includes(secret));assert.equal(s.calls.length,1);
+ const {url,o}=s.calls[0];assert(url.endsWith('/ai_lab_public_quota'));assert.equal(o.headers.Authorization,'Bearer '+serviceSecret);const b=JSON.parse(o.body);assert.equal(b.p_reserve,false);assert.notEqual(b.p_client,clientId);assert.match(b.p_client,/^[a-f0-9-]{36}$/);
+});
+test('공유 요청도 무료 확인·전역 한도·인용 검증과 키 비공개 유지',async()=>{
+ for(const [options,body,status] of [[{},payload,200],[{quota:false},payload,429],[{}, {...payload,freeOnly:false},400]]){
+  const s=sharedSetup(options),r=await s.handler(sharedReq(body));assert.equal(r.status,status);const raw=await r.text();for(const value of [fixturePassword,serviceSecret,secret])assert(!raw.includes(value));
+  const calls=s.calls.filter(x=>x.url.includes('googleapis'));assert.equal(calls.length,status===200?1:0);if(calls.length){assert(!calls[0].o.body.includes(fixturePassword));assert(!calls[0].o.body.includes(serviceSecret));assert.equal(JSON.parse(raw).answer.overview[0].points[0].sources[0].doc,undefined);}
+ }
+});
+test('공유 비밀번호는 요청 헤더만 사용하며 브라우저는 관리자 토큰을 보내지 않음',async()=>{
+ const result=await generateViaServer(config,{password:fixturePassword,clientId},'gemini-lite','인내',evidence,true,async(url,o)=>{assert.equal(o.headers['X-AI-Password'],fixturePassword);assert.equal(o.headers['X-AI-Client'],clientId);assert.equal(o.headers.Authorization,undefined);assert(!url.includes(fixturePassword));assert(!o.body.includes(fixturePassword));return new Response(JSON.stringify({answer}));});assert.equal(result.answer.claims[0].sources[0].doc.url,evidence[0].url);
+});
+test('공유 경로의 CORS preflight는 인증 헤더 허용, AI 호출 없음',async()=>{
+ const s=sharedSetup(),r=await s.handler(new Request('https://example',{method:'OPTIONS',headers:{Origin:'https://patrickdfg.github.io'}}));assert.equal(r.status,204);assert.match(r.headers.get('Access-Control-Allow-Headers'),/x-ai-password/);assert.match(r.headers.get('Access-Control-Allow-Headers'),/x-ai-client/);assert.equal(s.calls.length,0);
+});

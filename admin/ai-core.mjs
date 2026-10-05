@@ -86,7 +86,7 @@ export function validateAnswer(raw,evidence,{requireOverview=false}={}){
  return {supported:true,overview,claims};
 }
 export async function verifyAdmin(config,token,fetcher=fetch,signal){
- if(!token)throw new Error('관리자 로그인이 필요합니다.');
+ if(!token||typeof token!=='string')throw new Error('관리자 로그인이 필요합니다.');
  if(config.enabled!==true||!/^https:\/\//.test(config.supabaseUrl||'')||!config.supabaseAnonKey)throw new Error('관리자 인증 연결을 확인해 주세요.');
  const now=new Date().toISOString();const r=await fetcher(config.supabaseUrl.replace(/\/$/,'')+'/rest/v1/rpc/get_analytics_dashboard',{method:'POST',headers:{apikey:config.supabaseAnonKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({p_from:now,p_to:now}),signal});
  if(!r.ok)throw new Error('관리자 권한을 확인하지 못했습니다. admin에서 다시 로그인해 주세요.');const d=await r.json();if(!d||typeof d!=='object'||!('totalVisitors'in d))throw new Error('관리자 인증 응답을 확인하지 못했습니다.');return true;
@@ -119,11 +119,13 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
  return {answer:validateAnswer(raw,evidence,{requireOverview:true}),usage:gem?d.usageMetadata:d.usage,model:m.label};
 }
 export async function requestServer(config,token,body,fetcher=fetch,signal){
- if(!token)throw new Error('관리자 로그인이 필요합니다.');
+ const shared=token&&typeof token==='object';
+ if(shared?!token.password:!token)throw new Error(shared?'AI 챗봇 비밀번호가 필요합니다.':'관리자 로그인이 필요합니다.');
  const functionName=config.aiFunctionName||'admin-ai';
  if(!['admin-ai','clever-action'].includes(functionName))throw new Error('AI 서버 함수 이름을 확인해 주세요.');
  const endpoint=config.supabaseUrl.replace(/\/$/,'')+'/functions/v1/'+functionName;
- const r=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.supabaseAnonKey,Authorization:'Bearer '+token},body:JSON.stringify(body),signal});
+ const authHeaders=shared?{'X-AI-Password':token.password,'X-AI-Client':token.clientId}:{Authorization:'Bearer '+token};
+ const r=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.supabaseAnonKey,...authHeaders},body:JSON.stringify(body),signal});
  let d;try{d=await r.json();}catch{throw new Error('AI 서버 응답을 확인하지 못했습니다.');}
  if(!r.ok)throw new Error(typeof d.error==='string'?d.error:r.status===404?'AI 서버 함수가 아직 배포되지 않았습니다.':'AI 서버 연결을 확인해 주세요.');
  return d;
