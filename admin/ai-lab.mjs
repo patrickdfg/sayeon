@@ -1,4 +1,4 @@
-import {MODELS,SOURCES,toChunks,retrieve,verifyAdmin,generateViaServer,requestServer,clean} from './ai-core.mjs?v=4';
+import {MODELS,SOURCES,toChunks,retrieve,verifyAdmin,generateViaServer,requestServer,clean} from './ai-core.mjs?v=5';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
 let token=sessionStorage.getItem('sayeonAdminToken')||'',authorized=false,chunks=[],cache=new Map(),controller=null,busy=false;
 const text=(el,s)=>{el.textContent=s;};
@@ -14,7 +14,27 @@ async function check(){const current=sessionStorage.getItem('sayeonAdminToken')|
 function node(tag,s,cls){const el=document.createElement(tag);if(s!=null)el.textContent=s;if(cls)el.className=cls;return el;}
 function link(doc){const a=node('a',doc.label+' · '+doc.title+' · '+(doc.pi+1)+'번째 문단');if(doc.url){a.href=doc.url;a.target='_blank';a.rel='noopener noreferrer';}return a;}
 function showEvidence(found){$('evidence').replaceChildren();if(!found.length){text($('evidence'),'등록된 자료에서 질문에 맞는 근거를 찾지 못했습니다. 질문을 구체적으로 바꿔 주세요.');return;}found.forEach(doc=>{const box=node('details',null,'source');box.append(node('summary',doc.label+' · '+doc.title+' · '+(doc.pi+1)+'번째 문단'),node('p',doc.text),link(doc));$('evidence').append(box);});}
-function showAnswer(result){$('answer').replaceChildren();if(!result.answer.supported){text($('answer'),'등록된 자료에서 답을 뒷받침할 근거를 찾지 못했습니다.');return;}$('answer').append(node('p',result.model+' · 인용 원문 확인','fine'));result.answer.claims.forEach(c=>{const box=node('article',null,'claim');box.append(node('span',c.kind==='inference'?'자료를 종합한 해석':'자료 근거 설명','badge'),node('p',c.text));c.sources.forEach(s=>{box.append(node('blockquote',s.quote),link(s.doc));});$('answer').append(box);});}
+function showAnswer(result){
+ $('answer').replaceChildren();
+ if(!result.answer.supported){text($('answer'),'등록된 자료에서 답을 뒷받침할 근거를 찾지 못했습니다.');return;}
+ $('answer').append(node('p',result.model+' · 인용 원문 확인','fine'));
+ if(result.answer.overview?.length){
+  const overview=node('section',null,'overview');overview.append(node('h3','근거 원문 종합 정리'));
+  result.answer.overview.forEach((section,i)=>{
+   overview.append(node('h4',(i+1)+'. '+section.title));
+   const list=node('ul');
+   section.points.forEach(p=>{
+    const item=node('li');item.append(node('strong',p.label+': '),node('span',p.text));
+    if(p.kind==='inference')item.append(node('span','자료를 종합한 해석','summary-kind'));
+    const refs=node('div',null,'summary-refs');
+    const seen=new Set();p.sources.forEach(s=>{if(!seen.has(s.id)){seen.add(s.id);refs.append(link(s.doc));}});
+    item.append(refs);list.append(item);
+   });overview.append(list);
+  });$('answer').append(overview);
+ }else $('answer').append(node('p','종합 정리를 사용하려면 관리자 AI 서버 코드를 업데이트해 주세요.','fine'));
+ $('answer').append(node('h3','근거별 설명과 인용'));
+ result.answer.claims.forEach(c=>{const box=node('article',null,'claim');box.append(node('span',c.kind==='inference'?'자료를 종합한 해석':'자료 근거 설명','badge'),node('p',c.text));c.sources.forEach(s=>{box.append(node('blockquote',s.quote),link(s.doc));});$('answer').append(box);});
+}
 function evidenceForQuestion(){const q=$('question').value.trim();if(q.length<2)throw new Error('질문을 두 글자 이상 입력해 주세요.');if(!chunks.length)throw new Error('기존 등록 원고를 아직 열지 못했습니다. 아래 원고 암호 또는 연결 상태를 확인해 주세요.');return {q,found:retrieve(chunks,q,$('scope').value)};}
 function setBusy(value){busy=value;['ask','preview','loadCorpus','unlock','serverCheck'].forEach(id=>$(id).disabled=value);$('cancel').disabled=!value;}
 async function operation(fn){if(busy){status('요청이 진행 중입니다. 기다리거나 중단 버튼을 눌러 주세요.');return;}controller=new AbortController();setBusy(true);const timeout=setTimeout(()=>controller?.abort(),60000);try{status('관리자 권한 확인 중…');await check();await fn();}catch(e){status(e.name==='AbortError'?'요청을 중단했습니다. 원문 검색은 다시 사용할 수 있습니다.':e.message,true);}finally{clearTimeout(timeout);setBusy(false);controller=null;}}

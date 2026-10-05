@@ -41,7 +41,8 @@ export function createHandler({env,fetcher=fetch}){
    const key=env(model.provider==='gemini'?'GEMINI_API_KEY':'GROQ_API_KEY');if(!key)return reply({error:'선택한 모델의 서버 키가 등록되지 않았습니다.'},503);
    const quota=await rpc(true);if(!quota.allowed)return reply({error:quota.reason==='rate'?'요청 간격은 10초 이상입니다. 잠시 후 다시 질문해 주세요.':'관리자 테스트의 하루 호출 한도에 도달했습니다.',quota},429);
    const result=await generate(body.modelId,key,clean(body.question),evidence,fetcher,controller.signal);
-   const answer={supported:result.answer.supported,claims:result.answer.claims.map(c=>({text:c.text,kind:c.kind,sources:c.sources.map(s=>({id:s.id,quote:s.quote}))}))};
+   const strip=c=>({text:c.text,kind:c.kind,sources:c.sources.map(s=>({id:s.id,quote:s.quote}))});
+   const answer={supported:result.answer.supported,overview:result.answer.overview.map(section=>({title:section.title,points:section.points.map(p=>({label:p.label,...strip(p)}))})),claims:result.answer.claims.map(strip)};
    return reply({answer,model:result.model,usage:result.usage,quota});
   }catch(e){
    // Never return upstream bodies, request data, tokens or secret values.

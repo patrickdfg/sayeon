@@ -4,6 +4,7 @@ import {generateViaServer,requestServer} from '../admin/ai-core.mjs';
 const secret='server-test-secret-never-return',config={supabaseUrl:'https://maoylwwnluyyfmwqfkfl.supabase.co',supabaseAnonKey:'public'};
 const evidence=[{id:'malsseum:7:0',title:'인내',text:'끝까지 인내하며 믿음을 지켜야 합니다.',label:'말씀',pi:0,url:'/sayeon/malsseum/#n=7'}];
 const answer={supported:true,claims:[{text:'인내하며 믿음을 지키라고 설명합니다.',kind:'source',sources:[{id:evidence[0].id,quote:evidence[0].text}]}]};
+answer.overview=[{title:'인내의 의미',points:[{label:'믿음과 실천',text:'자료는 인내하며 믿음을 지키라고 설명합니다. 이 태도를 일상의 실천과 연결해 정리합니다.',kind:'inference',sources:answer.claims[0].sources}]}];
 const payload={action:'generate',modelId:'gemini-lite',question:'인내를 알려줘',evidence,freeOnly:true};
 function setup({admin=true,quota=true,key=true,upstream=200}={}){const calls=[];const env=name=>name==='GEMINI_API_KEY'&&key?secret:null;const fetcher=async(url,o)=>{calls.push({url,o});if(url.endsWith('/get_analytics_dashboard'))return new Response(JSON.stringify(admin?{totalVisitors:0}:{}),{status:admin?200:403});if(url.endsWith('/ai_lab_quota'))return new Response(JSON.stringify({allowed:quota,used:1,remaining:29,reason:quota?'':'daily'}));if(url.includes('generativelanguage.googleapis.com'))return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(answer)}]}}]}),{status:upstream});throw new Error('Unexpected request');};return {handler:createHandler({env,fetcher}),calls};}
 function req(body=payload,{auth=true,origin='https://patrickdfg.github.io'}={}){return new Request('https://example/functions/v1/admin-ai',{method:'POST',headers:{Origin:origin,...(auth?{Authorization:'Bearer user-token'}:{}),'Content-Type':'application/json'},body:JSON.stringify(body)});}
@@ -16,3 +17,14 @@ test('업체 무료 한도 오류를 서버에서 429로 전달',async()=>{const
 test('브라우저는 사용자 토큰과 근거만 서버로 전달, 응답 인용 다시 검증',async()=>{const result=await generateViaServer(config,'user-token','gemini-lite','인내',evidence,true,async(url,o)=>{assert(url.endsWith('/functions/v1/admin-ai'));assert.equal(o.headers.Authorization,'Bearer user-token');const b=JSON.parse(o.body);assert.deepEqual(b.evidence,[{id:evidence[0].id,title:'인내',text:evidence[0].text}]);assert(!('key' in b));return new Response(JSON.stringify({answer,quota:{used:1,remaining:29}}));});assert.equal(result.answer.claims[0].sources[0].doc.url,evidence[0].url);await assert.rejects(generateViaServer(config,'user-token','gemini-lite','인내',evidence,true,async()=>new Response(JSON.stringify({answer:{...answer,claims:[{...answer.claims[0],sources:[{id:'fake',quote:evidence[0].text}]}]}}))),/없는 인용/);});
 
 test('기존 clever-action 함수로 연결 및 잘못된 함수 경로 차단',async()=>{let calls=0;const c={...config,aiFunctionName:'clever-action'};await requestServer(c,'user-token',{action:'status'},async(url)=>{calls++;assert.equal(url,config.supabaseUrl+'/functions/v1/clever-action');return new Response('{"ready":true}');});assert.equal(calls,1);await assert.rejects(requestServer({...c,aiFunctionName:'../other'},'user-token',{action:'status'},async()=>{calls++;}),/함수 이름/);assert.equal(calls,1);});
+
+test('서버 종합 정리가 브라우저까지 전달되고 모든 항목의 인용을 다시 검증',async()=>{
+ const s=setup();const response=await s.handler(req());assert.equal(response.status,200);
+ const raw=await response.text(),d=JSON.parse(raw);
+ assert.equal(d.answer.overview[0].title,'인내의 의미');
+ assert(!raw.includes('"doc"'));assert(!raw.includes(secret));
+ const result=await generateViaServer(config,'user-token','gemini-lite','인내',evidence,true,async()=>new Response(raw));
+ assert.equal(result.answer.overview[0].points[0].sources[0].doc.url,evidence[0].url);
+ const changed=structuredClone(d);changed.answer.overview[0].points[0].sources[0].quote='원문에 없는 인용입니다.';
+ await assert.rejects(generateViaServer(config,'user-token','gemini-lite','인내',evidence,true,async()=>new Response(JSON.stringify(changed))),/없는 인용/);
+});
