@@ -158,3 +158,12 @@
 - 복사 텍스트에는 연도 출처를 포함하지 않는다. 화면 표시 변경이며 현재 Supabase 함수 교체는 필요 없음.
 
 
+
+
+## 2026-10-06 Groq 종합 정리 항목 형식 오류 수정
+- 사용자 화면에서 Groq 연결 확인 완료/GPT OSS20B 사용 가능, Gemini97%/Groq90% 업체별 표시를 확인했다. 신규 SQL와 키/서버 연결이 적용된 사용자 화면 증거다.
+- 같은 화면의 생성 오류는 종합 정리 항목 형식 확인 실패. 기존 검사에서 label 누락/비문자/빈값/100글자초과 조건 중 하나가 발생했다. 원본 모델 응답을 보관하지 않아 정확한 생성 값은 미확인이다.
+- Groq의 JSON Object Mode는 필드 스키마를 강제하지 않았다. 공식 문서의 GPT OSS20B strict Structured Outputs를 사용해 모든 객체의 필드 필수/additionalProperties false, source/inference enum, 제공 문단 ID enum을 요청한다.
+- SYSTEM 예시의 kind 문자열을 실제 source 값으로 고치고 label 필수 지침을 명시했다. 원문 대조/길이 검사/잘린 응답 보류는 유지한다. 생성 값에 없는 항목명이나 근거를 만들어 보충하지 않는다. 자동 재호출 없음.
+- 43개 모의 검사와 번들 구문 검사 통과. 최신 Supabase index.ts 교체/배포만 필요하며 SQL/Secrets 재작업은 필요 없음. 수정한 실제 Groq 생성 성공은 서버 적용 후 확인 대상이다.
+- 공식 참고: https://console.groq.com/docs/structured-outputs (strict:true 지원 모델과 필수 필드 규칙).

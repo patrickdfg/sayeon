@@ -74,3 +74,19 @@ test('말씀 날짜와 성령사연 편 번호에 자료 연도를 넣고 모든
 });
 
 test('Groq 출력이 잘리면 유효한 일부 JSON처럼 보여도 답변 보류',async()=>{await assert.rejects(generate('groq-oss','fixture','인내',documents,async()=>({ok:true,json:async()=>({choices:[{finish_reason:'length',message:{content:complete}}]})})),/길이 제한/);});
+
+test('Groq 응답은 항목명·설명·출처가 필수인 strict schema로 요청',async()=>{
+ await generate('groq-oss','fixture','인내',documents,async(url,o)=>{
+  const body=JSON.parse(o.body),format=body.response_format;assert.equal(format.type,'json_schema');assert.equal(format.json_schema.strict,true);
+  const schema=format.json_schema.schema,point=schema.properties.overview.items.properties.points.items;
+  assert(point.required.includes('label'));assert(point.required.includes('sources'));assert.equal(point.properties.label.type,'string');assert.deepEqual(point.properties.kind.enum,['source','inference']);assert.deepEqual(point.properties.sources.items.properties.id.enum,documents.map(d=>d.id));
+  const visit=s=>{if(s.type==='object'){assert.equal(s.additionalProperties,false);assert.deepEqual(s.required,Object.keys(s.properties));Object.values(s.properties).forEach(visit);}if(s.items)visit(s.items);};visit(schema);
+  return {ok:true,json:async()=>({choices:[{message:{content:complete}}]})};
+ });
+});
+test('Groq 형식 수정에도 누락된 항목명·없는 인용은 보류하고 자동 재호출 안 함',async()=>{
+ for(const change of [d=>{delete d.overview[0].points[0].label;},d=>{d.overview[0].points[0].sources[0].quote='원고에 없는 가짜 인용입니다.';}]){
+  let calls=0;const d=JSON.parse(complete);change(d);
+  await assert.rejects(generate('groq-oss','fixture','인내',documents,async()=>{calls++;return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(d)}}]})};}));assert.equal(calls,1);
+ }
+});

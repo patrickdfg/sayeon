@@ -54,9 +54,17 @@ export const SYSTEM=`너는 등록 원고만 설명하는 자료실 조수다. �
 overview는 보통 2~4개 소제목, 소제목마다 2~3개 항목으로 구성한다. 각 항목은 짧은 label과 2~4문장의 자연스러운 설명 text로 작성한다. 근거가 충분하면 종합 정리 전체 약 800~1500글자를 목표로 하며, 자료가 짧으면 불필요하게 늘리지 않는다. 단순 키워드 질문도 해당 주제를 자세히 정리하라는 요청으로 이해한다.
 그 아래 claims에는 핵심 설명과 원문 인용을 1~6개 넣는다. overview의 각 항목과 claims의 각 설명에는 제공된 문단 id와 최소 8글자의 실제 연속 원문 인용을 sources로 연결한다. 서로 다른 문단을 합쳐 하나의 가짜 인용문을 만들지 않는다. 자료를 종합한 해석은 kind:inference, 직접 설명은 source로 구분한다.
 외부 지식이 필요하거나 근거가 부족하면 {"supported":false,"overview":[],"claims":[]}를 반환한다. 한국어 JSON만 반환한다. 형식:
-{"supported":true,"overview":[{"title":"주제별 소제목","points":[{"label":"핵심 항목","text":"배경과 과정, 의미를 담은 자세한 설명.","kind":"source 또는 inference","sources":[{"id":"제공된 문단 id","quote":"해당 문단에 실제 있는 연속 원문"}]}]}],"claims":[{"text":"핵심 설명","kind":"source 또는 inference","sources":[{"id":"제공된 문단 id","quote":"해당 문단에 실제 있는 연속 원문"}]}]}
-supported:true이면 overview와 claims를 모두 작성한다. overview는 최대 5개 소제목, 소제목마다 최대 4개 항목이다. 모든 항목에 출처를 붙이고 JSON을 완성한다.`;
+{"supported":true,"overview":[{"title":"주제별 소제목","points":[{"label":"핵심 항목","text":"배경과 과정, 의미를 담은 자세한 설명.","kind":"source","sources":[{"id":"제공된 문단 id","quote":"해당 문단에 실제 있는 연속 원문"}]}]}],"claims":[{"text":"핵심 설명","kind":"source","sources":[{"id":"제공된 문단 id","quote":"해당 문단에 실제 있는 연속 원문"}]}]}
+kind에는 source 또는 inference 중 하나만 넣는다. points의 모든 항목에 label을 반드시 넣고 빈 문자열이나 다른 필드 이름으로 대체하지 않는다. supported:true이면 overview와 claims를 모두 작성한다. overview는 최대 5개 소제목, 소제목마다 최대 4개 항목이다. 모든 항목에 출처를 붙이고 JSON을 완성한다.`;
 export function prompt(question,evidence){return JSON.stringify({question:clean(question),evidence:evidence.map(({id,title,text})=>({id,title,text}))});}
+export function answerSchema(evidence){
+ const object=properties=>({type:'object',properties,required:Object.keys(properties),additionalProperties:false});
+ const source=object({id:{type:'string',enum:evidence.map(d=>d.id)},quote:{type:'string',description:'근거 문단에 실제 있는 8글자 이상의 연속 원문 인용'}});
+ const statement={text:{type:'string',description:'비어 있지 않은 한국어 설명, 최대 1600글자'},kind:{type:'string',enum:['source','inference']},sources:{type:'array',items:source,description:'실제 원문 출처 1~6개'}};
+ const point=object({label:{type:'string',description:'반드시 작성할 짧은 항목명. 비어 있지 않은 1~100글자 문자열'},...statement});
+ const section=object({title:{type:'string',description:'비어 있지 않은 소제목, 최대 100글자'},points:{type:'array',items:point,description:'각 항목은 label/text/kind/sources를 모두 포함. 1~4개'}});
+ return object({supported:{type:'boolean'},overview:{type:'array',items:section,description:'근거가 충분하면 소제목 1~5개. supported=false일 때만 빈 배열'},claims:{type:'array',items:object(statement),description:'근거가 충분하면 핵심 설명 1~6개. supported=false일 때만 빈 배열'}});
+}
 export function validateAnswer(raw,evidence,{requireOverview=false}={}){
  const input=raw.trim().replace(/^\`\`\`(?:json)?\s*/,'').replace(/\s*\`\`\`$/,'');let d;try{d=JSON.parse(input);}catch{throw new Error('답변 형식을 확인하지 못했습니다. 원문을 확인해 주세요.');}
  if(d.supported===false)return {supported:false,overview:[],claims:[]};
@@ -96,7 +104,7 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
  const m=MODELS[modelId];if(!m)throw new Error('허용되지 않은 모델입니다.');if(!key.trim())throw new Error(m.provider+' 무료 API 키를 입력해 주세요.');
  const gem=m.provider==='gemini',url=gem?'https://generativelanguage.googleapis.com/v1beta/models/'+m.model+':generateContent':'https://api.groq.com/openai/v1/chat/completions';
  const headers=gem?{'Content-Type':'application/json','x-goog-api-key':key.trim()}:{'Content-Type':'application/json',Authorization:'Bearer '+key.trim()};
- const body=gem?{systemInstruction:{parts:[{text:SYSTEM}]},contents:[{role:'user',parts:[{text:prompt(question,evidence)}]}],generationConfig:{maxOutputTokens:8192,responseMimeType:'application/json',thinkingConfig:{thinkingLevel:'LOW'}}}:{model:m.model,messages:[{role:'system',content:SYSTEM},{role:'user',content:prompt(question,evidence)}],temperature:.1,max_completion_tokens:4096,reasoning_effort:'low',include_reasoning:false,response_format:{type:'json_object'}};
+ const body=gem?{systemInstruction:{parts:[{text:SYSTEM}]},contents:[{role:'user',parts:[{text:prompt(question,evidence)}]}],generationConfig:{maxOutputTokens:8192,responseMimeType:'application/json',thinkingConfig:{thinkingLevel:'LOW'}}}:{model:m.model,messages:[{role:'system',content:SYSTEM},{role:'user',content:prompt(question,evidence)}],temperature:.1,max_completion_tokens:4096,reasoning_effort:'low',include_reasoning:false,response_format:{type:'json_schema',json_schema:{name:'grounded_answer',strict:true,schema:answerSchema(evidence)}}};
  const r=await fetcher(url,{method:'POST',headers,body:JSON.stringify(body),signal});
  if(!r.ok){
   if(gem&&r.status===400){
@@ -136,7 +144,6 @@ export async function generateViaServer(config,token,modelId,question,evidence,f
  const d=await requestServer(config,token,{action:'generate',modelId,question,evidence:evidence.map(({id,title,text})=>({id,title,text})),freeOnly},fetcher,signal);
  return {answer:validateAnswer(JSON.stringify(d.answer),evidence),model:MODELS[modelId].label,usage:d.usage,quota:d.quota};
 }
-
 
 const ORIGIN='https://patrickdfg.github.io';
 async function digest(value){return new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)));}
