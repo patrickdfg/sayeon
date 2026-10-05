@@ -17,8 +17,18 @@ export function toChunks(items,source){
  const out=[];items.forEach((item,i)=>{
   const no=item.no??item.num??i+1,title=String(item.title||item.short||no+'편');
   const parts=source.key==='stones'?(item.sections||[]).map(s=>s?.text||''):(item.paragraphs||[]).map(paragraph);
-  parts.forEach((text,pi)=>{text=String(text).trim();if(!text)return;const url=new URL(source.base,'https://patrickdfg.github.io');const q=new URLSearchParams({n:String(no)});if(source.year)q.set('y',String(source.year));q.set('q',text.slice(0,100));url.hash=q.toString();out.push({id:source.key+':'+no+':'+pi,scope:source.key,title,label:source.label,no,pi,text,url:url.pathname+url.hash});});
+  parts.forEach((text,pi)=>{text=String(text).trim();if(!text)return;const url=new URL(source.base,'https://patrickdfg.github.io');const q=new URLSearchParams({n:String(no)});if(source.year)q.set('y',String(source.year));q.set('q',text.slice(0,100));url.hash=q.toString();out.push({id:source.key+':'+no+':'+pi,scope:source.key,year:source.year??(source.key==='malsseum'?2026:undefined),title,label:source.label,no,pi,text,url:url.pathname+url.hash});});
  });return out;
+}
+export function sourceCaption(doc){
+ const year=doc.year??(doc.scope==='malsseum'?2026:doc.scope==='sayeon2025'?2025:doc.scope==='sayeon2026'?2026:null);
+ let caption;
+ if(doc.scope==='malsseum')caption='말씀 · '+(/20\d{2}년/.test(doc.title)?doc.title:(year?year+'년 ':'')+doc.title);
+ else if(doc.scope==='sayeon2025'||doc.scope==='sayeon2026'){
+  caption=(year?year+'년 ':'')+'성령사연 '+doc.no+'번';
+  if(!/^(?:성령\s*사연\s*)?\d+\s*(?:번|편)?$/.test(doc.title.trim()))caption+=' · '+doc.title;
+ }else caption=doc.label+' · '+doc.title;
+ return caption+' · '+(doc.pi+1)+'번째 문단';
 }
 const STOP=new Set(['무엇','무엇인가요','뭐야','어떻게','왜','대한','대해','설명','설명해줘','알려줘','해주세요','해줘','있나요','인가요','말씀','사연','내용','뜻','의미','이','그','것','좀']);
 const SYN=[['인내','견디','끝까지','포기'],['감사','고마'],['믿음','신앙'],['사랑','사랑하'],['기도','간구'],['용서','용서하']];

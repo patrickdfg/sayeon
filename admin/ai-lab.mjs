@@ -1,4 +1,4 @@
-import {MODELS,SOURCES,toChunks,retrieve,verifyAdmin,generateViaServer,requestServer,clean} from './ai-core.mjs?v=5';
+import {MODELS,SOURCES,toChunks,retrieve,verifyAdmin,generateViaServer,requestServer,clean,sourceCaption} from './ai-core.mjs?v=6';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
 let token=sessionStorage.getItem('sayeonAdminToken')||'',authorized=false,chunks=[],cache=new Map(),controller=null,busy=false;
 const text=(el,s)=>{el.textContent=s;};
@@ -12,7 +12,7 @@ function status(s,error=false){text($('status'),s);$('status').classList.toggle(
 function clearAll(){controller?.abort();chunks=[];cache.clear();['contentPassword','question'].forEach(id=>$(id).value='');$('freeOnly').checked=false;text($('answer'),'질문하면 여기에 결과가 나옵니다.');text($('evidence'),'관련 원문을 먼저 찾아보세요.');text($('corpusStatus'),'기존 등록 자료를 자동으로 확인합니다.');status('');}
 async function check(){const current=sessionStorage.getItem('sayeonAdminToken')||'';if(!current||current!==token){authorized=false;clearAll();$('lab').classList.add('hidden');$('gate').classList.remove('hidden');throw new Error('관리자 로그인이 필요합니다.');}try{await verifyAdmin(config,current,fetch,controller?.signal);authorized=true;}catch(e){authorized=false;clearAll();$('lab').classList.add('hidden');$('gate').classList.remove('hidden');text($('gateMessage'),e.message);throw e;}}
 function node(tag,s,cls){const el=document.createElement(tag);if(s!=null)el.textContent=s;if(cls)el.className=cls;return el;}
-function link(doc){const a=node('a',doc.label+' · '+doc.title+' · '+(doc.pi+1)+'번째 문단');if(doc.url){a.href=doc.url;a.target='_blank';a.rel='noopener noreferrer';}return a;}
+function link(doc){const a=node('a',sourceCaption(doc));if(doc.url){a.href=doc.url;a.target='_blank';a.rel='noopener noreferrer';}return a;}
 function showEvidence(found){$('evidence').replaceChildren();if(!found.length){text($('evidence'),'등록된 자료에서 질문에 맞는 근거를 찾지 못했습니다. 질문을 구체적으로 바꿔 주세요.');return;}found.forEach(doc=>{const box=node('details',null,'source');box.append(node('summary',doc.label+' · '+doc.title+' · '+(doc.pi+1)+'번째 문단'),node('p',doc.text),link(doc));$('evidence').append(box);});}
 function overviewText(sections){
  return sections.map((section,i)=>(i+1)+'. '+section.title+'\n\n'+section.points.map(p=>'- '+p.label+': '+p.text).join('\n\n')).join('\n\n');

@@ -1,4 +1,4 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {toChunks,retrieve,validateAnswer,verifyAdmin,generate,SOURCES,MODELS} from '../admin/ai-core.mjs';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {toChunks,retrieve,validateAnswer,verifyAdmin,generate,SOURCES,MODELS,sourceCaption} from '../admin/ai-core.mjs';
 const documents=toChunks([{no:7,title:'인내의 말씀',paragraphs:[['끝까지 인내하며 믿음을 지켜야 합니다.','포기하지 않고 하나님과 함께 살아갑니다.'],{p:['감사하는 마음으로 하루를 살아갑니다.'],sp:'god'},{hr:true},{h:'본문'}]}],SOURCES[3]);
 test('원고 구조, 화자 p, 빈 구분선, 앱 내부 말씀 출처',()=>{assert.equal(documents.length,3);assert(documents[1].text.includes('감사'));assert(documents[0].url.startsWith('/sayeon/malsseum/#'));assert.equal(documents[1].pi,1);});
 test('월명동 구조와 연도별 고유 id 보존',()=>{const a=toChunks([{num:'21-4',title:'바위',sections:[{type:'p',text:'하나님께 감사하는 마음입니다.'}]}],SOURCES[2]);assert.equal(a[0].no,'21-4');assert(a[0].url.includes('n=21-4'));const b=toChunks([{no:7,paragraphs:[['인내하며 끝까지 살아갑니다.']]}],SOURCES[1]);assert.notEqual(b[0].id,documents[0].id);assert(b[0].url.includes('y=2025'));});
@@ -61,4 +61,14 @@ test('AI가 종합 정리를 빼거나 답변이 잘리면 자동 재호출 없�
   calls++;return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:good}]}}]})};
  }),/종합 정리/);
  assert.equal(calls,1);
+});
+
+test('말씀 날짜와 성령사연 편 번호에 자료 연도를 넣고 모든 출처에 문단 유지',()=>{
+ const mal=toChunks([{no:1,title:'1월 25일 주일말씀',paragraphs:[['검사용 예시 문단입니다.']]}],SOURCES[3])[0];
+ assert.equal(mal.year,2026);assert.equal(sourceCaption(mal),'말씀 · 2026년 1월 25일 주일말씀 · 1번째 문단');
+ assert.equal(sourceCaption({...mal,title:'2026년 1월 25일 주일말씀'}),'말씀 · 2026년 1월 25일 주일말씀 · 1번째 문단');
+ const story=toChunks([{no:174,title:'성령 사연 174',paragraphs:[['검사용 예시 문단입니다.']]}],SOURCES[1])[0];
+ assert.equal(sourceCaption(story),'2025년 성령사연 174번 · 1번째 문단');
+ assert.equal(sourceCaption({...story,title:'예시 제목'}),'2025년 성령사연 174번 · 예시 제목 · 1번째 문단');
+ assert(story.url.includes('y=2025'));assert(mal.url.startsWith('/sayeon/malsseum/'));
 });
