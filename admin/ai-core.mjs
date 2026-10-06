@@ -181,7 +181,7 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
  const headers={'Content-Type':'application/json','x-goog-api-key':key.trim()};
  const whole=evidence.length===1&&evidence[0].whole;
  const detailedWhole=whole&&/정리|자세히|상세/.test(question);
- const body={systemInstruction:{parts:[{text:system+(detailedWhole?'\n상세 정리의 응답 스키마에서는 overview 대신 fullOrganization에 실제 상세 본문을 쓴다. 원고 전체를 검토하고 모든 서로 다른 내용과 구체적 설명을 이 본문에 직접 담는다. readingPositions의 모든 위치를 순서대로 본문에서 다루고 각 설명의 contentId와 그 위치의 실제 인용 ref를 연결한다. 원문은 하나이며 문맥을 전체로 파악해야 한다. 짧은 요약을 따로 작성하지 않는다.':'')}]},contents:[{role:'user',parts:[{text:prompt(question,evidence,{detailedWhole})}]}],generationConfig:{maxOutputTokens:whole?32768:8192,responseMimeType:'application/json',responseJsonSchema:answerSchema(evidence,{detailedWhole}),thinkingConfig:{thinkingLevel:detailedWhole?'HIGH':'LOW'}}};
+ const body={systemInstruction:{parts:[{text:system+(detailedWhole?'\n상세 정리의 응답 스키마에서는 overview 대신 fullOrganization에 실제 상세 본문을 쓴다. 원고 전체를 검토하고 모든 서로 다른 내용과 구체적 설명을 이 본문에 직접 담는다. readingPositions의 모든 위치를 순서대로 본문에서 다루고 각 설명의 contentId와 그 위치의 실제 인용 ref를 연결한다. 원문은 하나이며 문맥을 전체로 파악해야 한다. 짧은 요약을 따로 작성하지 않는다.':'')}]},contents:[{role:'user',parts:[{text:prompt(question,evidence,{detailedWhole})}]}],generationConfig:{maxOutputTokens:whole?32768:8192,responseMimeType:'application/json',responseJsonSchema:answerSchema(evidence,{detailedWhole}),thinkingConfig:{thinkingLevel:'LOW'}}};
  const r=await fetcher(url,{method:'POST',headers,body:JSON.stringify(body),signal});
  if(!r.ok){
   if(r.status===413)throw new Error(m.label+'가 입력 크기를 거절했습니다 (413). '+(evidence.length===1&&evidence[0].whole?'원고 전체를 나누거나 줄이지 않았습니다. 전체 요약·정리는 다른 모델을 선택해 주세요.':'질문과 근거의 입력 크기를 확인해 주세요.'));

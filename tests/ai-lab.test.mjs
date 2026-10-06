@@ -151,7 +151,7 @@ test('한 편 전체는 전용 지침과 원문 인용 선택을 사용하며 �
  let calls=0;
  const result=await generate('gemini-lite','fixture-key',wholeRequest(doc.title,'organize'),[doc],async(url,o)=>{
   calls++;const b=JSON.parse(o.body),input=JSON.parse(b.contents[0].parts[0].text);
-  assert.equal(b.generationConfig.maxOutputTokens,32768);assert.equal(b.generationConfig.thinkingConfig.thinkingLevel,'HIGH');assert(b.generationConfig.responseJsonSchema.required.includes('fullOrganization'));assert(!b.generationConfig.responseJsonSchema.required.includes('overview'));assert.match(input.question,/요약하지 말고/);assert.match(input.question,/부차적으로/);assert.equal(input.documentMode,'complete_manuscript');assert.equal(input.evidence.length,1);assert.equal(input.evidence[0].text,doc.text);
+  assert.equal(b.generationConfig.maxOutputTokens,32768);assert.equal(b.generationConfig.thinkingConfig.thinkingLevel,'LOW');assert(b.generationConfig.responseJsonSchema.required.includes('fullOrganization'));assert(!b.generationConfig.responseJsonSchema.required.includes('overview'));assert.match(input.question,/요약하지 말고/);assert.match(input.question,/부차적으로/);assert.equal(input.documentMode,'complete_manuscript');assert.equal(input.evidence.length,1);assert.equal(input.evidence[0].text,doc.text);
   assert.match(b.systemInstruction.parts[0].text,/짧은 핵심 요약으로 대체하지/);assert.match(input.readingRule,/마지막 결론/);
   assert.deepEqual(b.generationConfig.responseJsonSchema.properties.claims.items.properties.sources.items.properties.ref.enum,citationChoices([doc]).map(c=>c.ref));
   return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({supported:true,fullOrganization:[{title:'원고 종합',points:[point]}],claims:[point]})}]}}]})};
