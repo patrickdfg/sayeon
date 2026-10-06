@@ -189,16 +189,21 @@ test('전체 상세 정리는 짧은 overview를 대신 받지 않고 전용 본
  const fake={...point,sources:[{ref:'fake'}]};await assert.rejects(generate('gemini-lite','fixture','전체 상세 정리',[doc],response({supported:true,fullOrganization:[{title:'가짜',points:[fake]}],claims:[point]})),/인용/);
 });
 
-test('상세 정리는 원고 전체를 한 번 보내고 중간 위치 누락·순서 변경·다른 위치 인용을 차단',async()=>{
- const {readingSpans,citationChoices,clean}=await import('../admin/ai-core.mjs');
- const doc={id:'malsseum:39:0',whole:true,title:'위치 검사용 원고',text:['처음의 논점과 사례를 자세히 설명합니다. '.repeat(8),'중간의 다른 조건과 경과를 자세히 설명합니다. '.repeat(8),'끝의 실천과 결론을 자세히 설명합니다. '.repeat(8)].join('\n\n')};
- const spans=readingSpans(doc),choices=citationChoices([doc]);assert.equal(spans.length,3);assert.equal(spans[0].start,0);assert.equal(spans.at(-1).end,doc.text.length);
- const points=spans.map((s,i)=>({contentId:s.id,label:'논점 '+i,text:'해당 위치의 구체적 설명을 원고 전체의 흐름과 연결합니다.',kind:'source',sources:[{ref:choices.find(c=>clean(doc.text.slice(s.start,s.end)).includes(c.quote)).ref}]}));
- const run=async items=>{let calls=0;const result=await generate('gemini-lite','fixture','전체 상세 정리',[doc],async(url,o)=>{calls++;const input=JSON.parse(JSON.parse(o.body).contents[0].parts[0].text);assert.equal(input.evidence.length,1);assert.equal(input.evidence[0].text,doc.text);assert.deepEqual(input.readingPositions.map(s=>s.id),spans.map(s=>s.id));assert(input.readingPositions.every(s=>!('text' in s)));return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({supported:true,fullOrganization:[{title:'한 편의 전체 정리',points:items}],claims:[points[0]]})}]}}]})};});assert.equal(calls,1);return result;};
- assert.equal((await run(points)).answer.overview[0].points.length,3);
- await assert.rejects(run([points[0],points[2]]),/일부 내용을 빠뜨린/);
- await assert.rejects(run([points[1],points[0],points[2]]),/원고 순서/);
- await assert.rejects(run([points[0],{...points[1],sources:points[0].sources},points[2]]),/해당 원문 위치/);
+test('상세 정리는 원고 전체를 한 번 읽고 문단 ID 없이 여러 위치의 가르침을 한 주제로 연결',async()=>{
+ const {citationChoices}=await import('../admin/ai-core.mjs');
+ const doc={id:'malsseum:39:0',whole:true,title:'전체 검사용 원고',text:'처음의 감사와 실천을 설명합니다.\n\n중간의 고난과 책임을 설명합니다.\n\n끝의 변치 않는 사랑을 설명합니다.'};
+ const choices=citationChoices([doc]);
+ const point={label:'연결된 가르침',text:'감사의 실천과 고난 속 책임, 변치 않는 사랑을 한 흐름으로 정리합니다.',kind:'inference',sources:[{ref:choices[0].ref},{ref:choices.at(-1).ref}]};
+ let calls=0;
+ const response=p=>async(_url,o)=>{
+  calls++;const body=JSON.parse(o.body),input=JSON.parse(body.contents[0].parts[0].text);
+  assert.equal(input.evidence.length,1);assert.equal(input.evidence[0].text,doc.text);assert(!('readingPositions' in input));
+  assert(!('contentId' in body.generationConfig.responseJsonSchema.properties.fullOrganization.items.properties.points.items.properties));
+  assert.match(body.systemInstruction.parts[0].text,/말씀 정리체/);
+  return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({supported:true,fullOrganization:[{title:'한 편의 말씀',points:[p]}],claims:[p]})}]}}]})};
+ };
+ const result=await generate('gemini-lite','fixture','전체 상세 정리',[doc],response(point));assert.equal(calls,1);assert.equal(result.answer.overview[0].points.length,1);assert.equal(result.answer.overview[0].points[0].sources.length,2);
+ await assert.rejects(generate('gemini-lite','fixture','전체 상세 정리',[doc],response({...point,sources:[{ref:'fake'}]})),/인용/);
 });
 
  test('짧은 조건과 마지막 마무리도 상세 정리 위치에서 빠뜨리지 않음',async()=>{

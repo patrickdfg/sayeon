@@ -1,4 +1,4 @@
-import {validateAnswer,MODELS,SOURCES,normalizeScope} from './admin/ai-core.mjs?v=19';
+import {validateAnswer,MODELS,SOURCES,normalizeScope,resolveQuestion,requestsWholeManuscript} from './admin/ai-core.mjs?v=21';
 
 export function newThread(uuid=()=>crypto.randomUUID()) {
  return {id:uuid(),title:'새 대화',model_id:'gemini-lite',scope:'all',messages:[],revision:null};
@@ -83,4 +83,30 @@ export function createChatStore(client) {
    const data=unwrap(response);if(!data)throw new Error('다른 기기에서 대화가 변경됐습니다. 다시 열어 주세요.');return data;
   }
  };
+}
+
+export function resolveChatQuestion(chunks,question,messages=[],scope='all'){
+ // A named date always starts a fresh document selection, never conversational snippets.
+ if(/\d{1,2}\s*월\s*\d{1,2}\s*일/.test(question))return resolveQuestion(chunks,question,scope);
+ const previous=followUpEvidence(question,messages);
+ const fullReference=/^(?:전체|전부|통째|하나\s*로)/.test(question.trim())&&!/자료|사연/.test(question)&&/정리|요약|통합|정돈/.test(question);
+ if(fullReference||requestsWholeManuscript(question)||previous?.mode==='whole'||previous&&/전체|전부|통째|하나\s*로/.test(question)){
+  const index=messages.findLastIndex(m=>m.role==='assistant'&&m.evidence?.length);
+  const answer=index>=0?messages[index]:null;
+  const user=index>=0?messages.slice(0,index).findLast(m=>m.role==='user'):null;
+  const anchors=[answer?.result?.wholeTitle,answer?.title,user?.content].filter(Boolean);
+  for(const anchor of anchors){
+   if(/\d{1,2}\s*월\s*\d{1,2}\s*일/.test(anchor)&&(/말\s*씀|주일|수요|새벽|설교|원고/.test(anchor)||requestsWholeManuscript(anchor))){
+    const date=anchor.match(/(?:(20\d{2})\s*년\s*)?\d{1,2}\s*월\s*\d{1,2}\s*일/)[0],kind=anchor.match(/주일|수요|새벽/)?.[0]||'';
+    return resolveQuestion(chunks,date+' '+kind+'말씀 '+question,scope);
+   }
+  }
+  // Only a single, unambiguous sermon can be expanded from existing verified evidence.
+  const docs=answer?.evidence||[];
+  const keys=new Set(docs.map(d=>d.scope+':'+d.no));
+  if(docs.length&&keys.size===1&&docs.every(d=>d.scope==='malsseum'))
+   return resolveQuestion(chunks,docs[0].title+' 말씀 '+question,scope);
+  throw new Error('정리할 말씀의 날짜를 알려 주세요. 문단 검색 결과나 다른 말씀을 섞어 전체 원고로 사용하지 않았습니다.');
+ }
+ return previous||resolveQuestion(chunks,question,scope);
 }

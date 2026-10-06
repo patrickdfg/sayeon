@@ -1,4 +1,4 @@
-import {MODELS,generate,clean,MAX_WHOLE_CHARS} from '../../../admin/ai-core.mjs';
+import {requestsWholeManuscript,MODELS,generate,clean,MAX_WHOLE_CHARS} from '../../../admin/ai-core.mjs';
 const ORIGIN='https://patrickdfg.github.io';
 function delayForBackup(signal){return new Promise((resolve,reject)=>{
  const abort=()=>{clearTimeout(timer);signal.removeEventListener('abort',abort);reject(new DOMException('Aborted','AbortError'));};
@@ -49,6 +49,7 @@ export function createHandler({env,fetcher=fetch,waitForBackup=delayForBackup}){
    if(body.action==='check-provider')return reply({error:'허용되지 않은 연결 확인입니다.'},400);
    if(body.action!=='generate'||Object.keys(body).some(k=>!['action','modelId','question','evidence','freeOnly','whole'].includes(k))||body.whole!==undefined&&body.whole!==true)return reply({error:'허용되지 않은 요청입니다.'},400);
    const whole=body.whole===true;
+   if(!whole&&requestsWholeManuscript(body.question))return reply({error:'말씀 전체 정리 요청에는 지정한 원고 한 편 전체가 필요합니다. 문단 검색 결과로 대신 답하지 않았습니다.'},400);
    if(body.freeOnly!==true)return reply({error:'결제가 연결되지 않은 무료 키인지 확인해 주세요.'},400);
    const model=typeof body.modelId==='string'&&Object.hasOwn(MODELS,body.modelId)?MODELS[body.modelId]:null;
    if(!model)return reply({error:'허용되지 않은 모델입니다.'},400);

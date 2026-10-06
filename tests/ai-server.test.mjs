@@ -181,3 +181,9 @@ test('회원 상태의 부정확한 응답은 접근 권한으로 인정하지 �
   assert.equal((await handler(req())).status,403);assert.equal(count,1);
  }
 });
+
+test('날짜 지정 전체 정리를 문단 검색 모드로 보내면 예약·업체 호출 전에 거부',async()=>{
+ const s=setup();const response=await s.handler(req({...payload,question:'10월 4일 주일 말씀 전체 하나로 정리해줘'}));
+ assert.equal(response.status,400);assert.match((await response.json()).error,/원고 한 편 전체/);
+ assert(!s.calls.some(c=>c.url.endsWith('/ai_lab_model_quota')||c.url.includes('googleapis')));
+});

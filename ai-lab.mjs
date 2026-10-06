@@ -1,7 +1,7 @@
 import {createVoiceInput} from './ai-voice.mjs?v=1';
 import {saveOverview} from './ai-export.mjs?v=2';
-import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage,normalizeScope} from './admin/ai-core.mjs?v=20';
-import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore} from './ai-chat.mjs?v=6';
+import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage,normalizeScope} from './admin/ai-core.mjs?v=21';
+import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore,resolveChatQuestion} from './ai-chat.mjs?v=7';
 import {MEMBER_LABELS,membershipStatus,createMemberStore} from './ai-members.mjs?v=1';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
 let token='',authorized=false,chunks=[],cache=new Map(),controller=null,busy=false,providerStatus={};
@@ -113,7 +113,12 @@ function showAnswer(result,target=$('answer'),questionText=$('question').value.t
   actions.append(saveMenu);target.append(actions);
  }
 }
-function evidenceForQuestion(){const q=$('question').value.trim();if(q.length<2)throw new Error('질문을 두 글자 이상 입력해 주세요.');const previous=thread.scope===$('scope').value?followUpEvidence(q,thread.messages):null;if(previous)return {q,...previous};if(!chunks.length){toggleSettings(true);throw new Error('자료·설정에서 기존 원고 암호를 입력해 주세요.');}return {q,...resolveQuestion(chunks,q,$('scope').value)};}
+function evidenceForQuestion(){
+ const q=$('question').value.trim();if(q.length<2)throw new Error('질문을 두 글자 이상 입력해 주세요.');
+ if(!chunks.length){toggleSettings(true);throw new Error('자료·설정에서 기존 원고 암호를 입력해 주세요.');}
+ const resolved=resolveChatQuestion(chunks,q,thread.scope===$('scope').value?thread.messages:[],$('scope').value);
+ return {q,...resolved};
+}
 function setBusy(value){
  if(value)voiceInput.stop();
  busy=value;['ask','preview','loadCorpus','unlock','serverCheck','clear','newChatHeader','model','scope','historySearch','moreHistory','retrySave','saveAsNew'].forEach(id=>$(id).disabled=value);
