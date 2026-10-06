@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#ffffff">
-<title>말씀과 사연 · AI 대화</title><link rel="stylesheet" href="./ai-chat.css?v=3">
+<title>말씀과 사연 · AI 대화</title><link rel="stylesheet" href="./ai-chat.css?v=4">
 <script src="./analytics-config.js?v=2"></script><script src="./crypt.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 </head>
@@ -43,7 +43,7 @@
 <div id="conversation" class="conversation" role="log" aria-label="현재 대화" aria-live="polite"></div></div>
 <button id="scrollBottom" class="scroll-bottom ui-down hidden" type="button" aria-label="대화 맨 아래로 이동" title="대화 맨 아래로 이동"></button>
 <footer class="composer-area"><div class="save-status-row"><span id="saveStatus" role="status" aria-live="polite"></span><button id="retrySave" class="text-button hidden" type="button">저장 다시 시도</button><button id="saveAsNew" class="text-button hidden" type="button">새 대화로 저장</button></div>
-<form id="composer" class="composer"><label class="sr-only" for="question">질문</label><textarea id="question" maxlength="600" rows="1" placeholder="메시지를 입력하세요…"></textarea><div class="composer-tools"><button id="preview" class="composer-search ui-search" type="button" aria-label="원문 찾기" title="AI 호출 없이 원문 찾기"></button><div class="model-picker"><span aria-hidden="true">✦</span><label class="sr-only" for="model">답변 모델</label><select id="model"><option value="gemini-lite">Gemini 3.5 Flash-Lite</option><option value="gemini-flash">Gemini 3.8 Flash</option><option value="groq-oss">Groq · 짧은 질문용</option><option value="search">원문 검색만</option></select></div><button id="ask" class="send-button" type="submit" aria-label="질문 보내기" title="질문 보내기">↑</button><button id="cancel" class="send-button hidden" type="button" disabled aria-label="답변 중단" title="답변 중단">■</button></div></form>
+<form id="composer" class="composer"><label class="sr-only" for="question">질문</label><textarea id="question" maxlength="600" rows="1" placeholder="메시지를 입력하세요…"></textarea><div class="composer-tools"><button id="preview" class="composer-search ui-search" type="button" aria-label="원문 찾기" title="AI 호출 없이 원문 찾기"></button><div class="model-picker"><span aria-hidden="true">✦</span><label class="sr-only" for="model">답변 모델</label><select id="model"><option value="gemini-lite">Gemini 3.5 Lite</option><option value="gemini-flash">Gemini 3.8 Flash</option><option value="groq-oss">Groq · 짧은 질문용</option><option value="search">원문 검색만</option></select></div><button id="ask" class="send-button" type="submit" aria-label="질문 보내기" title="질문 보내기">↑</button><button id="cancel" class="send-button hidden" type="button" disabled aria-label="답변 중단" title="답변 중단">■</button></div></form>
 <p id="status" class="status composer-status" role="status" aria-live="polite"></p><p class="composer-note">등록 원고를 근거로 답합니다. 인용 출처에서 원문을 확인하세요.</p></footer>
 <div class="hidden" aria-hidden="true"><div id="answer"></div><div id="evidence"></div></div>
 </main></div>
