@@ -113,22 +113,26 @@ export function resolveCitationRefs(raw,evidence){
  if(Array.isArray(data.claims))data.claims=data.claims.map(remap);
  return JSON.stringify(data);
 }
-export function answerSchema(evidence){
+export function answerSchema(evidence,{detailedWhole=false}={}){
  const object=properties=>({type:'object',properties,required:Object.keys(properties),additionalProperties:false});
  const choices=citationChoices(evidence);if(!choices.length)throw new Error('인용할 수 있는 원문 구절이 없습니다.');
  const source=object({ref:{type:'string',enum:choices.map(c=>c.ref)}});
- const statement={text:{type:'string',description:'비어 있지 않은 한국어 설명, 최대 1600글자'},kind:{type:'string',enum:['source','inference']},sources:{type:'array',items:source,description:'실제 원문 출처 1~6개'}};
+ const statement={text:{type:'string',description:detailedWhole?'원고에 있는 해당 논점의 모든 설명을 다시 서술한 본문. 배경·구체적 사건·과정·결과·수치·조건·비유의 의미를 충분히 서술한다. 대표 한 문장의 핵심 요약으로 대체하지 않는다. 한 항목의 기술적 상한은 8000글자이며 긴 설명은 이어지는 항목에 계속 쓴다.':'비어 있지 않은 한국어 설명, 최대 1600글자'},kind:{type:'string',enum:['source','inference']},sources:{type:'array',items:source,minItems:1,maxItems:detailedWhole?16:6,description:detailedWhole?'실제 원문 출처 1~16개':'실제 원문 출처 1~6개'}};
  const point=object({label:{type:'string',description:'반드시 작성할 짧은 항목명. 비어 있지 않은 1~100글자 문자열'},...statement});
  const section=object({title:{type:'string',description:'비어 있지 않은 소제목, 최대 100글자'},points:{type:'array',items:point,description:'각 항목은 label/text/kind/sources를 모두 포함. 내용에 맞게 선택(기술적 상한 12개)'}});
- return object({supported:{type:'boolean'},overview:{type:'array',items:section,description:evidence.length===1&&evidence[0].whole?'한 편 전체의 종합 정리. 원고 처음의 핵심, 중간의 전개·사례, 후반의 교훈과 마지막 결론을 연결한다. 상세 정리는 원고에 있는 서로 다른 내용을 충분히 설명하고 요약은 전체를 압축한다. 주제 수와 분량은 원고에 맞춘다(기술적 상한 30개). supported=false일 때만 빈 배열':'근거가 충분하면 소제목 수는 내용에 맞게 선택(기술적 상한 30개). supported=false일 때만 빈 배열'},claims:{type:'array',items:object(statement),description:'근거가 충분하면 핵심 설명 1~6개. supported=false일 때만 빈 배열'}});
+ if(detailedWhole)return object({supported:{type:'boolean'},fullOrganization:{type:'array',items:section,description:'요약문이 아닌 한 편 전체의 상세 본문. 원고 순서대로 서로 다른 모든 논점, 사례 각각의 과정과 결과, 비유 각각의 의미, 조건·반론·인물·날짜·수치·실천·결론을 빠짐없이 다시 서술한다. 생략할 수 있는 것은 의미가 완전히 동일한 반복뿐이다. 각 소제목에 해당하는 내용을 points의 본문으로 모두 작성한다. 충분히 설명하려면 항목을 추가하며 주제 수·항목 수는 원고에 따라 자유롭다. 짧은 원고는 간결하게 쓴다. supported=false일 때만 비운다.'},claims:{type:'array',items:object(statement),description:'대표 원문 근거 1~6개. fullOrganization의 본문 항목 수를 이 개수에 맞추지 않는다. supported=false일 때만 비운다.'}});
+ return object({supported:{type:'boolean'},overview:{type:'array',items:section,description:evidence.length===1&&evidence[0].whole?'한 편 전체의 종합 요약. 원고 처음의 핵심, 중간의 전개·사례, 후반의 교훈과 마지막 결론을 연결해 압축한다. 주제 수와 분량은 원고에 맞춘다(기술적 상한 30개). supported=false일 때만 빈 배열':'근거가 충분하면 소제목 수는 내용에 맞게 선택(기술적 상한 30개). supported=false일 때만 빈 배열'},claims:{type:'array',items:object(statement),description:'근거가 충분하면 핵심 설명 1~6개. supported=false일 때만 빈 배열'}});
 }
 export function validateAnswer(raw,evidence,{requireOverview=false}={}){
  const input=raw.trim().replace(/^\`\`\`(?:json)?\s*/,'').replace(/\s*\`\`\`$/,'');let d;try{d=JSON.parse(input);}catch{throw new Error('답변 형식을 확인하지 못했습니다. 원문을 확인해 주세요.');}
  if(d.supported===false)return {supported:false,overview:[],claims:[]};
  if(d.supported!==true||!Array.isArray(d.claims)||d.claims.length<1||d.claims.length>6)throw new Error('근거가 없는 답변은 표시하지 않습니다.');
  const by=new Map(evidence.map(x=>[x.id,x]));
+ const whole=evidence.length===1&&evidence[0].whole;
  function statement(c){
-  if(!c||typeof c.text!=='string'||!c.text.trim()||c.text.length>1600||!['source','inference'].includes(c.kind)||!Array.isArray(c.sources)||!c.sources.length||c.sources.length>6)throw new Error('설명과 출처 형식을 확인하지 못했습니다.');
+  if(!c||typeof c.text!=='string'||!c.text.trim()||!['source','inference'].includes(c.kind)||!Array.isArray(c.sources)||!c.sources.length)throw new Error('설명과 출처 형식을 확인하지 못했습니다.');
+  if(c.text.length>(whole?8000:1600))throw new Error('한 항목의 설명 길이 제한을 초과했습니다.');
+  if(c.sources.length>(whole?16:6))throw new Error('한 항목의 원문 인용 개수 제한을 초과했습니다.');
   const sources=c.sources.map(s=>{if(!s||typeof s.quote!=='string')throw new Error('원문 인용 형식을 확인하지 못했습니다.');const doc=by.get(s.id),quote=clean(s.quote);if(!doc||quote.length<8||!clean(doc.text).includes(quote))throw new Error('원문에 없는 인용을 발견해 AI 답변을 보류했습니다.');return {id:doc.id,quote,doc};});
   return {text:c.text.trim(),kind:c.kind,sources};
  }
@@ -165,7 +169,8 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
  const gem=true,url='https://generativelanguage.googleapis.com/v1beta/models/'+m.model+':generateContent';
  const headers={'Content-Type':'application/json','x-goog-api-key':key.trim()};
  const whole=evidence.length===1&&evidence[0].whole;
- const body={systemInstruction:{parts:[{text:system}]},contents:[{role:'user',parts:[{text:prompt(question,evidence)}]}],generationConfig:{maxOutputTokens:whole?32768:8192,responseMimeType:'application/json',responseJsonSchema:answerSchema(evidence),thinkingConfig:{thinkingLevel:'LOW'}}};
+ const detailedWhole=whole&&/정리|자세히|상세/.test(question);
+ const body={systemInstruction:{parts:[{text:system+(detailedWhole?'\n상세 정리의 응답 스키마에서는 overview 대신 fullOrganization에 실제 상세 본문을 쓴다. 원고 전체를 검토하고 모든 서로 다른 내용과 구체적 설명을 이 본문에 직접 담는다. 짧은 요약을 따로 작성하지 않는다.':'')}]},contents:[{role:'user',parts:[{text:prompt(question,evidence)}]}],generationConfig:{maxOutputTokens:whole?32768:8192,responseMimeType:'application/json',responseJsonSchema:answerSchema(evidence,{detailedWhole}),thinkingConfig:{thinkingLevel:detailedWhole?'HIGH':'LOW'}}};
  const r=await fetcher(url,{method:'POST',headers,body:JSON.stringify(body),signal});
  if(!r.ok){
   if(r.status===413)throw new Error(m.label+'가 입력 크기를 거절했습니다 (413). '+(evidence.length===1&&evidence[0].whole?'원고 전체를 나누거나 줄이지 않았습니다. 전체 요약·정리는 다른 모델을 선택해 주세요.':'질문과 근거의 입력 크기를 확인해 주세요.'));
@@ -193,7 +198,13 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
  }
  const d=await r.json();if(d.candidates?.[0]?.finishReason==='MAX_TOKENS')throw new Error('답변 길이 제한으로 생성이 중단됐습니다. 질문 범위를 좁혀 주세요.');const raw=(d.candidates?.[0]?.content?.parts||[]).filter(x=>!x.thought).map(x=>x.text||'').join('');
  if(!raw)throw new Error('AI가 답변을 반환하지 않았습니다. 원문을 확인해 주세요.');
- return {answer:validateAnswer(resolveCitationRefs(raw,evidence),evidence,{requireOverview:true}),usage:d.usageMetadata,model:m.label};
+ let answerRaw=raw;
+ if(detailedWhole){
+  let full;try{full=JSON.parse(raw.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,''));}catch{throw new Error('상세 정리 형식을 확인하지 못했습니다.');}
+  if(full.supported!==false&&!Array.isArray(full.fullOrganization))throw new Error('원고 전체의 상세 본문을 받지 못했습니다.');
+  answerRaw=JSON.stringify({supported:full.supported,overview:full.fullOrganization||[],claims:full.claims});
+ }
+ return {answer:validateAnswer(resolveCitationRefs(answerRaw,evidence),evidence,{requireOverview:true}),usage:d.usageMetadata,model:m.label};
 }
 export async function requestServer(config,token,body,fetcher=fetch,signal){
  if(typeof token!=='string'||!token)throw new Error('승인된 Google 계정으로 로그인해 주세요.');

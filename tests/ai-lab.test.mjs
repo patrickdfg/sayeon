@@ -151,10 +151,10 @@ test('한 편 전체는 전용 지침과 원문 인용 선택을 사용하며 �
  let calls=0;
  const result=await generate('gemini-lite','fixture-key',wholeRequest(doc.title,'organize'),[doc],async(url,o)=>{
   calls++;const b=JSON.parse(o.body),input=JSON.parse(b.contents[0].parts[0].text);
-  assert.equal(b.generationConfig.maxOutputTokens,32768);assert.match(input.question,/요약하지 말고/);assert.match(input.question,/부차적으로/);assert.equal(input.documentMode,'complete_manuscript');assert.equal(input.evidence.length,1);assert.equal(input.evidence[0].text,doc.text);
+  assert.equal(b.generationConfig.maxOutputTokens,32768);assert.equal(b.generationConfig.thinkingConfig.thinkingLevel,'HIGH');assert(b.generationConfig.responseJsonSchema.required.includes('fullOrganization'));assert(!b.generationConfig.responseJsonSchema.required.includes('overview'));assert.match(input.question,/요약하지 말고/);assert.match(input.question,/부차적으로/);assert.equal(input.documentMode,'complete_manuscript');assert.equal(input.evidence.length,1);assert.equal(input.evidence[0].text,doc.text);
   assert.match(b.systemInstruction.parts[0].text,/짧은 핵심 요약으로 대체하지/);assert.match(input.readingRule,/마지막 결론/);
   assert.deepEqual(b.generationConfig.responseJsonSchema.properties.claims.items.properties.sources.items.properties.ref.enum,citationChoices([doc]).map(c=>c.ref));
-  return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({supported:true,overview:[{title:'원고 종합',points:[point]}],claims:[point]})}]}}]})};
+  return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({supported:true,fullOrganization:[{title:'원고 종합',points:[point]}],claims:[point]})}]}}]})};
  });
  assert.equal(calls,1);assert.equal(result.answer.overview[0].points[0].sources[0].quote,choice.quote);
 });
@@ -173,4 +173,17 @@ test('성령사연 범위는 두 해를 함께 찾고 출처 연도는 보존',a
 });
 test('요약 정리를 함께 요청하면 상세 정리를 우선',async()=>{
  const {resolveQuestion}=await import('../admin/ai-core.mjs');const data=toChunks([{no:39,title:'10월 4일 주일말씀',paragraphs:[['원고 전체를 정리합니다.']]}],SOURCES[3]);assert.equal(resolveQuestion(data,'10월 4일 말씀 전체 요약 정리해줘').intent,'organize');
+});
+
+test('전체 상세 정리는 짧은 overview를 대신 받지 않고 전용 본문의 모든 항목을 보존',async()=>{
+ const {citationChoices}=await import('../admin/ai-core.mjs');
+ const doc={id:'malsseum:39:0',whole:true,title:'긴 검사용 원고',text:'검사용 원고의 설명과 사례를 그대로 보존합니다.\n'.repeat(1000)};
+ const point={label:'설명',text:'검사용 설명의 배경과 과정, 결과를 모두 본문에 보존합니다. '.repeat(25),kind:'source',sources:[{ref:citationChoices([doc])[0].ref}]};
+ const sections=Array.from({length:12},(_,i)=>({title:'논점 '+i,points:[point,point,point]}));
+ const response=data=>async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify(data)}]}}]})});
+ await assert.rejects(generate('gemini-lite','fixture','전체 상세 정리',[doc],response({supported:true,overview:sections,claims:[point]})),/상세 본문/);
+ const result=await generate('gemini-lite','fixture','전체 상세 정리',[doc],response({supported:true,fullOrganization:sections,claims:[point]}));
+ assert.equal(result.answer.overview.length,sections.length);assert.equal(result.answer.overview.reduce((n,s)=>n+s.points.length,0),36);assert.equal(result.answer.overview.at(-1).points.at(-1).text,point.text.trim());
+ const extended={...point,text:point.text.repeat(4),sources:Array(10).fill(point.sources[0])};const large=await generate('gemini-lite','fixture','전체 상세 정리',[doc],response({supported:true,fullOrganization:[{title:'연결된 상세 설명',points:[extended]}],claims:[point]}));assert.equal(large.answer.overview[0].points[0].text,extended.text.trim());assert.equal(large.answer.overview[0].points[0].sources.length,10);
+ const fake={...point,sources:[{ref:'fake'}]};await assert.rejects(generate('gemini-lite','fixture','전체 상세 정리',[doc],response({supported:true,fullOrganization:[{title:'가짜',points:[fake]}],claims:[point]})),/인용 선택값/);
 });
