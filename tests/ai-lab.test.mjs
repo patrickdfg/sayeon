@@ -145,7 +145,7 @@ test('인용 ref를 서버 원문의 구절로 복원하고 없는 선택은 차
 });
 
 test('한 편 전체는 전용 지침과 원문 인용 선택을 사용하며 처음부터 끝까지 한 번만 전송',async()=>{
- const doc={id:'malsseum:39:0',title:'10월 4일 주일말씀',whole:true,text:'처음 주제를 설명하는 원문입니다.\n\n'+('중간 전개와 사례를 설명하는 원문입니다.\n').repeat(300)+'\n마지막 실천과 결론을 설명하는 원문입니다.'};
+ const doc={id:'malsseum:39:0',title:'10월 4일 주일말씀',whole:true,text:'처음 주제를 설명하는 원문입니다.\n'+('중간 전개와 사례를 설명하는 원문입니다.\n').repeat(300)+'마지막 실천과 결론을 설명하는 원문입니다.'};
  const {citationChoices,wholeRequest}=await import('../admin/ai-core.mjs');
  const choice=citationChoices([doc]).at(-1),point={contentId:'r0',label:'전체 흐름',text:'처음의 주제를 마지막 실천과 결론에 연결합니다.',kind:'inference',sources:[{ref:choice.ref}]};
  let calls=0;
@@ -200,3 +200,9 @@ test('상세 정리는 원고 전체를 한 번 보내고 중간 위치 누락·
  await assert.rejects(run([points[1],points[0],points[2]]),/원고 순서/);
  await assert.rejects(run([points[0],{...points[1],sources:points[0].sources},points[2]]),/해당 원문 위치/);
 });
+
+ test('짧은 조건과 마지막 마무리도 상세 정리 위치에서 빠뜨리지 않음',async()=>{
+ const {readingSpans}=await import('../admin/ai-core.mjs');
+ const doc={text:'처음의 설명과 사례를 연결합니다. '.repeat(8)+'\n\n조건이 끝나면 하루도 더 머무를 수 없습니다.\n\n이제 말씀을 마무리하고 더 기도합니다. 성령 사랑의 평강을 빕니다.'};
+ const spans=readingSpans(doc);assert.equal(spans.length,3);assert.equal(doc.text.slice(spans[1].start,spans[1].end).trim(),'조건이 끝나면 하루도 더 머무를 수 없습니다.');assert.match(doc.text.slice(spans.at(-1).start,spans.at(-1).end),/더 기도/);
+ });

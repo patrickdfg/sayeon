@@ -15,7 +15,7 @@ export function readingSpans(doc){
  // Positions for completeness checks only. The evidence remains one unabridged manuscript.
  const text=String(doc.text),ends=[...text.matchAll(/\n{2,}/g)].map(m=>m.index+m[0].length).concat(text.length);
  const spans=[];let start=0;
- for(const end of ends){if(clean(text.slice(start,end)).length>=80){spans.push({start,end});start=end;}}
+ for(const end of ends){if(clean(text.slice(start,end)).length>=8){spans.push({start,end});start=end;}}
  if(start<text.length){if(spans.length)spans.at(-1).end=text.length;else spans.push({start:0,end:text.length});}
  const stride=Math.ceil(spans.length/96)||1,out=[];
  for(let i=0;i<spans.length;i+=stride)out.push({id:'r'+out.length,start:spans[i].start,end:spans[Math.min(i+stride-1,spans.length-1)].end});
