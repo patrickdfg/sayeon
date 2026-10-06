@@ -90,3 +90,22 @@ test('Groq 형식 수정에도 누락된 항목명·없는 인용은 보류하�
   await assert.rejects(generate('groq-oss','fixture','인내',documents,async()=>{calls++;return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(d)}}]})};}));assert.equal(calls,1);
  }
 });
+
+test('날짜 요약은 제목으로 한 편을 골라 검색어 없는 마지막 문단까지 보존',async()=>{
+ const {resolveQuestion,evidenceBatches}=await import('../admin/ai-core.mjs');
+ const data=toChunks([{no:73,title:'10월 4일 주일말씀',paragraphs:[['첫 주제입니다. '.repeat(500)],['중간 내용입니다. '.repeat(500)],['끝의 결론입니다.']]},{no:72,title:'10월 1일 수요말씀',paragraphs:[['10월 4일이라는 검색어가 본문에 나옵니다.']]}],SOURCES[3]);
+ const result=resolveQuestion(data,'10월 4일 주일말씀 요약해줘');assert.equal(result.mode,'whole');assert(result.found.every(c=>c.no===73));assert(result.found.at(-1).text.includes('끝의 결론'));
+ assert.equal(result.found.map(c=>c.text.replace(/\n\n/g,'')).join(''),data.filter(c=>c.no===73).map(c=>c.text).join(''));
+ assert.equal(new Set(result.found.map(c=>c.id)).size,result.found.length);
+ const batches=evidenceBatches(result.found);assert(batches.length>1);for(const b of batches){assert(b.length<=6);assert(b.reduce((n,c)=>n+c.text.length,0)<=8000);assert(b.every(c=>c.text.length<=1800));}
+ assert.throws(()=>resolveQuestion(data,'10월 5일 주일말씀 요약해줘'),/찾지 못/);
+ assert.throws(()=>resolveQuestion(data,'10월 4일 주일말씀 요약해줘','stones'),/찾지 못/);
+ assert.equal(resolveQuestion(data,'인내에 대해 알려줘').mode,'search');
+});
+test('동일 날짜 여러 편은 임의 선택하지 않고 연도와 말씀 종류로 구분',async()=>{
+ const {resolveQuestion}=await import('../admin/ai-core.mjs');
+ const data=toChunks([{no:1,title:'2025년 10월 4일 주일말씀',paragraphs:[['첫 원고입니다.']]},{no:2,title:'2026년 10월 4일 주일말씀',paragraphs:[['둘째 원고입니다.']]}],SOURCES[3]);
+ assert.throws(()=>resolveQuestion(data,'10월 4일 주일말씀 정리해줘'),/여러 편/);
+ assert.equal(resolveQuestion(data,'2026년 10월 4일 주일말씀 요약해줘').found[0].no,2);
+ assert.equal(resolveQuestion(data,'2025년 10월 4일 주일말씀 요약해줘').found[0].no,1);
+});

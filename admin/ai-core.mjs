@@ -27,9 +27,38 @@ export function sourceCaption(doc){
   caption=(year?year+'년 ':'')+'성령사연 '+doc.no+'번';
   if(!/^(?:성령\s*사연\s*)?\d+\s*(?:번|편)?$/.test(doc.title.trim()))caption+=' · '+doc.title;
  }else caption=doc.label+' · '+doc.title;
- return caption+' · '+(doc.pi+1)+'번째 문단';
+ return caption+' · '+(doc.pi+1)+(doc.endPi>doc.pi?'~'+(doc.endPi+1):'')+'번째 문단';
 }
 const STOP=new Set(['무엇','무엇인가요','뭐야','어떻게','왜','대한','대해','설명','설명해줘','알려줘','해주세요','해줘','있나요','인가요','말씀','사연','내용','뜻','의미','이','그','것','좀']);
+export function resolveQuestion(chunks,question,scope='all'){
+ const q=clean(question),date=q.match(/(?:(20\d{2})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+ if(!date||!/말씀/.test(q)||!/요약|정리/.test(q))return {mode:'search',found:retrieve(chunks,q,scope)};
+ const kind=q.match(/주일|수요|새벽/)?.[0],matches=new Map();
+ for(const c of chunks){
+  if(c.scope!=='malsseum'||scope!=='all'&&scope!=='malsseum')continue;
+  const d=clean(c.title).match(/(?:(20\d{2})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if(!d||+d[2]!==+date[2]||+d[3]!==+date[3]||date[1]&&+(d[1]||c.year)!==+date[1]||kind&&!clean(c.title).includes(kind))continue;
+  const key=c.scope+':'+c.no;if(!matches.has(key))matches.set(key,[]);matches.get(key).push(c);
+ }
+ if(!matches.size)throw new Error('지정한 날짜의 말씀을 찾지 못했습니다. 말씀 자료가 열려 있는지, 날짜·연도와 검색 범위를 확인해 주세요.');
+ if(matches.size>1)throw new Error('같은 날짜의 말씀이 여러 편입니다. 연도나 주일·수요 구분을 추가해 주세요.');
+ const original=[...matches.values()][0].sort((a,b)=>a.pi-b.pi),found=[];
+ // Keep every character, including long paragraphs. Virtual IDs are unique;
+ // displayed paragraph positions and links still point to the original manuscript.
+ for(const c of original){
+  for(let offset=0;offset<c.text.length;offset+=1800){
+   const text=c.text.slice(offset,offset+1800),previous=found.at(-1);
+   if(offset===0&&previous&&previous.text.length+2+text.length<=1800){previous.text+='\n\n'+text;previous.endPi=c.pi;}
+   else found.push({...c,id:c.scope+':'+c.no+':'+(1000000+found.length),text,endPi:c.pi});
+  }
+ }
+ return {mode:'whole',found,title:sourceCaption(original[0]).replace(/ · \d+번째 문단$/,''),paragraphs:original.length};
+}
+export function evidenceBatches(found){
+ const batches=[];let batch=[],chars=0;
+ for(const c of found){if(batch.length===6||chars+c.text.length>8000){batches.push(batch);batch=[];chars=0;}batch.push(c);chars+=c.text.length;}
+ if(batch.length)batches.push(batch);return batches;
+}
 const SYN=[['인내','견디','끝까지','포기'],['감사','고마'],['믿음','신앙'],['사랑','사랑하'],['기도','간구'],['용서','용서하']];
 function tokens(q){return [...new Set(clean(q).toLowerCase().match(/[가-힣a-z0-9]+/g)||[])].filter(x=>x.length>1&&!STOP.has(x)).map(x=>x.replace(/(에서는|에게는|이란|이랑|에서|으로|하는|하고|은|는|을|를|의|이|가)$/,'')).filter(x=>x.length>1&&!STOP.has(x));}
 export function retrieve(chunks,question,scope='all',limit=6){
