@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {validateAnswer} from '../admin/ai-core.mjs';
-import {newThread,makeMessage,packResult,unpackResult,followUpEvidence,followUpQuestion,createChatStore} from '../ai-chat.mjs';
+import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore} from '../ai-chat.mjs';
 
 function mockClient(responses){
  const calls=[];
@@ -64,4 +64,13 @@ test('기록 용량·권한 오류는 원문 오류를 노출하지 않고 저�
  const client=mockClient([{data:null,error:{code:'23514',message:'upstream raw secret'}}]),store=createChatStore(client);
  await assert.rejects(store.save(newThread()),/새 대화/);
  await assert.rejects(createChatStore(mockClient([])).save({...newThread(),messages:Array(121).fill({role:'user'})}),/새 대화/);
+});
+test('용량 초과·다른 기기 충돌은 저장되지 않은 마지막 질문과 답변만 새 대화로 보존한다',()=>{
+ const oldUser={id:'old-user',role:'user',content:'이전 질문'},oldReply={id:'old-reply',role:'assistant',content:'이전 답변'},currentUser={id:'current-user',role:'user',content:'후속 질문'},currentReply={id:'current-reply',role:'assistant',evidence:[doc],result:packResult(result())};
+ const original={...newThread(()=> 'old-thread'),messages:[oldUser,oldReply,currentUser,currentReply],revision:5};
+ for(const saved of [new Set(['old-user','old-reply']),new Set(['old-user','old-reply','current-user'])]){
+  const copy=pendingConversation(original,saved,()=> 'new-thread');assert.equal(copy.id,'new-thread');assert.equal(copy.revision,null);
+  assert.deepEqual(copy.messages.map(m=>m.id),['current-user','current-reply']);assert.equal(copy.messages[1].evidence[0].text,doc.text);
+ }
+ assert.equal(original.messages.length,4);assert.equal(original.revision,5);
 });

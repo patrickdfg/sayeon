@@ -1,9 +1,9 @@
 import {saveOverview} from './ai-export.mjs?v=1';
 import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage} from './admin/ai-core.mjs?v=15';
-import {newThread,makeMessage,packResult,unpackResult,followUpEvidence,followUpQuestion,createChatStore} from './ai-chat.mjs?v=1';
+import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore} from './ai-chat.mjs?v=2';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
 let token={password:'',clientId:''},authorized=false,chunks=[],cache=new Map(),controller=null,busy=false,providerStatus={};
-let googleUser=null,authClient=null,chatStore=null,thread=newThread(),threads=[],dirty=false,saveConflict=false,sessionVersion=0,historySequence=0,historyOffset=0,dialogThread=null,currentTurn=null;
+let googleUser=null,authClient=null,chatStore=null,thread=newThread(),threads=[],savedMessageIds=new Set(),dirty=false,saveConflict=false,sessionVersion=0,historySequence=0,historyOffset=0,dialogThread=null,currentTurn=null;
 const text=(el,s)=>{el.textContent=s;};
 function showQuota(quota){
  $('usage').replaceChildren();
@@ -144,7 +144,7 @@ async function persistThread(){
  try{
   const saved=await chatStore.save(savingThread);
   if(epoch!==sessionVersion||savingThread!==thread||!authorized)return false;
-  Object.assign(thread,saved);dirty=false;saveConflict=false;setSaveState('나의 계정에 저장됨');
+  Object.assign(thread,saved);savedMessageIds=new Set(thread.messages.map(message=>message.id));dirty=false;saveConflict=false;setSaveState('나의 계정에 저장됨');
   await loadHistory(false);return true;
  }catch(e){
   if(epoch!==sessionVersion)return false;
@@ -213,14 +213,14 @@ async function openThread(id){
  const epoch=sessionVersion;setBusy(true);text($('historyStatus'),'대화 불러오는 중…');
  try{
   const loaded=await chatStore.load(id);if(epoch!==sessionVersion||!authorized)return;
-  thread=loaded;cache.clear();$('model').value=Object.hasOwn(MODELS,thread.model_id)||thread.model_id==='search'?thread.model_id:'gemini-lite';$('scope').value=thread.scope;
+  thread=loaded;savedMessageIds=new Set(thread.messages.map(message=>message.id));cache.clear();$('model').value=Object.hasOwn(MODELS,thread.model_id)||thread.model_id==='search'?thread.model_id:'gemini-lite';$('scope').value=thread.scope;
   $('question').value='';resizeQuestion();drawConversation(true);drawThreads();setSaveState('나의 계정에 저장됨');status('');toggleSidebar(false);
  }catch(e){if(epoch===sessionVersion)status(e.message,true);}
  finally{if(epoch===sessionVersion){setBusy(false);text($('historyStatus'),'');drawThreads();}}
 }
 function startNew(){
  if(busy)return;if(dirty){setSaveState('현재 대화를 먼저 저장해 주세요.',true);return;}
- thread=newThread();thread.model_id=$('model').value||'gemini-lite';thread.scope=$('scope').value||'all';cache.clear();$('question').value='';
+ thread=newThread();savedMessageIds=new Set();thread.model_id=$('model').value||'gemini-lite';thread.scope=$('scope').value||'all';cache.clear();$('question').value='';
  text($('answer'),'질문하면 여기에 결과가 나옵니다.');text($('evidence'),'관련 원문을 먼저 찾아보세요.');$('freeOnly').checked=true;
  resizeQuestion();drawConversation();drawThreads();setSaveState('');status('');toggleSidebar(false);$('question').focus();
 }
@@ -290,7 +290,7 @@ $('question').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.
 $('cancel').onclick=()=>controller?.abort();$('clear').onclick=startNew;
 $('retrySave').onclick=()=>operation(async()=>{await persistThread();});
 $('saveAsNew').onclick=()=>operation(async()=>{
- const previous=thread,copy=newThread();thread={...copy,title:previous.title,model_id:previous.model_id,scope:previous.scope,messages:structuredClone(previous.messages)};
+ thread=pendingConversation(thread,savedMessageIds);savedMessageIds=new Set();
  saveConflict=false;drawConversation();if(!await persistThread())status('새 대화 저장을 다시 시도해 주세요.',true);else drawThreads();
 });
 $('openSettings').onclick=()=>toggleSettings($('settingsPanel').classList.contains('hidden'));$('closeSettings').onclick=()=>toggleSettings(false);
@@ -307,7 +307,7 @@ let searchTimer;
 $('historySearch').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadHistory(false),250);});
 $('moreHistory').onclick=()=>loadHistory(true);
 function lockChat(){
- sessionVersion++;historySequence++;authorized=false;controller?.abort();controller=null;setBusy(false);token.password='';cache.clear();chunks=[];thread=newThread();threads=[];dirty=false;saveConflict=false;currentTurn=null;
+ sessionVersion++;historySequence++;authorized=false;controller?.abort();controller=null;setBusy(false);token.password='';cache.clear();chunks=[];thread=newThread();threads=[];savedMessageIds=new Set();dirty=false;saveConflict=false;currentTurn=null;
  ['aiPassword','contentPassword','question','historySearch'].forEach(id=>$(id).value='');$('conversation').replaceChildren();$('threadList').replaceChildren();text($('answer'),'');text($('evidence'),'');
  $('lab').classList.add('hidden');$('gate').classList.remove('hidden');toggleSettings(false);$('sidebar').classList.remove('open');$('sidebarBackdrop').classList.add('hidden');syncSidebarAccess();setSaveState('');status('');
  if($('threadDialog').open)$('threadDialog').close();

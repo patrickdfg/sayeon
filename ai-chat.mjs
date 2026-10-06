@@ -16,6 +16,12 @@ export function unpackResult(message) {
 export function makeMessage(role,content,extra={},uuid=()=>crypto.randomUUID()) {
  return {id:uuid(),role,content,createdAt:new Date().toISOString(),...extra};
 }
+export function pendingConversation(thread,savedIds,uuid=()=>crypto.randomUUID()) {
+ let start=thread.messages.findIndex(message=>!savedIds.has(message.id));
+ if(start<0)start=Math.max(0,thread.messages.length-1);
+ while(start>0&&thread.messages[start].role!=='user')start--;
+ return {...newThread(uuid),title:thread.title,model_id:thread.model_id,scope:thread.scope,messages:structuredClone(thread.messages.slice(start))};
+}
 export function followUpEvidence(question,messages) {
  // Reuse the preceding verified source for explicit references to that answer.
  // Assistant prose never becomes evidence and unrelated questions search afresh.
