@@ -147,7 +147,7 @@ test('인용 ref를 서버 원문의 구절로 복원하고 없는 선택은 차
 test('한 편 전체는 전용 지침과 원문 인용 선택을 사용하며 처음부터 끝까지 한 번만 전송',async()=>{
  const doc={id:'malsseum:39:0',title:'10월 4일 주일말씀',whole:true,text:'처음 주제를 설명하는 원문입니다.\n\n'+('중간 전개와 사례를 설명하는 원문입니다.\n').repeat(300)+'\n마지막 실천과 결론을 설명하는 원문입니다.'};
  const {citationChoices,wholeRequest}=await import('../admin/ai-core.mjs');
- const choice=citationChoices([doc]).at(-1),point={label:'전체 흐름',text:'처음의 주제를 마지막 실천과 결론에 연결합니다.',kind:'inference',sources:[{ref:choice.ref}]};
+ const choice=citationChoices([doc]).at(-1),point={contentId:'r0',label:'전체 흐름',text:'처음의 주제를 마지막 실천과 결론에 연결합니다.',kind:'inference',sources:[{ref:choice.ref}]};
  let calls=0;
  const result=await generate('gemini-lite','fixture-key',wholeRequest(doc.title,'organize'),[doc],async(url,o)=>{
   calls++;const b=JSON.parse(o.body),input=JSON.parse(b.contents[0].parts[0].text);
@@ -178,12 +178,25 @@ test('요약 정리를 함께 요청하면 상세 정리를 우선',async()=>{
 test('전체 상세 정리는 짧은 overview를 대신 받지 않고 전용 본문의 모든 항목을 보존',async()=>{
  const {citationChoices}=await import('../admin/ai-core.mjs');
  const doc={id:'malsseum:39:0',whole:true,title:'긴 검사용 원고',text:'검사용 원고의 설명과 사례를 그대로 보존합니다.\n'.repeat(1000)};
- const point={label:'설명',text:'검사용 설명의 배경과 과정, 결과를 모두 본문에 보존합니다. '.repeat(25),kind:'source',sources:[{ref:citationChoices([doc])[0].ref}]};
+ const point={contentId:'r0',label:'설명',text:'검사용 설명의 배경과 과정, 결과를 모두 본문에 보존합니다. '.repeat(25),kind:'source',sources:[{ref:citationChoices([doc])[0].ref}]};
  const sections=Array.from({length:12},(_,i)=>({title:'논점 '+i,points:[point,point,point]}));
  const response=data=>async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify(data)}]}}]})});
  await assert.rejects(generate('gemini-lite','fixture','전체 상세 정리',[doc],response({supported:true,overview:sections,claims:[point]})),/상세 본문/);
  const result=await generate('gemini-lite','fixture','전체 상세 정리',[doc],response({supported:true,fullOrganization:sections,claims:[point]}));
  assert.equal(result.answer.overview.length,sections.length);assert.equal(result.answer.overview.reduce((n,s)=>n+s.points.length,0),36);assert.equal(result.answer.overview.at(-1).points.at(-1).text,point.text.trim());
+ const connected=await generate('gemini-lite','fixture','전체 상세 정리',[doc],response({supported:true,fullOrganization:[{title:'한 편 전체의 연결된 설명',points:sections.flatMap(s=>s.points)}],claims:[point]}));assert.equal(connected.answer.overview.length,1);assert.equal(connected.answer.overview[0].points.length,36);
  const extended={...point,text:point.text.repeat(4),sources:Array(10).fill(point.sources[0])};const large=await generate('gemini-lite','fixture','전체 상세 정리',[doc],response({supported:true,fullOrganization:[{title:'연결된 상세 설명',points:[extended]}],claims:[point]}));assert.equal(large.answer.overview[0].points[0].text,extended.text.trim());assert.equal(large.answer.overview[0].points[0].sources.length,10);
- const fake={...point,sources:[{ref:'fake'}]};await assert.rejects(generate('gemini-lite','fixture','전체 상세 정리',[doc],response({supported:true,fullOrganization:[{title:'가짜',points:[fake]}],claims:[point]})),/인용 선택값/);
+ const fake={...point,sources:[{ref:'fake'}]};await assert.rejects(generate('gemini-lite','fixture','전체 상세 정리',[doc],response({supported:true,fullOrganization:[{title:'가짜',points:[fake]}],claims:[point]})),/인용/);
+});
+
+test('상세 정리는 원고 전체를 한 번 보내고 중간 위치 누락·순서 변경·다른 위치 인용을 차단',async()=>{
+ const {readingSpans,citationChoices,clean}=await import('../admin/ai-core.mjs');
+ const doc={id:'malsseum:39:0',whole:true,title:'위치 검사용 원고',text:['처음의 논점과 사례를 자세히 설명합니다. '.repeat(8),'중간의 다른 조건과 경과를 자세히 설명합니다. '.repeat(8),'끝의 실천과 결론을 자세히 설명합니다. '.repeat(8)].join('\n\n')};
+ const spans=readingSpans(doc),choices=citationChoices([doc]);assert.equal(spans.length,3);assert.equal(spans[0].start,0);assert.equal(spans.at(-1).end,doc.text.length);
+ const points=spans.map((s,i)=>({contentId:s.id,label:'논점 '+i,text:'해당 위치의 구체적 설명을 원고 전체의 흐름과 연결합니다.',kind:'source',sources:[{ref:choices.find(c=>clean(doc.text.slice(s.start,s.end)).includes(c.quote)).ref}]}));
+ const run=async items=>{let calls=0;const result=await generate('gemini-lite','fixture','전체 상세 정리',[doc],async(url,o)=>{calls++;const input=JSON.parse(JSON.parse(o.body).contents[0].parts[0].text);assert.equal(input.evidence.length,1);assert.equal(input.evidence[0].text,doc.text);assert.deepEqual(input.readingPositions.map(s=>s.id),spans.map(s=>s.id));assert(input.readingPositions.every(s=>!('text' in s)));return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({supported:true,fullOrganization:[{title:'한 편의 전체 정리',points:items}],claims:[points[0]]})}]}}]})};});assert.equal(calls,1);return result;};
+ assert.equal((await run(points)).answer.overview[0].points.length,3);
+ await assert.rejects(run([points[0],points[2]]),/일부 내용을 빠뜨린/);
+ await assert.rejects(run([points[1],points[0],points[2]]),/원고 순서/);
+ await assert.rejects(run([points[0],{...points[1],sources:points[0].sources},points[2]]),/해당 원문 위치/);
 });
