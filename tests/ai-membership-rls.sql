@@ -43,7 +43,8 @@ select set_config('request.jwt.claims','{"sub":"aaaaaaaa-1111-4111-8111-11111111
 do $$ declare x jsonb;n integer;begin
  if not public.ai_chat_has_access() then raise exception 'approved user denied';end if;
  if (select count(*) from public.ai_chat_threads)<>1 then raise exception 'owner isolation failed';end if;
- update public.ai_chat_threads set title='own update' where id='aaaaaaaa-5555-4555-8555-555555555555';get diagnostics n=row_count;if n<>1 then raise exception 'own update denied';end if;
+ update public.ai_chat_threads set title='own update',scope='sayeon' where id='aaaaaaaa-5555-4555-8555-555555555555';get diagnostics n=row_count;if n<>1 then raise exception 'own update denied';end if;
+ if (select scope from public.ai_chat_threads where id='aaaaaaaa-5555-4555-8555-555555555555')<>'sayeon' then raise exception 'combined story scope not saved';end if;
  update public.ai_chat_threads set title='foreign update' where id='bbbbbbbb-6666-4666-8666-666666666666';get diagnostics n=row_count;if n<>0 then raise exception 'foreign update allowed';end if;
  delete from public.ai_chat_threads where id='bbbbbbbb-6666-4666-8666-666666666666';get diagnostics n=row_count;if n<>0 then raise exception 'foreign delete allowed';end if;
  insert into public.ai_chat_threads(id,title) values('aaaaaaaa-7777-4777-8777-777777777777','approved insert');

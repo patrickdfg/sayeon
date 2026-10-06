@@ -12,7 +12,7 @@ test('로그인 없음: 네트워크 전에 차단',async()=>{let calls=0;await 
 test('일반 사용자·만료 토큰·응답 변조 차단',async()=>{await assert.rejects(verifyAdmin(cfg,'nonadmin',async()=>({ok:false,status:403})));await assert.rejects(verifyAdmin(cfg,'expired',async()=>({ok:false,status:401})));await assert.rejects(verifyAdmin(cfg,'fake',async()=>({ok:true,json:async()=>({})})));});
 test('허가된 관리자 서버 RPC 확인',async()=>{let request;assert.equal(await verifyAdmin(cfg,'authorized',async(url,options)=>{request={url,options};return {ok:true,json:async()=>({totalVisitors:0})};}),true);assert.equal(request.options.headers.Authorization,'Bearer authorized');assert(request.url.endsWith('/rpc/get_analytics_dashboard'));});
 test('Gemini 선택 모델 및 원고만 전송, 도구·웹 검색 없음, 키 URL 노출 없음',async()=>{let request;const result=await generate('gemini-lite','test-key','인내',documents,async(url,options)=>{request={url,options};return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:complete}]}}],usageMetadata:{totalTokenCount:100}})};});const payload=JSON.parse(request.options.body);assert(!request.url.includes('test-key'));assert.equal(request.options.headers['x-goog-api-key'],'test-key');assert(!('tools'in payload));assert(payload.contents[0].parts[0].text.includes(documents[0].id));assert(result.answer.supported);});
-test('Groq 경로, JSON 답변과 키 헤더',async()=>{const r=await generate('groq-oss','groq-test','인내',documents,async(url,o)=>{assert.equal(url,'https://api.groq.com/openai/v1/chat/completions');const body=JSON.parse(o.body);assert.equal(body.model,MODELS['groq-oss'].model);assert.equal(body.max_completion_tokens,4096);assert.equal(body.reasoning_effort,'low');assert.equal(body.include_reasoning,false);assert(!('tools'in body));return {ok:true,json:async()=>({choices:[{message:{content:complete}}]})};});assert(r.answer.supported);});
+test('제거한 Groq 모델은 업체 호출 전에 거절',async()=>{let calls=0;assert(!Object.hasOwn(MODELS,'groq-oss'));await assert.rejects(generate('groq-oss','fixture','정리',documents,async()=>{calls++;}),/허용되지 않은 모델/);assert.equal(calls,0);});
 test('429·없는 모델·없는 키를 숨기거나 유료 자동전환하지 않음',async()=>{let calls=0;await assert.rejects(generate('paid-unknown','key','질문',documents,async()=>{calls++;}));assert.equal(calls,0);await assert.rejects(generate('gemini-lite','','질문',documents));await assert.rejects(generate('gemini-lite','key','질문',documents,async()=>({ok:false,status:429})),/무료 한도/);});
 
 test('최신 Gemini 두 모델의 실제 요청 경로와 추론 설정',async()=>{for(const [id,model] of [['gemini-lite','gemini-3.5-flash-lite'],['gemini-flash','gemini-3.8-flash']]){await generate(id,'test-key','인내',documents,async(url,o)=>{assert(url.endsWith('/'+model+':generateContent'));const config=JSON.parse(o.body).generationConfig;assert.equal(config.thinkingConfig.thinkingLevel,'LOW');assert.equal(config.maxOutputTokens,8192);assert.deepEqual(config.responseJsonSchema.properties.overview.items.properties.points.items.required,['label','text','kind','sources']);assert(!('temperature' in config));return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:complete}]}}]})};});}await assert.rejects(generate('gemini-flash','test-key','인내',documents,async()=>({ok:true,json:async()=>({candidates:[{finishReason:'MAX_TOKENS',content:{parts:[{text:complete}]}}]})})),/길이 제한/);});
@@ -73,21 +73,21 @@ test('말씀 날짜와 성령사연 편 번호에 자료 연도를 넣고 모든
  assert(story.url.includes('y=2025'));assert(mal.url.startsWith('/sayeon/malsseum/'));
 });
 
-test('Groq 출력이 잘리면 유효한 일부 JSON처럼 보여도 답변 보류',async()=>{await assert.rejects(generate('groq-oss','fixture','인내',documents,async()=>({ok:true,json:async()=>({choices:[{finish_reason:'length',message:{content:complete}}]})})),/길이 제한/);});
+test('Gemini 출력이 잘리면 유효한 일부 JSON처럼 보여도 답변 보류',async()=>{await assert.rejects(generate('gemini-lite','fixture','인내',documents,async()=>({ok:true,json:async()=>({candidates:[{finishReason:'MAX_TOKENS',content:{parts:[{text:complete}]}}]})})),/길이 제한/);});
 
-test('Groq 응답은 항목명·설명·출처가 필수인 strict schema로 요청',async()=>{
- await generate('groq-oss','fixture','인내',documents,async(url,o)=>{
-  const body=JSON.parse(o.body),format=body.response_format;assert.equal(format.type,'json_schema');assert.equal(format.json_schema.strict,true);
-  const schema=format.json_schema.schema,point=schema.properties.overview.items.properties.points.items;
+test('Gemini 응답은 항목명·설명·출처가 필수인 schema로 요청',async()=>{
+ await generate('gemini-lite','fixture','인내',documents,async(url,o)=>{
+  const body=JSON.parse(o.body);
+  const schema=body.generationConfig.responseJsonSchema,point=schema.properties.overview.items.properties.points.items;
   assert(point.required.includes('label'));assert(point.required.includes('sources'));assert.equal(point.properties.label.type,'string');assert.deepEqual(point.properties.kind.enum,['source','inference']);assert(point.properties.sources.items.properties.ref.enum.includes('c0_0'));
   const visit=s=>{if(s.type==='object'){assert.equal(s.additionalProperties,false);assert.deepEqual(s.required,Object.keys(s.properties));Object.values(s.properties).forEach(visit);}if(s.items)visit(s.items);if(s.anyOf)s.anyOf.forEach(visit);};visit(schema);
-  return {ok:true,json:async()=>({choices:[{message:{content:complete}}]})};
+  return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:complete}]}}]})};
  });
 });
-test('Groq 형식 수정에도 누락된 항목명·없는 인용은 보류하고 자동 재호출 안 함',async()=>{
+test('Gemini 응답에도 누락된 항목명·없는 인용은 보류하고 자동 재호출 안 함',async()=>{
  for(const change of [d=>{delete d.overview[0].points[0].label;},d=>{d.overview[0].points[0].sources[0].quote='원고에 없는 가짜 인용입니다.';}]){
   let calls=0;const d=JSON.parse(complete);change(d);
-  await assert.rejects(generate('groq-oss','fixture','인내',documents,async()=>{calls++;return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify(d)}}]})};}));assert.equal(calls,1);
+  await assert.rejects(generate('gemini-lite','fixture','인내',documents,async()=>{calls++;return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify(d)}]}}]})};}));assert.equal(calls,1);
  }
 });
 
@@ -151,7 +151,7 @@ test('한 편 전체는 전용 지침과 원문 인용 선택을 사용하며 �
  let calls=0;
  const result=await generate('gemini-lite','fixture-key',wholeRequest(doc.title,'organize'),[doc],async(url,o)=>{
   calls++;const b=JSON.parse(o.body),input=JSON.parse(b.contents[0].parts[0].text);
-  assert.equal(input.documentMode,'complete_manuscript');assert.equal(input.evidence.length,1);assert.equal(input.evidence[0].text,doc.text);
+  assert.equal(b.generationConfig.maxOutputTokens,32768);assert.match(input.question,/요약하지 말고/);assert.match(input.question,/부차적으로/);assert.equal(input.documentMode,'complete_manuscript');assert.equal(input.evidence.length,1);assert.equal(input.evidence[0].text,doc.text);
   assert.match(b.systemInstruction.parts[0].text,/짧은 핵심 요약으로 대체하지/);assert.match(input.readingRule,/마지막 결론/);
   assert.deepEqual(b.generationConfig.responseJsonSchema.properties.claims.items.properties.sources.items.properties.ref.enum,citationChoices([doc]).map(c=>c.ref));
   return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({supported:true,overview:[{title:'원고 종합',points:[point]}],claims:[point]})}]}}]})};
@@ -162,5 +162,15 @@ test('한 편 전체는 전용 지침과 원문 인용 선택을 사용하며 �
 test('전체 원고의 업체 입력 크기 거절은 분할·재시도·키 노출 없이 안내',async()=>{
  let calls=0;const key='fixture-private-key';
  const doc={id:'malsseum:39:0',whole:true,title:'전체 원고',text:'처음부터 끝까지 한 편으로 읽는 원고입니다.'};
- await assert.rejects(generate('groq-oss',key,'전체 정리',[doc],async()=>{calls++;return {ok:false,status:413};}),e=>e.message.includes('413')&&e.message.includes('나누거나 줄이지 않았습니다')&&!e.message.includes(key));assert.equal(calls,1);
+ await assert.rejects(generate('gemini-lite',key,'전체 정리',[doc],async()=>{calls++;return {ok:false,status:413};}),e=>e.message.includes('413')&&e.message.includes('나누거나 줄이지 않았습니다')&&!e.message.includes(key));assert.equal(calls,1);
+});
+
+test('성령사연 범위는 두 해를 함께 찾고 출처 연도는 보존',async()=>{
+ const {normalizeScope}=await import('../admin/ai-core.mjs');
+ const stories=[...toChunks([{no:1,title:'사연',paragraphs:[['감사의 의미를 설명합니다.']]}],SOURCES[0]),...toChunks([{no:2,title:'사연',paragraphs:[['감사의 실천을 설명합니다.']]}],SOURCES[1]),...toChunks([{no:3,title:'말씀',paragraphs:[['감사의 말씀입니다.']]}],SOURCES[3])];
+ for(const scope of ['sayeon','sayeon2025','sayeon2026']){const found=retrieve(stories,'감사',scope);assert.equal(found.length,2);assert.deepEqual(new Set(found.map(c=>c.year)),new Set([2025,2026]));assert(found.every(c=>c.scope.startsWith('sayeon')));}
+ assert.equal(normalizeScope('sayeon2025'),'sayeon');assert.equal(normalizeScope('all'),'all');
+});
+test('요약 정리를 함께 요청하면 상세 정리를 우선',async()=>{
+ const {resolveQuestion}=await import('../admin/ai-core.mjs');const data=toChunks([{no:39,title:'10월 4일 주일말씀',paragraphs:[['원고 전체를 정리합니다.']]}],SOURCES[3]);assert.equal(resolveQuestion(data,'10월 4일 말씀 전체 요약 정리해줘').intent,'organize');
 });

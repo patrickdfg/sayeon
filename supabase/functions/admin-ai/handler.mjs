@@ -16,7 +16,7 @@ export function createHandler({env,fetcher=fetch,waitForBackup=delayForBackup}){
   const auth=req.headers.get('Authorization')||'';
   if(!/^Bearer \S+$/.test(auth))return reply({error:'Google로 로그인한 승인 계정이 필요합니다.'},401);
   const config={enabled:true,supabaseUrl:env('SUPABASE_URL')||'https://maoylwwnluyyfmwqfkfl.supabase.co',supabaseAnonKey:env('SUPABASE_ANON_KEY')||'sb_publishable_RR5lrEd5ZidVI1fY1v9haw_Hd7pOH1V'};
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),50000);
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),110000);
   try{
    // PostgREST validates the JWT; the RPC checks live Google identity and approval in Auth/DB.
    // Existing password Secrets stay intact but can no longer bypass membership approval.
@@ -35,7 +35,7 @@ export function createHandler({env,fetcher=fetch,waitForBackup=delayForBackup}){
    if(body.action==='status'){
     const quota=await rpc(false);
     const primaryConfigured=!!env('GEMINI_API_KEY')?.trim(),backupConfigured=!!env('GEMINI_API_KEY_BACKUP')?.trim();
-    return reply({ready:true,providers:{gemini:{configured:primaryConfigured||backupConfigured,primaryConfigured,backupConfigured},groq:{configured:!!env('GROQ_API_KEY')}},models:Object.entries(MODELS).filter(([,m])=>m.provider==='gemini'?primaryConfigured||backupConfigured:!!env('GROQ_API_KEY')).map(([id])=>id),quota});
+    return reply({ready:true,providers:{gemini:{configured:primaryConfigured||backupConfigured,primaryConfigured,backupConfigured}},models:primaryConfigured||backupConfigured?Object.keys(MODELS):[],quota});
    }
    if(body.action==='check-provider'&&body.provider==='gemini'){
     if(body.keySource!=='backup'||Object.keys(body).some(k=>!['action','provider','keySource'].includes(k)))return reply({error:'허용되지 않은 연결 확인입니다.'},400);
@@ -46,15 +46,7 @@ export function createHandler({env,fetcher=fetch,waitForBackup=delayForBackup}){
     const data=await r.json(),active=data.name==='models/'+MODELS['gemini-lite'].model&&Array.isArray(data.supportedGenerationMethods)&&data.supportedGenerationMethods.includes('generateContent');
     return reply({connected:active,keySource:'backup',reason:active?'ready':'model_unavailable',message:active?'Gemini 보조키 연결 확인 완료 · Flash-Lite 모델 사용 가능':'Gemini 보조키의 Flash-Lite 모델 지원을 확인하지 못했습니다.'});
    }
-   if(body.action==='check-provider'){
-    if(body.provider!=='groq'||Object.keys(body).some(k=>!['action','provider'].includes(k)))return reply({error:'허용되지 않은 연결 확인입니다.'},400);
-    const key=env('GROQ_API_KEY');
-    if(!key?.trim())return reply({connected:false,reason:'key_missing',message:'Supabase Secrets에 GROQ_API_KEY가 등록되지 않았습니다.'});
-    const r=await fetcher('https://api.groq.com/openai/v1/models',{headers:{Authorization:'Bearer '+key.trim()},signal:controller.signal});
-    if(!r.ok)return reply({connected:false,reason:'provider_error',message:r.status===401?'Groq API 키가 유효하지 않거나 만료되었습니다. GROQ_API_KEY를 다시 저장해 주세요.':r.status===403?'Groq 계정 또는 모델 사용 권한을 확인해 주세요.':r.status===429?'Groq 호출 속도 제한입니다. 잠시 후 다시 확인해 주세요.':'Groq 연결을 확인하지 못했습니다 ('+r.status+').'});
-    const data=await r.json(),active=Array.isArray(data.data)&&data.data.some(m=>m.id===MODELS['groq-oss'].model);
-    return reply({connected:active,reason:active?'ready':'model_unavailable',message:active?'Groq 연결 확인 완료 · GPT OSS 20B 사용 가능':'Groq에는 연결됐지만 GPT OSS 20B 모델을 사용할 수 없습니다.'});
-   }
+   if(body.action==='check-provider')return reply({error:'허용되지 않은 연결 확인입니다.'},400);
    if(body.action!=='generate'||Object.keys(body).some(k=>!['action','modelId','question','evidence','freeOnly','whole'].includes(k))||body.whole!==undefined&&body.whole!==true)return reply({error:'허용되지 않은 요청입니다.'},400);
    const whole=body.whole===true;
    if(body.freeOnly!==true)return reply({error:'결제가 연결되지 않은 무료 키인지 확인해 주세요.'},400);
@@ -70,14 +62,14 @@ export function createHandler({env,fetcher=fetch,waitForBackup=delayForBackup}){
     ids.add(d.id);total+=d.text.length;evidence.push({id:d.id,title:d.title,text:d.text,...(whole?{whole:true}:{}),...(d.quotes===undefined?{}:{quotes:d.quotes.map(clean)})});
    }
    if(total>(whole?MAX_WHOLE_CHARS:8000))return reply({error:'근거 원문의 길이 제한을 초과했습니다.'},400);
-   const gemini=model.provider==='gemini',primary=env(gemini?'GEMINI_API_KEY':'GROQ_API_KEY')?.trim()||'',backup=gemini?env('GEMINI_API_KEY_BACKUP')?.trim()||'':'';
+   const primary=env('GEMINI_API_KEY')?.trim()||'',backup=env('GEMINI_API_KEY_BACKUP')?.trim()||'';
    const key=primary||backup;if(!key)return reply({error:'선택한 모델의 서버 키가 등록되지 않았습니다.'},503);
    let quota=await rpc(true,model.provider);const limited=()=>reply({error:quota.reason==='rate'?'요청 간격은 10초 이상입니다. 잠시 후 다시 질문해 주세요.':'AI 챗봇의 하루 호출 한도에 도달했습니다.',quota},429);
    if(!quota.allowed)return limited();
-   let result,keySource=gemini&&!primary?'backup':'primary',attempts=1;
+   let result,keySource=!primary?'backup':'primary',attempts=1;
    try{result=await generate(body.modelId,key,clean(body.question),evidence,fetcher,controller.signal);}
    catch(e){
-    if(!gemini||!primary||!backup||backup===primary||e.keyFailure!==true||controller.signal.aborted)throw e;
+    if(!primary||!backup||backup===primary||e.keyFailure!==true||controller.signal.aborted)throw e;
     // Credential recovery only: no switching on quota, billing, content or service errors.
     await waitForBackup(controller.signal);if(controller.signal.aborted)throw new DOMException('Aborted','AbortError');
     quota=await rpc(true,model.provider);if(!quota.allowed)return limited();

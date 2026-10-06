@@ -1,6 +1,6 @@
 import {saveOverview} from './ai-export.mjs?v=1';
-import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage} from './admin/ai-core.mjs?v=16';
-import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore} from './ai-chat.mjs?v=3';
+import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage,normalizeScope} from './admin/ai-core.mjs?v=17';
+import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore} from './ai-chat.mjs?v=4';
 import {MEMBER_LABELS,membershipStatus,createMemberStore} from './ai-members.mjs?v=1';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
 let token='',authorized=false,chunks=[],cache=new Map(),controller=null,busy=false,providerStatus={};
@@ -8,7 +8,7 @@ let googleUser=null,authClient=null,chatStore=null,thread=newThread(),threads=[]
 const text=(el,s)=>{el.textContent=s;};
 function showQuota(quota){
  $('usage').replaceChildren();
- for(const [provider,label] of [['gemini','Gemini'],['groq','Groq']]){
+ for(const [provider,label] of [['gemini','Gemini']]){
   const q=quota?.providers?.[provider],configured=providerStatus[provider]?.configured;
   const known=Number.isInteger(q?.remaining)&&Number.isInteger(q?.limit)&&q.limit>0;
   const percent=known?Math.round(Math.max(0,Math.min(q.limit,q.remaining))/q.limit*100):null;
@@ -18,10 +18,9 @@ function showQuota(quota){
  if(quota?.unassignedUsed>0)$('usage').append(node('div','이전 사용 '+quota.unassignedUsed+'회는 공통 한도에 반영됩니다.','fine'));
 }
 function applyServerInfo(info){
- providerStatus=info.providers||{gemini:{configured:info.models.some(id=>id.startsWith('gemini-'))},groq:{configured:info.models.includes('groq-oss')}};
+ providerStatus=info.providers||{gemini:{configured:info.models.some(id=>id.startsWith('gemini-'))}};
  document.querySelectorAll('#model option').forEach(o=>{if(o.value!=='search')o.disabled=!info.models.includes(o.value);});
  showQuota(info.quota);
- if(providerStatus.groq?.configured===false)text($('groqStatus'),'Groq 키 연결이 필요합니다.');
 }
 function status(s,error=false){text($('status'),s);$('status').classList.toggle('error',error);$('status').classList.toggle('quiet',!error&&/^(완료|기존 등록|저장된 답변|원문 검색|새 자료)/.test(s));}
 async function check(){
@@ -114,7 +113,7 @@ function showAnswer(result,target=$('answer'),questionText=$('question').value.t
 }
 function evidenceForQuestion(){const q=$('question').value.trim();if(q.length<2)throw new Error('질문을 두 글자 이상 입력해 주세요.');const previous=thread.scope===$('scope').value?followUpEvidence(q,thread.messages):null;if(previous)return {q,...previous};if(!chunks.length){toggleSettings(true);throw new Error('자료·설정에서 기존 원고 암호를 입력해 주세요.');}return {q,...resolveQuestion(chunks,q,$('scope').value)};}
 function setBusy(value){
- busy=value;['ask','preview','loadCorpus','unlock','serverCheck','groqReconnect','clear','newChatHeader','model','scope','historySearch','moreHistory','retrySave','saveAsNew'].forEach(id=>$(id).disabled=value);
+ busy=value;['ask','preview','loadCorpus','unlock','serverCheck','clear','newChatHeader','model','scope','historySearch','moreHistory','retrySave','saveAsNew'].forEach(id=>$(id).disabled=value);
  document.querySelectorAll('.question-actions button[aria-label="질문 다시 쓰기"]').forEach(button=>button.disabled=value);
  $('cancel').disabled=!value;$('cancel').classList.toggle('hidden',!value);$('ask').classList.toggle('hidden',value);syncSendButton();
 }
@@ -133,7 +132,7 @@ async function operation(fn,timeoutMs=60000){
   }
  }finally{clearTimeout(timeout);if(controller===active){setBusy(false);controller=null;currentTurn=null;if(authorized){drawConversation(false);drawThreads();}}}
 }
-async function load(){status('기존 등록 말씀·사연을 자동으로 확인하는 중…');if(!window.SaCrypt.ready()&&!await window.SaCrypt.resume()){$('unlockBox').classList.remove('hidden');toggleSettings(true);text($('corpusStatus'),'기존 원고가 잠겨 있습니다. 앱에서 사용하던 원고 암호로 열면 등록 자료 전체에서 검색합니다.');status('새 자료 업로드 없이 기존 원고를 사용합니다.');return;}const results=await Promise.allSettled(SOURCES.map(async source=>toChunks(await window.SaCrypt.json(source.url),source)));if(controller.signal.aborted||!authorized)return;const docs=[],ok=[],failed=[];results.forEach((r,i)=>{if(r.status==='fulfilled'){docs.push(...r.value);ok.push(SOURCES[i].label+': '+r.value.length+'문단');}else failed.push(SOURCES[i].label);});chunks=docs;cache.clear();$('unlockBox').classList.add('hidden');$('contentPassword').value='';text($('corpusStatus'),ok.join(' / ')+(failed.length?'\n불러오지 못한 자료: '+failed.join(', '):'')+'\n총 '+chunks.length+'문단 · 새 원고는 화면 새로고침 시 자동 반영');status(failed.length?'일부 자료를 불러오지 못했습니다. 불러온 자료만 검색합니다.':'기존 등록 자료에서 바로 질문할 수 있습니다.',!!failed.length);}
+async function load(){status('기존 등록 말씀·사연을 자동으로 확인하는 중…');if(!window.SaCrypt.ready()&&!await window.SaCrypt.resume()){$('unlockBox').classList.remove('hidden');toggleSettings(true);text($('corpusStatus'),'기존 원고가 잠겨 있습니다. 앱에서 사용하던 원고 암호로 열면 등록 자료 전체에서 검색합니다.');status('새 자료 업로드 없이 기존 원고를 사용합니다.');return;}const results=await Promise.allSettled(SOURCES.map(async source=>toChunks(await window.SaCrypt.json(source.url),source)));if(controller.signal.aborted||!authorized)return;const docs=[],ok=[],failed=[];results.forEach((r,i)=>{if(r.status==='fulfilled'){docs.push(...r.value);const group=SOURCES[i].key.startsWith('sayeon')?'성령사연':SOURCES[i].label;ok.push({group,count:r.value.length});}else failed.push(SOURCES[i].label);});chunks=docs;cache.clear();$('unlockBox').classList.add('hidden');$('contentPassword').value='';text($('corpusStatus'),[...new Set(ok.map(v=>v.group))].map(group=>group+': '+ok.filter(v=>v.group===group).reduce((n,v)=>n+v.count,0)+'문단').join(' / ')+(failed.length?'\n불러오지 못한 자료: '+failed.join(', '):'')+'\n총 '+chunks.length+'문단 · 새 원고는 화면 새로고침 시 자동 반영');status(failed.length?'일부 자료를 불러오지 못했습니다. 불러온 자료만 검색합니다.':'기존 등록 자료에서 바로 질문할 수 있습니다.',!!failed.length);}
 $('loadCorpus').onclick=()=>operation(load);
 $('unlock').onclick=()=>operation(async()=>{if(!await window.SaCrypt.unlock($('contentPassword').value))throw new Error('원고 암호를 확인해 주세요.');await load();});
 async function serverInfo(){
@@ -154,17 +153,6 @@ async function serverInfo(){
 }
 $('serverCheck').onclick=()=>{text($('serverStatus'),busy?'다른 요청 진행 중입니다. 중단 후 다시 확인해 주세요.':'접속 확인 중…');return operation(serverInfo);};
 $('model').onchange=()=>{$('keyBox').classList.add('hidden');};
-$('groqReconnect').onclick=()=>operation(async()=>{
- text($('groqStatus'),'Groq 연결 확인 중…');
- try{
-  const result=await requestServer(config,token,{action:'check-provider',provider:'groq'},fetch,controller.signal);
-  await serverInfo();
-  text($('groqStatus'),result.message||'Groq 연결 결과를 확인하지 못했습니다.');
-  if(result.reason==='key_missing'){
-   const a=node('a','Supabase Secrets 열기');a.href='https://supabase.com/dashboard/project/maoylwwnluyyfmwqfkfl/functions/secrets';a.target='_blank';a.rel='noopener noreferrer';$('groqStatus').append(node('br'),a);
-  }
- }catch(e){text($('groqStatus'),e.name==='AbortError'?'Groq 연결 확인을 중단했습니다.':e.message);throw e;}
-});
 async function persistThread(){
  if(!authorized||!googleUser||!chatStore)return false;
  const epoch=sessionVersion,savingThread=thread;dirty=true;setSaveState('대화 저장 중…');
@@ -260,7 +248,7 @@ async function openThread(id){
  const epoch=sessionVersion;setBusy(true);text($('historyStatus'),'대화 불러오는 중…');
  try{
   const loaded=await chatStore.load(id);if(epoch!==sessionVersion||!authorized)return;
-  thread=loaded;savedMessageIds=new Set(thread.messages.map(message=>message.id));cache.clear();$('model').value=Object.hasOwn(MODELS,thread.model_id)||thread.model_id==='search'?thread.model_id:'gemini-lite';$('scope').value=thread.scope;
+  thread={...loaded,scope:normalizeScope(loaded.scope),model_id:Object.hasOwn(MODELS,loaded.model_id)||loaded.model_id==='search'?loaded.model_id:'gemini-lite'};savedMessageIds=new Set(thread.messages.map(message=>message.id));cache.clear();$('model').value=Object.hasOwn(MODELS,thread.model_id)||thread.model_id==='search'?thread.model_id:'gemini-lite';$('scope').value=thread.scope;
   $('question').value='';resizeQuestion();drawConversation(true);drawThreads();setSaveState('나의 계정에 저장됨');status('');if(mobileSidebar?.matches)toggleSidebar(false);
  }catch(e){if(epoch===sessionVersion)status(e.message,true);}
  finally{if(epoch===sessionVersion){setBusy(false);text($('historyStatus'),'');drawThreads();}}
@@ -315,7 +303,9 @@ async function sendQuestion(previewOnly=false){
    thread.messages.push(makeMessage('assistant',content,{evidence:found,title}));text($('answer'),content);drawConversation(true);await persistThread();status('원문 검색 · AI 호출 없음');return;
   }
   const model=MODELS[modelId];if(!model)throw new Error('모델을 선택해 주세요.');
-  const question=followUp?followUpQuestion(q,outline):mode==='whole'&&intent?wholeRequest(title,intent):q;
+  const instruction=mode==='whole'&&intent?wholeRequest(title,intent):null;
+  const combined=instruction?instruction+' 사용자 요청: '+q:'';
+  const question=instruction?(combined.length<=600?combined:q):followUp?followUpQuestion(q,outline):q;
   const ck=JSON.stringify([modelId,clean(question),$('scope').value,found.map(c=>[c.id,c.text])]);
   let result;
   if($('useCache').checked&&cache.has(ck)){result=cache.get(ck);status('저장된 답변 재사용 · 새 AI 호출 없음');}
@@ -329,7 +319,7 @@ async function sendQuestion(previewOnly=false){
   if(!authorized)return;if(controller.signal.aborted)throw new DOMException('Aborted','AbortError');
   showAnswer(result,$('answer'),q);thread.messages.push(makeMessage('assistant','',{result:packResult(result),evidence:found,title}));drawConversation(true);await persistThread();
   status(mode==='whole'?'완료 · 원고 전체 한 편 · '+(result.attempts===2?2:1)+'회 사용 · 원문 인용 확인':'완료 · 원문 인용 확인');
- },60000);
+ },120000);
 }
 function syncSendButton(){$('ask').disabled=busy||!authorized||$('question').value.trim().length<2;}
 function resizeQuestion(){$('question').style.height='auto';$('question').style.height=Math.min(160,$('question').scrollHeight||43)+'px';syncSendButton();}

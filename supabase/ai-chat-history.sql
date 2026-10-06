@@ -4,7 +4,7 @@ create table public.ai_chat_threads (
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   title text not null default '새 대화' check (char_length(title) between 1 and 100),
   model_id text not null default 'gemini-lite' check (model_id in ('search','gemini-lite','gemini-flash','groq-oss')),
-  scope text not null default 'all' check (scope in ('all','sayeon2026','sayeon2025','malsseum','stones')),
+  scope text not null default 'all' check (scope in ('all','sayeon','sayeon2026','sayeon2025','malsseum','stones')),
   messages jsonb not null default '[]'::jsonb check (
     jsonb_typeof(messages) = 'array' and jsonb_array_length(messages) <= 120
     and octet_length(messages::text) <= 4194304

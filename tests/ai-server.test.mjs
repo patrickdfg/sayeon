@@ -145,15 +145,10 @@ test('선택한 업체만 SQL 예약에 전달하고 상태 확인은 예약하�
  const s=setup();await s.handler(req());const call=s.calls.find(x=>x.url.endsWith('/ai_lab_model_quota'));assert.equal(JSON.parse(call.o.body).p_provider,'gemini');assert.equal(JSON.parse(call.o.body).p_client,null);
  const publicServer=sharedSetup();await publicServer.handler(sharedReq({action:'status'}));assert.equal(JSON.parse(publicServer.calls[0].o.body).p_provider,null);assert.equal(JSON.parse(publicServer.calls[0].o.body).p_reserve,false);
 });
-test('Groq 키 누락 진단은 업체·DB·AI 호출 없이 구체적으로 안내',async()=>{
- const s=sharedSetup(),r=await s.handler(sharedReq({action:'check-provider',provider:'groq'}));assert.equal(r.status,200);const d=await r.json();assert.equal(d.connected,false);assert.equal(d.reason,'key_missing');assert.match(d.message,/GROQ_API_KEY/);assert.equal(s.calls.length,0);
-});
-test('Groq 실제 모델 목록으로 키·모델 연결 검사, 키 비노출·AI 생성 없이 확인',async()=>{
- for(const [status,active,reason] of [[200,true,'ready'],[200,false,'model_unavailable'],[401,false,'provider_error'],[403,false,'provider_error'],[429,false,'provider_error']]){
-  const calls=[],key='gsk_fixture_not_real';const env=n=>({GROQ_API_KEY:key,AI_LAB_PASSWORD:fixturePassword,SUPABASE_SERVICE_ROLE_KEY:serviceSecret})[n];
-  const handler=createHandler({env,fetcher:approvedFetch(async(url,o)=>{calls.push({url,o});return new Response(JSON.stringify({data:active?[{id:'openai/gpt-oss-20b'}]:[],secret:key}),{status});})});
-  const r=await handler(sharedReq({action:'check-provider',provider:'groq'})),raw=await r.text(),d=JSON.parse(raw);assert.equal(d.connected,status===200&&active);assert.equal(d.reason,reason);assert(!raw.includes(key));assert.equal(calls.length,1);assert.equal(calls[0].url,'https://api.groq.com/openai/v1/models');assert.equal(calls[0].o.body,undefined);assert.equal(calls[0].o.headers.Authorization,'Bearer '+key);
- }
+test('Groq 키가 남아 있어도 모델·연결 기능은 거절하고 업체를 호출하지 않는다',async()=>{
+ const s=sharedSetup({GROQ_API_KEY:'gsk_fixture_unused'});
+ for(const body of [{action:'check-provider',provider:'groq'},{...payload,modelId:'groq-oss'}]){const r=await s.handler(sharedReq(body));assert.equal(r.status,400);assert.equal(s.calls.length,0);}
+ const r=await s.handler(sharedReq({action:'status'})),d=await r.json();assert(!d.models.includes('groq-oss'));assert(!('groq' in d.providers));
 });
 test('Groq 연결 진단도 비밀번호·업체 allowlist·요청 필드 검증',async()=>{
  for(const [body,options,code] of [[{action:'check-provider',provider:'other'},{},400],[{action:'check-provider',provider:'groq',url:'https://evil.example'},{},400]]){

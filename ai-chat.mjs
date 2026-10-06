@@ -1,4 +1,4 @@
-import {validateAnswer,MODELS,SOURCES} from './admin/ai-core.mjs?v=16';
+import {validateAnswer,MODELS,SOURCES,normalizeScope} from './admin/ai-core.mjs?v=17';
 
 export function newThread(uuid=()=>crypto.randomUUID()) {
  return {id:uuid(),title:'새 대화',model_id:'gemini-lite',scope:'all',messages:[],revision:null};
@@ -63,8 +63,8 @@ export function createChatStore(client) {
   async save(thread) {
    if(thread.messages.length>120||new TextEncoder().encode(JSON.stringify(thread.messages)).length>4194304)throw new Error('이 대화의 저장 용량에 도달했습니다. 새 대화를 시작해 주세요.');
    if(!Object.hasOwn(MODELS,thread.model_id)&&thread.model_id!=='search')throw new Error('대화 모델을 확인해 주세요.');
-   if(!['all',...SOURCES.map(s=>s.key)].includes(thread.scope))throw new Error('대화 자료 범위를 확인해 주세요.');
-   const payload={title:thread.title.slice(0,100),model_id:thread.model_id,scope:thread.scope,messages:thread.messages};
+   if(!['all','sayeon',...SOURCES.map(s=>s.key)].includes(thread.scope))throw new Error('대화 자료 범위를 확인해 주세요.');
+   const payload={title:thread.title.slice(0,100),model_id:thread.model_id,scope:normalizeScope(thread.scope),messages:thread.messages};
    let request=client.from('ai_chat_threads');
    request=thread.revision==null?request.insert({id:thread.id,...payload}):request.update(payload).eq('id',thread.id).eq('revision',thread.revision);
    const response=await request.select(fields).maybeSingle();
