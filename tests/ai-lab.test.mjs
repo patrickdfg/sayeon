@@ -79,8 +79,8 @@ test('Groq 응답은 항목명·설명·출처가 필수인 strict schema로 요
  await generate('groq-oss','fixture','인내',documents,async(url,o)=>{
   const body=JSON.parse(o.body),format=body.response_format;assert.equal(format.type,'json_schema');assert.equal(format.json_schema.strict,true);
   const schema=format.json_schema.schema,point=schema.properties.overview.items.properties.points.items;
-  assert(point.required.includes('label'));assert(point.required.includes('sources'));assert.equal(point.properties.label.type,'string');assert.deepEqual(point.properties.kind.enum,['source','inference']);assert.deepEqual(point.properties.sources.items.properties.id.enum,documents.map(d=>d.id));
-  const visit=s=>{if(s.type==='object'){assert.equal(s.additionalProperties,false);assert.deepEqual(s.required,Object.keys(s.properties));Object.values(s.properties).forEach(visit);}if(s.items)visit(s.items);};visit(schema);
+  assert(point.required.includes('label'));assert(point.required.includes('sources'));assert.equal(point.properties.label.type,'string');assert.deepEqual(point.properties.kind.enum,['source','inference']);assert(point.properties.sources.items.properties.ref.enum.includes('c0_0'));
+  const visit=s=>{if(s.type==='object'){assert.equal(s.additionalProperties,false);assert.deepEqual(s.required,Object.keys(s.properties));Object.values(s.properties).forEach(visit);}if(s.items)visit(s.items);if(s.anyOf)s.anyOf.forEach(visit);};visit(schema);
   return {ok:true,json:async()=>({choices:[{message:{content:complete}}]})};
  });
 });
@@ -119,11 +119,27 @@ test('전체 상세 정리와 핵심 요약은 다른 지침과 원고 처리 �
  assert.match(wholeRequest(a.title,a.intent,0,2),/비유·사례/);assert.match(wholeRequest(b.title,b.intent,0,2),/반복 표현과 부차적인 사례는 줄이/);
  for(const intent of ['organize','summary'])assert(wholeRequest('가'.repeat(500),intent,0,30).length<=600);
 });
-test('전체 정리에서 원고 묶음 누락·지나치게 짧은 overview는 완료로 표시하지 않음',async()=>{
+test('분량이나 모든 문단의 인용 여부로 요약을 오차단하지 않음',async()=>{
  const {checkWholeCoverage}=await import('../admin/ai-core.mjs');
  const evidence=[{id:'a',text:'첫 주제의 사례와 과정을 설명합니다. '.repeat(80)},{id:'b',text:'후반의 중요한 결론과 실천을 설명합니다. '.repeat(80)}];
- const answer={overview:[{points:[{text:'자세한 전개 설명입니다. '.repeat(100),sources:[{id:'a'},{id:'b'}]}]}],claims:[]};
+ const answer={supported:true,overview:[{points:[{text:'자세한 전개 설명입니다. '.repeat(100),sources:[{id:'a'},{id:'b'}]}]}],claims:[]};
  assert.doesNotThrow(()=>checkWholeCoverage(answer,evidence,'organize'));
- assert.throws(()=>checkWholeCoverage({...answer,overview:[{points:[{text:'짧은 두 맥락',sources:[{id:'a'},{id:'b'}]}]}]},evidence,'summary'),/지나치게 짧아/);
- assert.throws(()=>checkWholeCoverage({...answer,overview:[{points:[{text:answer.overview[0].points[0].text,sources:[{id:'a'}]}]}]},evidence,'organize'),/일부 원고/);
+ assert.doesNotThrow(()=>checkWholeCoverage({...answer,overview:[{points:[{text:'짧은 두 맥락',sources:[{id:'a'},{id:'b'}]}]}]},evidence,'summary'));
+ assert.doesNotThrow(()=>checkWholeCoverage({...answer,overview:[{points:[{text:answer.overview[0].points[0].text,sources:[{id:'a'}]}]}]},evidence,'organize'));assert.throws(()=>checkWholeCoverage({supported:false,overview:[]},evidence,'summary'),/받지 못/);
+});
+
+test('인용 스키마는 각 원문의 ID와 실제 구절 선택을 묶음',async()=>{
+ const {citationQuotes,answerSchema,prompt}=await import('../admin/ai-core.mjs');
+ for(const d of documents){const quotes=citationQuotes(d);assert.equal(!!quotes.length,d.text.trim().length>=8);assert(quotes.every(q=>q.length>=8&&d.text.normalize('NFKC').replace(/\s+/g,' ').trim().includes(q)));}
+ const choices=answerSchema(documents).properties.claims.items.properties.sources.items.properties.ref.enum;assert(choices.includes('c0_0'));
+ const note={...documents[0],text:'AI가 만든 검토 설명입니다. '+documents[0].text,quotes:[documents[0].text]};
+ assert.deepEqual(JSON.parse(prompt('요약',[note])).evidence[0].quoteChoices.map(c=>c.quote),note.quotes.map(q=>q.replace(/\s+/g,' ').trim()));
+});
+
+test('인용 ref를 서버 원문의 구절로 복원하고 없는 선택은 차단',async()=>{
+ const {resolveCitationRefs,citationChoices}=await import('../admin/ai-core.mjs');
+ const choices=citationChoices(documents),d=JSON.parse(complete),ref=choices[0].ref;
+ for(const section of d.overview)for(const p of section.points)p.sources=[{ref}];for(const p of d.claims)p.sources=[{ref}];
+ const valid=validateAnswer(resolveCitationRefs(JSON.stringify(d),documents),documents,{requireOverview:true});assert.equal(valid.claims[0].sources[0].quote,choices[0].quote);
+ d.claims[0].sources=[{ref:'does-not-exist'}];assert.throws(()=>resolveCitationRefs(JSON.stringify(d),documents),/선택값/);
 });

@@ -55,7 +55,8 @@ export function createHandler({env,fetcher=fetch}){
    const ids=new Set();let total=0;const evidence=[];
    for(const d of body.evidence){
     if(!d||typeof d.id!=='string'||! /^(sayeon2026|sayeon2025|malsseum|stones):[^:]{1,80}:\d+$/.test(d.id)||ids.has(d.id)||typeof d.title!=='string'||d.title.length>300||typeof d.text!=='string'||!d.text.trim()||d.text.length>1800)return reply({error:'근거 문단 형식을 확인해 주세요.'},400);
-    ids.add(d.id);total+=d.text.length;evidence.push({id:d.id,title:d.title,text:d.text});
+    if(d.quotes!==undefined&&(!Array.isArray(d.quotes)||!d.quotes.length||d.quotes.length>6||d.quotes.some(q=>typeof q!=='string'||clean(q).length<8||q.length>120||!clean(d.text).includes(clean(q)))))return reply({error:'검토 메모의 원문 인용 형식을 확인해 주세요.'},400);
+    ids.add(d.id);total+=d.text.length;evidence.push({id:d.id,title:d.title,text:d.text,...(d.quotes===undefined?{}:{quotes:d.quotes.map(clean)})});
    }
    if(total>8000)return reply({error:'근거 원문은 총 8,000글자 이하로 제한합니다.'},400);
    const key=env(model.provider==='gemini'?'GEMINI_API_KEY':'GROQ_API_KEY');if(!key)return reply({error:'선택한 모델의 서버 키가 등록되지 않았습니다.'},503);
@@ -72,4 +73,3 @@ export function createHandler({env,fetcher=fetch}){
   }finally{clearTimeout(timer);}
  };
 }
-

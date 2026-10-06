@@ -84,3 +84,9 @@ test('업체별 잔여량은 서버 SQL 값을 그대로 반환하고 browser �
  const handler=createHandler({env,fetcher:async(url)=>{assert(url.endsWith('/ai_lab_model_quota'));return new Response(JSON.stringify(quota));}});
  const r=await handler(sharedReq({action:'status'}));assert.deepEqual((await r.json()).quota.providers,quota.providers);
 });
+
+test('검토 메모 인용 후보는 원문 일부만 허용하고 업체 호출 전에 검증',async()=>{
+ for(const quotes of [['가짜 원문 구절입니다.'],[],Array(7).fill(evidence[0].text),['x'.repeat(121)]]){const s=setup();const r=await s.handler(req({...payload,evidence:[{...evidence[0],quotes}]}));assert.equal(r.status,400);assert(!s.calls.some(x=>x.url.endsWith('/ai_lab_model_quota')||x.url.includes('googleapis')));}
+ const s=setup(),r=await s.handler(req({...payload,evidence:[{...evidence[0],quotes:[evidence[0].text]}]}));assert.equal(r.status,200);
+ const body=JSON.parse(s.calls.find(x=>x.url.includes('googleapis')).o.body);assert.deepEqual(JSON.parse(body.contents[0].parts[0].text).evidence[0].quoteChoices.map(c=>c.quote),[evidence[0].text]);
+});

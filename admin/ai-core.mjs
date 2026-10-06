@@ -65,14 +65,11 @@ export function wholeRequest(title,intent,index,total){
  const detail=intent==='organize'
   ?'원고 순서대로 모든 주제·설명·비유·사례·사건의 과정·교훈·실천·결론을 자세히 정리하세요. 단순 핵심 두 가지로 줄이지 마세요. 사례는 누가 무엇을 했고 무엇을 설명하는지 보존하세요.'
   :'원고 전체의 중요한 주장·논리 흐름·전환·대표 사례의 의미·실천·결론을 빠짐없이 압축하세요. 첫 두 주제만 선택하지 말고 뒤의 핵심도 균형 있게 포함하세요. 반복 표현과 부차적인 사례는 줄이되 서로 다른 핵심 주제는 합쳐 없애지 마세요.';
- return clean(title).slice(0,100)+' '+task+'. 원고 '+(index+1)+'/'+total+' 부분입니다. '+detail+' 주제 수·항목 수·설명 분량은 실제 원고의 길이와 서로 다른 핵심의 수에 맞춰 자유롭게 정하세요. 정해진 개수나 글자 수에 맞추려고 핵심을 생략하거나 내용을 늘리지 마세요. 짧은 자료는 간결히, 긴 자료는 논리와 핵심을 보존할 만큼 충분히 설명하세요. 각 evidence를 모두 검토하고 각 문단 묶음의 핵심을 overview에 포함하세요. 모든 8글자 이상 evidence ID를 최소 한 번 sources로 인용하세요. claims만 길게 쓰지 말고 overview 자체를 충실히 작성하세요. 원문 밖 지식은 금지합니다.';
+ return clean(title).slice(0,100)+' '+task+'. 원고 '+(index+1)+'/'+total+' 부분입니다. '+detail+' 주제 수·항목 수·설명 분량은 실제 원고의 길이와 서로 다른 핵심의 수에 맞춰 자유롭게 정하세요. 정해진 개수나 글자 수에 맞추려고 핵심을 생략하거나 내용을 늘리지 마세요. 짧은 자료는 간결히, 긴 자료는 논리와 핵심을 보존할 만큼 충분히 설명하세요. 각 evidence를 모두 검토하고 각 문단 묶음의 핵심을 overview에 포함하세요. 대표 근거를 인용하되 모든 문단을 각각 인용할 필요는 없습니다. claims만 길게 쓰지 말고 overview 자체를 충실히 작성하세요. 원문 밖 지식은 금지합니다.';
 }
 export function checkWholeCoverage(answer,evidence,intent){
- const cited=new Set([...(answer.overview||[]).flatMap(s=>s.points),...(answer.claims||[])].flatMap(p=>p.sources.map(s=>s.id)));
- const missing=evidence.filter(c=>clean(c.text).length>=8&&!cited.has(c.id));
- const chars=evidence.reduce((n,c)=>n+clean(c.text).length,0),written=(answer.overview||[]).reduce((n,s)=>n+s.points.reduce((m,p)=>m+clean(p.text).length,0),0);
- const minimum=Math.min(intent==='organize'?900:650,Math.floor(chars*(intent==='organize'?.25:.15)));
- if(missing.length||written<minimum)throw new Error('일부 원고가 빠졌거나 설명이 지나치게 짧아 '+(intent==='organize'?'전체 정리':'전체 요약')+'를 보류했습니다. 다시 요청하거나 다른 모델을 선택해 주세요. 자동 재호출은 하지 않았습니다.');
+ // Citation count and character count do not establish semantic coverage.
+ if(!answer.supported||!answer.overview?.some(s=>s.points?.some(p=>clean(p.text))))throw new Error('전체 내용을 정리한 답변을 받지 못했습니다.');
 }
 const SYN=[['인내','견디','끝까지','포기'],['감사','고마'],['믿음','신앙'],['사랑','사랑하'],['기도','간구'],['용서','용서하']];
 function tokens(q){return [...new Set(clean(q).toLowerCase().match(/[가-힣a-z0-9]+/g)||[])].filter(x=>x.length>1&&!STOP.has(x)).map(x=>x.replace(/(에서는|에게는|이란|이랑|에서|으로|하는|하고|은|는|을|를|의|이|가)$/,'')).filter(x=>x.length>1&&!STOP.has(x));}
@@ -98,11 +95,28 @@ overview의 소제목 수·항목 수·설명 분량은 원고 길이, 내용의
 그 아래 claims에는 핵심 설명과 원문 인용을 1~6개 넣는다. overview의 각 항목과 claims의 각 설명에는 제공된 문단 id와 최소 8글자의 실제 연속 원문 인용을 sources로 연결한다. 서로 다른 문단을 합쳐 하나의 가짜 인용문을 만들지 않는다. 자료를 종합한 해석은 kind:inference, 직접 설명은 source로 구분한다.
 외부 지식이 필요하거나 근거가 부족하면 {"supported":false,"overview":[],"claims":[]}를 반환한다. 한국어 JSON만 반환한다. 형식:
 {"supported":true,"overview":[{"title":"주제별 소제목","points":[{"label":"핵심 항목","text":"배경과 과정, 의미를 담은 자세한 설명.","kind":"source","sources":[{"id":"제공된 문단 id","quote":"해당 문단에 실제 있는 연속 원문"}]}]}],"claims":[{"text":"핵심 설명","kind":"source","sources":[{"id":"제공된 문단 id","quote":"해당 문단에 실제 있는 연속 원문"}]}]}
-kind에는 source 또는 inference 중 하나만 넣는다. points의 모든 항목에 label을 반드시 넣고 빈 문자열이나 다른 필드 이름으로 대체하지 않는다. supported:true이면 overview와 claims를 모두 작성한다. JSON의 기술적 상한은 소제목 30개, 소제목당 항목 12개이며 이 수를 목표로 채우지 않는다. 모든 항목에 출처를 붙이고 JSON을 완성한다.`;
-export function prompt(question,evidence){return JSON.stringify({question:clean(question),evidence:evidence.map(({id,title,text})=>({id,title,text}))});}
+kind에는 source 또는 inference 중 하나만 넣는다. points의 모든 항목에 label을 반드시 넣고 빈 문자열이나 다른 필드 이름으로 대체하지 않는다. supported:true이면 overview와 claims를 모두 작성한다. sources는 응답 스키마에 따라 quoteChoices의 ref로 선택한다. 위 id/quote 예시는 서버가 인용을 복원한 최종 표시 형식이다. JSON의 기술적 상한은 소제목 30개, 소제목당 항목 12개이며 이 수를 목표로 채우지 않는다. 모든 항목에 출처를 붙이고 JSON을 완성한다.`;
+export function citationQuotes(doc){
+ const text=clean(doc.text);
+ if(doc.quotes!==undefined)return [...new Set(doc.quotes.filter(q=>typeof q==='string'&&clean(q).length>=8&&text.includes(clean(q))).map(clean))];
+ const chars=Array.from(text);if(chars.length<8)return [];
+ const width=Math.min(96,chars.length);
+ return [...new Set([0,1/3,2/3,1].map(t=>chars.slice(Math.floor((chars.length-width)*t),Math.floor((chars.length-width)*t)+width).join('')))];
+}
+export function citationChoices(evidence){return evidence.flatMap((d,i)=>citationQuotes(d).map((quote,j)=>({ref:'c'+i+'_'+j,id:d.id,quote})));}
+export function prompt(question,evidence){const choices=citationChoices(evidence);return JSON.stringify({question:clean(question),evidence:evidence.map(d=>({id:d.id,title:d.title,text:d.text,quoteChoices:choices.filter(c=>c.id===d.id).map(({ref,quote})=>({ref,quote}))})),citationRule:'각 sources는 해당 원문 구절의 ref 하나를 선택해 {ref:선택값}으로 작성한다. 인용 문장을 새로 쓰지 않는다.'});}
+export function resolveCitationRefs(raw,evidence){
+ let data;try{data=JSON.parse(raw.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,''));}catch{return raw;}
+ const choices=new Map(citationChoices(evidence).map(c=>[c.ref,c]));
+ const remap=p=>({...p,sources:p.sources?.map(s=>{if(!s||!('ref' in s))return s;const c=choices.get(s.ref);if(!c||Object.keys(s).some(k=>k!=='ref'))throw new Error('원문 인용 선택값을 확인하지 못했습니다.');return {id:c.id,quote:c.quote};})});
+ if(Array.isArray(data.overview))data.overview=data.overview.map(s=>({...s,points:Array.isArray(s.points)?s.points.map(remap):s.points}));
+ if(Array.isArray(data.claims))data.claims=data.claims.map(remap);
+ return JSON.stringify(data);
+}
 export function answerSchema(evidence){
  const object=properties=>({type:'object',properties,required:Object.keys(properties),additionalProperties:false});
- const source=object({id:{type:'string',enum:evidence.map(d=>d.id)},quote:{type:'string',description:'근거 문단에 실제 있는 8글자 이상의 연속 원문 인용'}});
+ const choices=citationChoices(evidence);if(!choices.length)throw new Error('인용할 수 있는 원문 구절이 없습니다.');
+ const source=object({ref:{type:'string',enum:choices.map(c=>c.ref)}});
  const statement={text:{type:'string',description:'비어 있지 않은 한국어 설명, 최대 1600글자'},kind:{type:'string',enum:['source','inference']},sources:{type:'array',items:source,description:'실제 원문 출처 1~6개'}};
  const point=object({label:{type:'string',description:'반드시 작성할 짧은 항목명. 비어 있지 않은 1~100글자 문자열'},...statement});
  const section=object({title:{type:'string',description:'비어 있지 않은 소제목, 최대 100글자'},points:{type:'array',items:point,description:'각 항목은 label/text/kind/sources를 모두 포함. 내용에 맞게 선택(기술적 상한 12개)'}});
@@ -168,7 +182,7 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
  }
  const d=await r.json();if(gem?d.candidates?.[0]?.finishReason==='MAX_TOKENS':d.choices?.[0]?.finish_reason==='length')throw new Error('답변 길이 제한으로 생성이 중단됐습니다. 질문 범위를 좁혀 주세요.');const raw=gem?(d.candidates?.[0]?.content?.parts||[]).filter(x=>!x.thought).map(x=>x.text||'').join(''):d.choices?.[0]?.message?.content||'';
  if(!raw)throw new Error('AI가 답변을 반환하지 않았습니다. 원문을 확인해 주세요.');
- return {answer:validateAnswer(raw,evidence,{requireOverview:true}),usage:gem?d.usageMetadata:d.usage,model:m.label};
+ return {answer:validateAnswer(resolveCitationRefs(raw,evidence),evidence,{requireOverview:true}),usage:gem?d.usageMetadata:d.usage,model:m.label};
 }
 export async function requestServer(config,token,body,fetcher=fetch,signal){
  const shared=token&&typeof token==='object';
@@ -184,6 +198,6 @@ export async function requestServer(config,token,body,fetcher=fetch,signal){
 }
 export async function generateViaServer(config,token,modelId,question,evidence,freeOnly,fetcher=fetch,signal){
  if(!Object.hasOwn(MODELS,modelId))throw new Error('허용되지 않은 모델입니다.');
- const d=await requestServer(config,token,{action:'generate',modelId,question,evidence:evidence.map(({id,title,text})=>({id,title,text})),freeOnly},fetcher,signal);
+ const d=await requestServer(config,token,{action:'generate',modelId,question,evidence:evidence.map(({id,title,text,quotes})=>({id,title,text,...(quotes===undefined?{}:{quotes})})),freeOnly},fetcher,signal);
  return {answer:validateAnswer(JSON.stringify(d.answer),evidence),model:MODELS[modelId].label,usage:d.usage,quota:d.quota};
 }

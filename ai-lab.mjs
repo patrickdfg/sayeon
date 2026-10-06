@@ -1,6 +1,6 @@
-import {synthesisEvidence,synthesisQuestion,validateSynthesis} from './ai-whole.mjs?v=1';
+import {synthesizeWhole} from './ai-whole.mjs?v=2';
 import {saveOverview} from './ai-export.mjs?v=1';
-import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,evidenceBatches,wholeRequest,checkWholeCoverage} from './admin/ai-core.mjs?v=11';
+import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,evidenceBatches,wholeRequest,checkWholeCoverage} from './admin/ai-core.mjs?v=12';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
 let token={password:'',clientId:''},authorized=false,chunks=[],cache=new Map(),controller=null,busy=false,providerStatus={};
 const text=(el,s)=>{el.textContent=s;};
@@ -122,7 +122,7 @@ $('groqReconnect').onclick=()=>operation(async()=>{
  }catch(e){text($('groqStatus'),e.name==='AbortError'?'Groq 연결 확인을 중단했습니다.':e.message);throw e;}
 });
 $('preview').onclick=()=>operation(async()=>{const {found,mode,title}=evidenceForQuestion();showEvidence(found);text($('answer'),'원문 검색 결과입니다. AI 답변을 생성하지 않았습니다.');status(mode==='whole'?title+' · 원고 전체 선택 · API 사용 없음':found.length+'개 관련 문단 · API 사용 없음');});
-function pauseBetweenCalls(started,signal){return new Promise((resolve,reject)=>{const abort=()=>{clearTimeout(timer);reject(new DOMException('Aborted','AbortError'));};const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},Math.max(0,12000-(Date.now()-started)));signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();});}
+function pauseBetweenCalls(started,signal){return new Promise((resolve,reject)=>{const abort=()=>{clearTimeout(timer);reject(new DOMException('Aborted','AbortError'));};const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},12000);signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();});}
 $('ask').onclick=()=>operation(async()=>{
  const {q,found,mode,title,paragraphs,intent}=evidenceForQuestion();showEvidence(found);text($('answer'),'');if(!found.length){text($('answer'),'등록된 자료에서 답을 찾지 못했습니다.');status('근거 부족 · AI를 호출하지 않았습니다.');return;}
  const modelId=$('model').value;if(modelId==='search'){text($('answer'),'아래 검색 결과에서 원문과 출처를 확인해 주세요.');status('원문 검색만 실행 · API 사용 없음');return;}
@@ -144,18 +144,12 @@ $('ask').onclick=()=>operation(async()=>{
    if(i+1<batches.length||needsSynthesis){await pauseBetweenCalls(started,controller.signal);}
   }
   if(needsSynthesis){
-   const notes=synthesisEvidence(overview),groups=evidenceBatches(notes,6000);requiredCalls=batches.length+groups.length;
-   const info=await requestServer(config,token,{action:'status'},fetch,controller.signal),quota=info.quota;
-   if(!quota||quota.providers?.[model.provider]?.remaining<groups.length||quota.remaining<groups.length||quota.globalRemaining<groups.length)throw new Error('전체 핵심 통합에 필요한 '+groups.length+'회의 오늘 한도가 부족해 전체 요약을 보류했습니다.');
-   const finalOverview=[],finalClaims=[];
-   for(let i=0;i<groups.length;i++){
-    status(title+' · 원고 분량에 맞춰 전체 핵심 통합 중 '+(i+1)+'/'+groups.length+'…');const started=Date.now();
-    const final=await generateViaServer(config,token,modelId,synthesisQuestion(title),groups[i],true,fetch,controller.signal);
-    if(!final.answer.supported)throw new Error('전체 통합 요약을 검증하지 못했습니다.');checkWholeCoverage(final.answer,groups[i],'summary');
-    const checked=validateSynthesis(final.answer,groups[i],found);finalOverview.push(...checked.overview);finalClaims.push(...checked.claims);result=final;
-    if(i+1<groups.length)await pauseBetweenCalls(started,controller.signal);
-   }
-   result={...result,answer:{supported:true,overview:finalOverview,claims:finalClaims},wholeTitle:title,wholeIntent:intent};
+   const final=await synthesizeWhole({overview,original:found,title,signal:controller.signal,
+    generate:(question,notes)=>generateViaServer(config,token,modelId,question,notes,true,fetch,controller.signal),
+    checkBudget:async needed=>{const info=await requestServer(config,token,{action:'status'},fetch,controller.signal),quota=info.quota;if(!quota||quota.providers?.[model.provider]?.remaining<needed||quota.remaining<needed||quota.globalRemaining<needed)throw new Error('전체 핵심 통합에 필요한 '+needed+'회의 오늘 한도가 부족해 전체 요약을 보류했습니다.');},
+    pause:pauseBetweenCalls,onProgress:({round,index,total,final})=>status(title+' · '+(final?'한 편 전체의 흐름과 결론 통합 중…':'전체 통합을 위한 검토 '+(round+1)+'단계 '+(index+1)+'/'+total+'…'))
+   });requiredCalls=batches.length+final.calls;
+   result={...final,wholeTitle:title,wholeIntent:intent};
   }
   else if(mode==='whole')result={...result,answer:{supported:true,overview,claims},wholeTitle:title,wholeIntent:intent};}catch(e){if(!controller.signal.aborted&&authorized)await serverInfo();if(e instanceof TypeError)throw new Error('AI 서버에 연결하지 못했습니다. 서버 연결 상태를 확인해 주세요.');throw e;}
  if(controller.signal.aborted||!authorized)return;showAnswer(result);cache.set(ck,result);showQuota(result.quota);status(mode==='whole'?'완료 · '+title+' 전체 '+paragraphs+'문단 '+(intent==='organize'?'상세 정리':'핵심 요약')+' · '+requiredCalls+'회 사용 · 원문 인용 검사 통과':'완료 · 원문 인용 검사 통과');
