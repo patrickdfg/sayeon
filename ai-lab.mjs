@@ -1,3 +1,4 @@
+import {createVoiceInput} from './ai-voice.mjs?v=1';
 import {saveOverview} from './ai-export.mjs?v=1';
 import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage,normalizeScope} from './admin/ai-core.mjs?v=19';
 import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore} from './ai-chat.mjs?v=6';
@@ -8,14 +9,15 @@ let googleUser=null,authClient=null,chatStore=null,thread=newThread(),threads=[]
 const text=(el,s)=>{el.textContent=s;};
 function showQuota(quota){
  $('usage').replaceChildren();
- for(const [provider,label] of [['gemini','Gemini']]){
-  const q=quota?.providers?.[provider],configured=providerStatus[provider]?.configured;
-  const known=Number.isInteger(q?.remaining)&&Number.isInteger(q?.limit)&&q.limit>0;
-  const percent=known?Math.round(Math.max(0,Math.min(q.limit,q.remaining))/q.limit*100):null;
-  const value=configured===false?'연결 필요':percent===null?'업체별 집계 준비 중':percent+'% 남음';
-  $('usage').append(node('div',label+' '+value));
+ const configured=providerStatus.gemini?.configured;
+ $('usage').append(node('div',configured===false?'Gemini 연결 필요':'Gemini 실제 잔여량: 조회 연동 필요'));
+ const link=node('a','Google AI Studio에서 실제 사용량·한도 확인','fine');
+ link.href='https://aistudio.google.com/usage';link.target='_blank';link.rel='noopener noreferrer';
+ $('usage').append(link);
+ const q=quota?.providers?.gemini;
+ if(Number.isInteger(q?.remaining)&&Number.isInteger(q?.limit)){
+  $('usage').append(node('div','내 앱 호출 한도: '+q.remaining+'/'+q.limit+'회 남음 · Gemini 실제 잔여량과 별개','fine'));
  }
- if(quota?.unassignedUsed>0)$('usage').append(node('div','이전 사용 '+quota.unassignedUsed+'회는 공통 한도에 반영됩니다.','fine'));
 }
 function applyServerInfo(info){
  providerStatus=info.providers||{gemini:{configured:info.models.some(id=>id.startsWith('gemini-'))}};
@@ -113,6 +115,7 @@ function showAnswer(result,target=$('answer'),questionText=$('question').value.t
 }
 function evidenceForQuestion(){const q=$('question').value.trim();if(q.length<2)throw new Error('질문을 두 글자 이상 입력해 주세요.');const previous=thread.scope===$('scope').value?followUpEvidence(q,thread.messages):null;if(previous)return {q,...previous};if(!chunks.length){toggleSettings(true);throw new Error('자료·설정에서 기존 원고 암호를 입력해 주세요.');}return {q,...resolveQuestion(chunks,q,$('scope').value)};}
 function setBusy(value){
+ if(value)voiceInput.stop();
  busy=value;['ask','preview','loadCorpus','unlock','serverCheck','clear','newChatHeader','model','scope','historySearch','moreHistory','retrySave','saveAsNew'].forEach(id=>$(id).disabled=value);
  document.querySelectorAll('.question-actions button[aria-label="질문 다시 쓰기"]').forEach(button=>button.disabled=value);
  $('cancel').disabled=!value;$('cancel').classList.toggle('hidden',!value);$('ask').classList.toggle('hidden',value);syncSendButton();
@@ -345,6 +348,7 @@ let searchTimer;
 $('historySearch').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadHistory(false),250);});
 $('moreHistory').onclick=()=>loadHistory(true);
 function lockChat(){
+ voiceInput.stop();
  sessionVersion++;historySequence++;authorized=false;controller?.abort();controller=null;setBusy(false);token='';cache.clear();chunks=[];thread=newThread();threads=[];savedMessageIds=new Set();dirty=false;saveConflict=false;currentTurn=null;
  ['contentPassword','question','historySearch'].forEach(id=>$(id).value='');$('conversation').replaceChildren();$('threadList').replaceChildren();text($('answer'),'');text($('evidence'),'');
  $('lab').classList.add('hidden');$('gate').classList.remove('hidden');toggleSettings(false);$('sidebar').classList.remove('open');$('sidebarBackdrop').classList.add('hidden');syncSidebarAccess();$('scrollBottom').classList.add('hidden');setSaveState('');status('');
@@ -456,3 +460,6 @@ window.addEventListener('pageshow',event=>{if(event.persisted){lockChat();showGo
 window.addEventListener('focus',()=>{if(googleUser&&!busy)void refreshMembership(!authorized);});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&googleUser&&!busy)void refreshMembership(!authorized);});
 window.addEventListener('load',bootGoogle,{once:true});if(document.readyState==='complete')void bootGoogle();
+
+const voiceInput=createVoiceInput({button:$('microphone'),input:$('question'),notify:status,canStart:()=>authorized&&!busy});
+window.addEventListener('pagehide',()=>voiceInput.stop());

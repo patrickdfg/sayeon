@@ -141,7 +141,7 @@ begin
  select coalesce(sum(attempts) filter(where provider='gemini'),0),coalesce(sum(attempts) filter(where provider='groq'),0)
  into v_gemini,v_groq from public.ai_lab_provider_usage where usage_date=v_day and user_id=v_uid;
  v_provider_used:=case p_provider when 'gemini' then v_gemini when 'groq' then v_groq else 0 end;
- if v_used>=60 or v_total>=100 or (p_provider is not null and v_provider_used>=30) then v_reason:='daily';
+ if v_used>=60 or (p_provider is not null and v_provider_used>=30) then v_reason:='daily';
  elsif p_reserve and v_last is not null and v_last>now()-interval '10 seconds' then v_reason:='rate'; end if;
  if p_reserve and v_reason='' then
   insert into public.ai_lab_daily_usage(usage_date,user_id,attempts,last_at) values(v_day,v_uid,1,now())
@@ -151,12 +151,12 @@ begin
   v_used:=v_used+1;v_total:=v_total+1;
   if p_provider='gemini' then v_gemini:=v_gemini+1;else v_groq:=v_groq+1;end if;
  end if;
- v_common:=greatest(0,least(60-v_used,100-v_total));
+ v_common:=greatest(0,60-v_used);
  v_providers:=jsonb_build_object(
   'gemini',jsonb_build_object('used',v_gemini,'limit',30,'remaining',greatest(0,least(30-v_gemini,v_common))),
   'groq',jsonb_build_object('used',v_groq,'limit',30,'remaining',greatest(0,least(30-v_groq,v_common))));
  return jsonb_build_object('allowed',v_reason='','reason',v_reason,'used',v_used,'remaining',v_common,'day',v_day,
-  'globalRemaining',greatest(0,100-v_total),'unassignedUsed',greatest(0,v_used-v_gemini-v_groq),'providers',v_providers);
+  'globalRemaining',null,'globalLimit',null,'unassignedUsed',greatest(0,v_used-v_gemini-v_groq),'providers',v_providers);
 end; $$;
 revoke all on function public.ai_lab_model_quota(uuid,text,boolean) from public,anon;
 grant execute on function public.ai_lab_model_quota(uuid,text,boolean) to authenticated,service_role;
