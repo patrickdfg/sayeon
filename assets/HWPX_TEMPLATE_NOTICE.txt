@@ -1,0 +1,5 @@
+HWPX export skeleton adapted from python-hwpx 6.7.0, hwpx/data/Skeleton.hwpx.
+Copyright 2025-2026 airmang (Dr. Wily). Apache License 2.0.
+Source: https://github.com/airmang/python-hwpx
+Changes: removed preview/body/metadata, added Korean named styles and export layout.
+No font files are embedded. No source manuscript content is included.

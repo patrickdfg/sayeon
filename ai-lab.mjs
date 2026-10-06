@@ -1,4 +1,6 @@
-import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,evidenceBatches,wholeRequest,checkWholeCoverage} from './admin/ai-core.mjs?v=10';
+import {synthesisEvidence,synthesisQuestion,validateSynthesis} from './ai-whole.mjs?v=1';
+import {saveOverview} from './ai-export.mjs?v=1';
+import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,evidenceBatches,wholeRequest,checkWholeCoverage} from './admin/ai-core.mjs?v=11';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
 let token={password:'',clientId:''},authorized=false,chunks=[],cache=new Map(),controller=null,busy=false,providerStatus={};
 const text=(el,s)=>{el.textContent=s;};
@@ -58,6 +60,8 @@ function showAnswer(result){
   copy.onclick=()=>copyOverview(result.answer.overview,copy);
   const mapButton=node('button','마인드맵','secondary overview-copy');mapButton.type='button';mapButton.setAttribute('aria-expanded','false');
   const actions=node('div',null,'row');actions.append(mapButton,copy);
+  const documentTitle=(result.wholeTitle||$('question').value.trim()||'원문 종합 정리')+(result.wholeIntent==='organize'?' 상세 정리':result.wholeIntent==='summary'?' 핵심 요약':'');
+  for(const [format,label] of [['docx','DOCX 저장'],['hwpx','HWPX 저장']]){const save=node('button',label,'secondary overview-copy');save.type='button';save.title='출처를 제외한 편집 가능한 문서 저장';save.onclick=async()=>{if(!authorized||!token.password)return;save.disabled=true;try{await saveOverview(documentTitle,result.answer.overview,format);save.textContent='저장 요청됨';}catch(e){status(e.message,true);}finally{save.disabled=false;setTimeout(()=>{save.textContent=label;},2000);}};actions.append(save);}
   heading.append(node('h3','근거 원문 종합 정리'),actions);overview.append(heading);
   const map=node('div',null,'mindmap hidden');map.setAttribute('role','region');map.setAttribute('aria-label','요약 마인드맵');
   map.append(node('div',result.wholeTitle||$('question').value.trim()||'원문 종합 정리','mindmap-root'));
@@ -118,13 +122,15 @@ $('groqReconnect').onclick=()=>operation(async()=>{
  }catch(e){text($('groqStatus'),e.name==='AbortError'?'Groq 연결 확인을 중단했습니다.':e.message);throw e;}
 });
 $('preview').onclick=()=>operation(async()=>{const {found,mode,title}=evidenceForQuestion();showEvidence(found);text($('answer'),'원문 검색 결과입니다. AI 답변을 생성하지 않았습니다.');status(mode==='whole'?title+' · 원고 전체 선택 · API 사용 없음':found.length+'개 관련 문단 · API 사용 없음');});
+function pauseBetweenCalls(started,signal){return new Promise((resolve,reject)=>{const abort=()=>{clearTimeout(timer);reject(new DOMException('Aborted','AbortError'));};const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},Math.max(0,10500-(Date.now()-started)));signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();});}
 $('ask').onclick=()=>operation(async()=>{
  const {q,found,mode,title,paragraphs,intent}=evidenceForQuestion();showEvidence(found);text($('answer'),'');if(!found.length){text($('answer'),'등록된 자료에서 답을 찾지 못했습니다.');status('근거 부족 · AI를 호출하지 않았습니다.');return;}
  const modelId=$('model').value;if(modelId==='search'){text($('answer'),'아래 검색 결과에서 원문과 출처를 확인해 주세요.');status('원문 검색만 실행 · API 사용 없음');return;}
  if(!$('freeOnly').checked)throw new Error('결제를 연결하지 않은 무료 등급 API 키인지 먼저 확인해 주세요.');const model=MODELS[modelId];if(!model)throw new Error('모델을 선택해 주세요.');
  const ck=JSON.stringify([modelId,clean(q),$('scope').value,found.map(c=>[c.id,c.text])]);if($('useCache').checked&&cache.has(ck)){showAnswer(cache.get(ck));status('이 화면에 저장된 동일 질문 답변 재사용 · 새 API 호출 없음');return;}
  const batches=mode==='whole'?evidenceBatches(found,intent==='organize'?4000:6000):[found];
- if(batches.length>1){const info=await requestServer(config,token,{action:'status'},fetch,controller.signal);const quota=info.quota;if(!quota||quota.providers?.[model.provider]?.remaining<batches.length||quota.remaining<batches.length||quota.globalRemaining<batches.length)throw new Error('원고 전체 요약에는 '+batches.length+'회가 필요하지만 오늘 남은 한도가 부족합니다.');}
+ const needsSynthesis=mode==='whole'&&intent==='summary'&&batches.length>1,minimumCalls=batches.length+(needsSynthesis?1:0);let requiredCalls=minimumCalls;
+ if(minimumCalls>1){const info=await requestServer(config,token,{action:'status'},fetch,controller.signal);const quota=info.quota;if(!quota||quota.providers?.[model.provider]?.remaining<minimumCalls||quota.remaining<minimumCalls||quota.globalRemaining<minimumCalls)throw new Error('원고 전체 요약에는 '+requiredCalls+'회가 필요하지만 오늘 남은 한도가 부족합니다.');}
  status(model.label+' 답변 생성 중…');
  let result;try{const overview=[],claims=[];
   for(let i=0;i<batches.length;i++){
@@ -135,10 +141,24 @@ $('ask').onclick=()=>operation(async()=>{
    if(mode==='whole'&&!result.answer.supported)throw new Error('원고 일부의 요약을 검증하지 못해 전체 요약을 보류했습니다.');
    if(mode==='whole')checkWholeCoverage(result.answer,batches[i],intent);
    overview.push(...result.answer.overview);claims.push(...result.answer.claims);
-   if(i+1<batches.length){await new Promise((resolve,reject)=>{const signal=controller.signal;const abort=()=>{clearTimeout(timer);reject(new DOMException('Aborted','AbortError'));};const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},Math.max(0,10500-(Date.now()-started)));signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();});}
+   if(i+1<batches.length||needsSynthesis){await pauseBetweenCalls(started,controller.signal);}
   }
-  if(mode==='whole')result={...result,answer:{supported:true,overview,claims},wholeTitle:title,wholeIntent:intent};}catch(e){if(!controller.signal.aborted&&authorized)await serverInfo();if(e instanceof TypeError)throw new Error('AI 서버에 연결하지 못했습니다. 서버 연결 상태를 확인해 주세요.');throw e;}
- if(controller.signal.aborted||!authorized)return;showAnswer(result);cache.set(ck,result);showQuota(result.quota);status(mode==='whole'?'완료 · '+title+' 전체 '+paragraphs+'문단 '+(intent==='organize'?'상세 정리':'핵심 요약')+' · '+batches.length+'회 사용 · 원문 인용 검사 통과':'완료 · 원문 인용 검사 통과');
+  if(needsSynthesis){
+   const notes=synthesisEvidence(overview),groups=evidenceBatches(notes,6000);requiredCalls=batches.length+groups.length;
+   const info=await requestServer(config,token,{action:'status'},fetch,controller.signal),quota=info.quota;
+   if(!quota||quota.providers?.[model.provider]?.remaining<groups.length||quota.remaining<groups.length||quota.globalRemaining<groups.length)throw new Error('전체 핵심 통합에 필요한 '+groups.length+'회의 오늘 한도가 부족해 전체 요약을 보류했습니다.');
+   const finalOverview=[],finalClaims=[];
+   for(let i=0;i<groups.length;i++){
+    status(title+' · 원고 분량에 맞춰 전체 핵심 통합 중 '+(i+1)+'/'+groups.length+'…');const started=Date.now();
+    const final=await generateViaServer(config,token,modelId,synthesisQuestion(title),groups[i],true,fetch,controller.signal);
+    if(!final.answer.supported)throw new Error('전체 통합 요약을 검증하지 못했습니다.');checkWholeCoverage(final.answer,groups[i],'summary');
+    const checked=validateSynthesis(final.answer,groups[i],found);finalOverview.push(...checked.overview);finalClaims.push(...checked.claims);result=final;
+    if(i+1<groups.length)await pauseBetweenCalls(started,controller.signal);
+   }
+   result={...result,answer:{supported:true,overview:finalOverview,claims:finalClaims},wholeTitle:title,wholeIntent:intent};
+  }
+  else if(mode==='whole')result={...result,answer:{supported:true,overview,claims},wholeTitle:title,wholeIntent:intent};}catch(e){if(!controller.signal.aborted&&authorized)await serverInfo();if(e instanceof TypeError)throw new Error('AI 서버에 연결하지 못했습니다. 서버 연결 상태를 확인해 주세요.');throw e;}
+ if(controller.signal.aborted||!authorized)return;showAnswer(result);cache.set(ck,result);showQuota(result.quota);status(mode==='whole'?'완료 · '+title+' 전체 '+paragraphs+'문단 '+(intent==='organize'?'상세 정리':'핵심 요약')+' · '+requiredCalls+'회 사용 · 원문 인용 검사 통과':'완료 · 원문 인용 검사 통과');
 },900000);
 $('cancel').onclick=()=>controller?.abort();$('clear').onclick=()=>{controller?.abort();cache.clear();['question'].forEach(id=>$(id).value='');$('freeOnly').checked=true;text($('answer'),'질문하면 여기에 결과가 나옵니다.');text($('evidence'),'관련 원문을 먼저 찾아보세요.');status('답변을 지웠습니다. 기존 등록 자료는 그대로 검색할 수 있습니다.');};$('logout').onclick=()=>{authorized=false;clearAll();token.password='';$('lab').classList.add('hidden');$('gate').classList.remove('hidden');text($('gateMessage'),'비밀번호를 입력해 주세요.');$('aiPassword').focus();};document.querySelectorAll('.example').forEach(b=>b.onclick=()=>{$('question').value=b.textContent;});window.addEventListener('pagehide',()=>{authorized=false;token.password='';clearAll();});window.addEventListener('pageshow',event=>{if(event.persisted){$('lab').classList.add('hidden');$('gate').classList.remove('hidden');text($('gateMessage'),'비밀번호를 다시 입력해 주세요.');}});
 $('loginForm').onsubmit=async event=>{

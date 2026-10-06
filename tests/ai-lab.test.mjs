@@ -15,7 +15,7 @@ test('Gemini 선택 모델 및 원고만 전송, 도구·웹 검색 없음, 키 
 test('Groq 경로, JSON 답변과 키 헤더',async()=>{const r=await generate('groq-oss','groq-test','인내',documents,async(url,o)=>{assert.equal(url,'https://api.groq.com/openai/v1/chat/completions');const body=JSON.parse(o.body);assert.equal(body.model,MODELS['groq-oss'].model);assert.equal(body.max_completion_tokens,4096);assert.equal(body.reasoning_effort,'low');assert.equal(body.include_reasoning,false);assert(!('tools'in body));return {ok:true,json:async()=>({choices:[{message:{content:complete}}]})};});assert(r.answer.supported);});
 test('429·없는 모델·없는 키를 숨기거나 유료 자동전환하지 않음',async()=>{let calls=0;await assert.rejects(generate('paid-unknown','key','질문',documents,async()=>{calls++;}));assert.equal(calls,0);await assert.rejects(generate('gemini-lite','','질문',documents));await assert.rejects(generate('gemini-lite','key','질문',documents,async()=>({ok:false,status:429})),/무료 한도/);});
 
-test('최신 Gemini 두 모델의 실제 요청 경로와 추론 설정',async()=>{for(const [id,model] of [['gemini-lite','gemini-3.5-flash-lite'],['gemini-flash','gemini-3.8-flash']]){await generate(id,'test-key','인내',documents,async(url,o)=>{assert(url.endsWith('/'+model+':generateContent'));const config=JSON.parse(o.body).generationConfig;assert.equal(config.thinkingConfig.thinkingLevel,'LOW');assert.equal(config.maxOutputTokens,8192);assert(!('temperature' in config));return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:complete}]}}]})};});}await assert.rejects(generate('gemini-flash','test-key','인내',documents,async()=>({ok:true,json:async()=>({candidates:[{finishReason:'MAX_TOKENS',content:{parts:[{text:complete}]}}]})})),/길이 제한/);});
+test('최신 Gemini 두 모델의 실제 요청 경로와 추론 설정',async()=>{for(const [id,model] of [['gemini-lite','gemini-3.5-flash-lite'],['gemini-flash','gemini-3.8-flash']]){await generate(id,'test-key','인내',documents,async(url,o)=>{assert(url.endsWith('/'+model+':generateContent'));const config=JSON.parse(o.body).generationConfig;assert.equal(config.thinkingConfig.thinkingLevel,'LOW');assert.equal(config.maxOutputTokens,8192);assert.deepEqual(config.responseJsonSchema.properties.overview.items.properties.points.items.required,['label','text','kind','sources']);assert(!('temperature' in config));return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:complete}]}}]})};});}await assert.rejects(generate('gemini-flash','test-key','인내',documents,async()=>({ok:true,json:async()=>({candidates:[{finishReason:'MAX_TOKENS',content:{parts:[{text:complete}]}}]})})),/길이 제한/);});
 
 test('Gemini 400 원인은 분류하되 업체 메시지·키·원문은 반환하지 않음',async()=>{
  const cases=[
@@ -52,7 +52,7 @@ test('종합 정리의 조작 인용·출처 없음·초과 항목은 기존 핵
   const x=structuredClone(d);alter(x.overview[0].points[0]);
   assert.throws(()=>validateAnswer(JSON.stringify(x),documents));
  }
- const x=structuredClone(d);x.overview[0].points=Array(5).fill(x.overview[0].points[0]);
+ const x=structuredClone(d);x.overview[0].points=Array(13).fill(x.overview[0].points[0]);
  assert.throws(()=>validateAnswer(JSON.stringify(x),documents));
 });
 test('AI가 종합 정리를 빼거나 답변이 잘리면 자동 재호출 없이 보류',async()=>{

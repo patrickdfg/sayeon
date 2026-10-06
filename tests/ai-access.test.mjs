@@ -11,7 +11,7 @@ function setup(){
  const elements=new Map(),get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};get('lab').classes.add('hidden');get('freeOnly').checked=true;
  const writes=[],calls=[],copied=[];
  const context={document:{getElementById:get,createElement:()=>new Element(),querySelectorAll:()=>[],body:new Element()},window:{SAYEON_ANALYTICS_CONFIG:{},SaCrypt:{ready:()=>false,resume:async()=>false},addEventListener:()=>{}},localStorage:{getItem:()=>null,setItem:(...args)=>writes.push(args)},crypto:webcrypto,AbortController,setTimeout,clearTimeout,fetch:async()=>{},navigator:{clipboard:{writeText:async s=>copied.push(s)}},MODELS:{},SOURCES:[],toChunks:()=>[],retrieve:()=>[],clean:x=>x,sourceCaption:()=>'',requestServer:async(config,token)=>{calls.push({...token});if(token.password!=='fixture-pass')throw new Error('AI 챗봇 비밀번호가 맞지 않습니다.');return {ready:true,models:[],quota:{remaining:30}};},generateViaServer:()=>{}};
- vm.createContext(context);const source=readFileSync(new URL('../ai-lab.mjs',import.meta.url),'utf8').replace(/^import .*;\n/,'');vm.runInContext(source,context);return {context,get,writes,calls,copied};
+ vm.createContext(context);const source=readFileSync(new URL('../ai-lab.mjs',import.meta.url),'utf8').replace(/^import .*;\n/gm,'');vm.runInContext(source,context);return {context,get,writes,calls,copied};
 }
 test('새 화면은 서버 승인 전 숨김, 틀린 비밀번호 차단·입장·나가기와 메모리 보관',async()=>{
  const s=setup(),event={preventDefault(){}};assert(s.get('lab').classes.has('hidden'));assert.equal(s.calls.length,0);
