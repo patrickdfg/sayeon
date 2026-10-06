@@ -56,7 +56,17 @@ function showAnswer(result){
   const overview=node('section',null,'overview'),heading=node('div',null,'overview-heading');
   const copy=node('button','복사','secondary overview-copy');copy.type='button';copy.title='출처를 제외하고 종합 정리 복사';copy.setAttribute('aria-label','출처를 제외하고 종합 정리 복사');
   copy.onclick=()=>copyOverview(result.answer.overview,copy);
-  heading.append(node('h3','근거 원문 종합 정리'),copy);overview.append(heading);
+  const mapButton=node('button','마인드맵','secondary overview-copy');mapButton.type='button';mapButton.setAttribute('aria-expanded','false');
+  const actions=node('div',null,'row');actions.append(mapButton,copy);
+  heading.append(node('h3','근거 원문 종합 정리'),actions);overview.append(heading);
+  const map=node('div',null,'mindmap hidden');map.setAttribute('role','region');map.setAttribute('aria-label','요약 마인드맵');
+  map.append(node('div',result.wholeTitle||$('question').value.trim()||'원문 종합 정리','mindmap-root'));
+  const branches=node('ul',null,'mindmap-branches');
+  result.answer.overview.forEach(section=>{
+   const branch=node('li',null,'mindmap-branch');branch.append(node('strong',section.title,'mindmap-topic'));
+   const leaves=node('ul');section.points.forEach(p=>{const leaf=node('li');const detail=node('details');detail.append(node('summary',p.label),node('p',p.text));leaf.append(detail);leaves.append(leaf);});branch.append(leaves);branches.append(branch);
+  });map.append(branches);overview.append(map);
+  mapButton.onclick=()=>{const open=map.classList.toggle('hidden')===false;mapButton.setAttribute('aria-expanded',String(open));mapButton.textContent=open?'마인드맵 닫기':'마인드맵';};
   result.answer.overview.forEach((section,i)=>{
    overview.append(node('h4',(i+1)+'. '+section.title));
    const list=node('ul');
@@ -146,4 +156,3 @@ $('loginForm').onsubmit=async event=>{
  }catch(e){authorized=false;token.password='';text($('gateMessage'),e.name==='AbortError'?'서버 응답 시간이 초과됐습니다. 잠시 후 다시 시도해 주세요.':e instanceof TypeError?'서버 연결을 확인해 주세요.':e.message);}
  finally{clearTimeout(timer);$('login').disabled=false;}
 };
-
