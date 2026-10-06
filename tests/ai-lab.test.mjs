@@ -109,3 +109,21 @@ test('동일 날짜 여러 편은 임의 선택하지 않고 연도와 말씀 �
  assert.equal(resolveQuestion(data,'2026년 10월 4일 주일말씀 요약해줘').found[0].no,2);
  assert.equal(resolveQuestion(data,'2025년 10월 4일 주일말씀 요약해줘').found[0].no,1);
 });
+
+test('전체 상세 정리와 핵심 요약은 다른 지침과 원고 처리 크기를 사용',async()=>{
+ const {resolveQuestion,evidenceBatches,wholeRequest}=await import('../admin/ai-core.mjs');
+ const data=toChunks([{no:73,title:'10월 4일 주일말씀',paragraphs:Array.from({length:8},(_,i)=>['주제 '+i+' 설명입니다. '.repeat(180)])}],SOURCES[3]);
+ const a=resolveQuestion(data,'10월 4일 말씀 정리해줘'),b=resolveQuestion(data,'10월 4일 말씀 요약해줘');
+ assert.equal(a.intent,'organize');assert.equal(b.intent,'summary');assert.deepEqual(a.found,b.found);
+ assert(evidenceBatches(a.found,4000).length>=evidenceBatches(b.found,6000).length);
+ assert.match(wholeRequest(a.title,a.intent,0,2),/비유·사례/);assert.match(wholeRequest(b.title,b.intent,0,2),/반복 표현과 부차적인 사례는 줄이/);
+ for(const intent of ['organize','summary'])assert(wholeRequest('가'.repeat(500),intent,0,30).length<=600);
+});
+test('전체 정리에서 원고 묶음 누락·지나치게 짧은 overview는 완료로 표시하지 않음',async()=>{
+ const {checkWholeCoverage}=await import('../admin/ai-core.mjs');
+ const evidence=[{id:'a',text:'첫 주제의 사례와 과정을 설명합니다. '.repeat(80)},{id:'b',text:'후반의 중요한 결론과 실천을 설명합니다. '.repeat(80)}];
+ const answer={overview:[{points:[{text:'자세한 전개 설명입니다. '.repeat(100),sources:[{id:'a'},{id:'b'}]}]}],claims:[]};
+ assert.doesNotThrow(()=>checkWholeCoverage(answer,evidence,'organize'));
+ assert.throws(()=>checkWholeCoverage({...answer,overview:[{points:[{text:'짧은 두 맥락',sources:[{id:'a'},{id:'b'}]}]}]},evidence,'summary'),/지나치게 짧아/);
+ assert.throws(()=>checkWholeCoverage({...answer,overview:[{points:[{text:answer.overview[0].points[0].text,sources:[{id:'a'}]}]}]},evidence,'organize'),/일부 원고/);
+});

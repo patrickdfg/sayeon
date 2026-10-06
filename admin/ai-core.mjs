@@ -52,12 +52,27 @@ export function resolveQuestion(chunks,question,scope='all'){
    else found.push({...c,id:c.scope+':'+c.no+':'+(1000000+found.length),text,endPi:c.pi});
   }
  }
- return {mode:'whole',found,title:sourceCaption(original[0]).replace(/ · \d+번째 문단$/,''),paragraphs:original.length};
+ return {mode:'whole',intent:/요약/.test(q)?'summary':'organize',found,title:sourceCaption(original[0]).replace(/ · \d+번째 문단$/,''),paragraphs:original.length};
 }
-export function evidenceBatches(found){
+export function evidenceBatches(found,maxChars=8000){
+ if(!Number.isInteger(maxChars)||maxChars<1800||maxChars>8000)throw new Error('잘못된 원고 처리 크기입니다.');
  const batches=[];let batch=[],chars=0;
- for(const c of found){if(batch.length===6||chars+c.text.length>8000){batches.push(batch);batch=[];chars=0;}batch.push(c);chars+=c.text.length;}
+ for(const c of found){if(batch.length===6||chars+c.text.length>maxChars){batches.push(batch);batch=[];chars=0;}batch.push(c);chars+=c.text.length;}
  if(batch.length)batches.push(batch);return batches;
+}
+export function wholeRequest(title,intent,index,total){
+ const task=intent==='organize'?'전체 상세 정리':'전체 핵심 요약';
+ const detail=intent==='organize'
+  ?'원고 순서대로 모든 주제·설명·비유·사례·사건의 과정·교훈·실천·결론을 자세히 정리하세요. 단순 핵심 두 가지로 줄이지 마세요. 사례는 누가 무엇을 했고 무엇을 설명하는지 보존하세요. 충분한 자료는 이 부분의 overview 약 1200~1500글자를 목표로, 항목별 3~4문장으로 설명하세요.'
+  :'원고 전체의 중요한 주장·논리 흐름·전환·대표 사례의 의미·실천·결론을 빠짐없이 압축하세요. 첫 두 주제만 선택하지 말고 뒤의 핵심도 균형 있게 포함하세요. 반복 표현과 부차적인 사례는 줄이되 서로 다른 핵심 주제는 합쳐 없애지 마세요. 충분한 자료는 이 부분의 overview 약 800~1100글자로 설명하세요.';
+ return clean(title).slice(0,100)+' '+task+'. 원고 '+(index+1)+'/'+total+' 부분입니다. '+detail+' 각 evidence를 모두 검토하고 각 문단 묶음의 핵심을 overview에 포함하세요. 주제가 여럿이면 3~5개 소제목, 각 2~4개 항목으로 구성하되 실제 없는 주제를 숫자 맞추려고 만들지 마세요. 모든 8글자 이상 evidence ID를 최소 한 번 sources로 인용하세요. claims만 길게 쓰지 말고 overview 자체를 충실히 작성하세요. 날짜 검색이 아니며 원문 밖 지식은 금지합니다.';
+}
+export function checkWholeCoverage(answer,evidence,intent){
+ const cited=new Set([...(answer.overview||[]).flatMap(s=>s.points),...(answer.claims||[])].flatMap(p=>p.sources.map(s=>s.id)));
+ const missing=evidence.filter(c=>clean(c.text).length>=8&&!cited.has(c.id));
+ const chars=evidence.reduce((n,c)=>n+clean(c.text).length,0),written=(answer.overview||[]).reduce((n,s)=>n+s.points.reduce((m,p)=>m+clean(p.text).length,0),0);
+ const minimum=Math.min(intent==='organize'?900:650,Math.floor(chars*(intent==='organize'?.25:.15)));
+ if(missing.length||written<minimum)throw new Error('일부 원고가 빠졌거나 설명이 지나치게 짧아 '+(intent==='organize'?'전체 정리':'전체 요약')+'를 보류했습니다. 다시 요청하거나 다른 모델을 선택해 주세요. 자동 재호출은 하지 않았습니다.');
 }
 const SYN=[['인내','견디','끝까지','포기'],['감사','고마'],['믿음','신앙'],['사랑','사랑하'],['기도','간구'],['용서','용서하']];
 function tokens(q){return [...new Set(clean(q).toLowerCase().match(/[가-힣a-z0-9]+/g)||[])].filter(x=>x.length>1&&!STOP.has(x)).map(x=>x.replace(/(에서는|에게는|이란|이랑|에서|으로|하는|하고|은|는|을|를|의|이|가)$/,'')).filter(x=>x.length>1&&!STOP.has(x));}
