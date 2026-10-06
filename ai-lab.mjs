@@ -1,6 +1,6 @@
 import {createVoiceInput} from './ai-voice.mjs?v=1';
-import {saveOverview} from './ai-export.mjs?v=1';
-import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage,normalizeScope} from './admin/ai-core.mjs?v=19';
+import {saveOverview} from './ai-export.mjs?v=2';
+import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage,normalizeScope} from './admin/ai-core.mjs?v=20';
 import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore} from './ai-chat.mjs?v=6';
 import {MEMBER_LABELS,membershipStatus,createMemberStore} from './ai-members.mjs?v=1';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
@@ -36,7 +36,7 @@ function node(tag,s,cls){const el=document.createElement(tag);if(s!=null)el.text
 function link(doc){const a=node('a',sourceCaption(doc));if(doc.url){try{const url=new URL(doc.url,'https://patrickdfg.github.io');if(url.origin==='https://patrickdfg.github.io'&&/^\/(?:sayeon|malsseum)\//.test(url.pathname)){a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';}}catch{}}return a;}
 function showEvidence(found,target=$('evidence')){target.replaceChildren();if(!found.length){text(target,'등록된 자료에서 질문에 맞는 근거를 찾지 못했습니다. 질문을 구체적으로 바꿔 주세요.');return;}found.forEach(doc=>{const box=node('details',null,'source');box.append(node('summary',sourceCaption(doc)),node('p',doc.text),link(doc));target.append(box);});}
 function overviewText(sections){
- return sections.map((section,i)=>(i+1)+'. '+section.title+'\n\n'+section.points.map(p=>'- '+p.label+': '+p.text).join('\n\n')).join('\n\n');
+ return sections.map((section,i)=>(i+1)+'. '+section.title+'\n\n'+section.points.map(p=>p.text).join('\n\n')).join('\n\n');
 }
 async function copyText(value,button){
  if(!authorized||!token)return;
@@ -73,7 +73,7 @@ function showAnswer(result,target=$('answer'),questionText=$('question').value.t
   const part=node('section',null,'answer-section');part.append(node('h3',(i+1)+'. '+section.title));
   const quotes=new Map();
   section.points.forEach(p=>{
-   const paragraph=node('p',null,'answer-paragraph');paragraph.append(node('strong',p.label+'. '),node('span',p.text));part.append(paragraph);
+   const paragraph=node('p',null,'answer-paragraph');paragraph.append(node('span',p.text));part.append(paragraph);
    if(p.kind==='inference')part.append(node('span','자료를 종합한 해석','summary-kind'));
    p.sources.forEach(source=>{remember(source);const key=source.id+'\n'+source.quote;if(!quotes.has(key))quotes.set(key,source);});
   });

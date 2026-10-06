@@ -4,7 +4,7 @@ export function xmlText(value){if(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.tes
 export function exportRows(title,sections){
  if(!Array.isArray(sections)||!sections.length)throw new Error('먼저 정리 결과를 생성해 주세요.');
  const rows=[{kind:'title',text:String(title||'원문 종합 정리')}];
- sections.forEach((s,i)=>{rows.push({kind:'heading',text:(i+1)+'. '+s.title});s.points.forEach(p=>{rows.push({kind:'label',text:p.label});String(p.text).split(/\n/).forEach(text=>rows.push({kind:'body',text}));});});return rows;
+ sections.forEach((s,i)=>{rows.push({kind:'heading',text:(i+1)+'. '+s.title});s.points.forEach(p=>{String(p.text).split(/\n/).forEach(text=>rows.push({kind:'body',text}));});});return rows;
 }
 const crcTable=Uint32Array.from({length:256},(_,n)=>{let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;return c>>>0;});
 function crc(bytes){let c=0xffffffff;for(const b of bytes)c=crcTable[(c^b)&255]^(c>>>8);return (c^0xffffffff)>>>0;}
