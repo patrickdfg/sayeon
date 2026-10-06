@@ -8,3 +8,5 @@
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 
 .message-scroll{min-height:0}.message-scroll:has(.welcome:not(.hidden)){display:flex;flex-direction:column}.message-scroll:has(.welcome:not(.hidden)) .welcome{margin:auto;flex-shrink:0;width:100%}
+
+.membership-label{display:inline-block;border:1px solid var(--line);border-radius:20px;padding:6px 14px;background:#f6faf7;font-weight:600}.members-dialog{width:min(700px,calc(100% - 28px));max-height:85dvh;overflow:auto}.members-dialog .row{flex-wrap:wrap}.member-card{display:flex;justify-content:space-between;gap:15px;align-items:center;padding:16px 0;border-bottom:1px solid var(--line);font-size:13px}.member-card>div:first-child{min-width:0;overflow-wrap:anywhere}.member-card small{color:var(--muted)}.member-card button{font-size:12px;white-space:nowrap}@media(max-width:480px){.member-card{align-items:flex-start;flex-direction:column}.members-dialog{padding:20px}.members-dialog .panel-heading h2{font-size:19px}}

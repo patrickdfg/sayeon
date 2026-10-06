@@ -1,6 +1,7 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import {createHandler} from '../supabase/functions/admin-ai/handler.mjs';
 import {generateViaServer,requestServer} from '../admin/ai-core.mjs';
+const approvedFetch=fetcher=>async(url,o)=>url.endsWith('/ai_chat_membership')?new Response(JSON.stringify({approved:true,status:'approved',isAdmin:false})):fetcher(url,o);
 const secret='server-test-secret-never-return',config={supabaseUrl:'https://maoylwwnluyyfmwqfkfl.supabase.co',supabaseAnonKey:'public'};
 const evidence=[{id:'malsseum:7:0',title:'인내',text:'끝까지 인내하며 믿음을 지켜야 합니다.',label:'말씀',pi:0,url:'/sayeon/malsseum/#n=7'}];
 const answer={supported:true,claims:[{text:'인내하며 믿음을 지키라고 설명합니다.',kind:'source',sources:[{id:evidence[0].id,quote:evidence[0].text}]}]};
@@ -24,7 +25,7 @@ test('전체 요청의 여러 원고·초과 길이·잘못된 플래그는 예�
  }
  let calls=0;await assert.rejects(generateViaServer(config,'user-token','gemini-lite','전체',[{...evidence[0],text:'가'.repeat(80001)}],true,async()=>{calls++;},undefined,true),/자르거나 나누지/);assert.equal(calls,0);
 });
-function setup({admin=true,quota=true,key=true,upstream=200}={}){const calls=[];const env=name=>name==='GEMINI_API_KEY'&&key?secret:null;const fetcher=async(url,o)=>{calls.push({url,o});if(url.endsWith('/get_analytics_dashboard'))return new Response(JSON.stringify(admin?{totalVisitors:0}:{}),{status:admin?200:403});if(url.endsWith('/ai_lab_model_quota'))return new Response(JSON.stringify({allowed:quota,used:1,remaining:29,reason:quota?'':'daily'}));if(url.includes('generativelanguage.googleapis.com'))return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(answer)}]}}]}),{status:upstream});throw new Error('Unexpected request');};return {handler:createHandler({env,fetcher}),calls};}
+function setup({admin=true,quota=true,key=true,upstream=200}={}){const calls=[];const env=name=>name==='GEMINI_API_KEY'&&key?secret:null;const fetcher=async(url,o)=>{calls.push({url,o});if(url.endsWith('/ai_chat_membership'))return new Response(JSON.stringify({approved:admin,status:admin?'approved':'pending',isAdmin:false}));if(url.endsWith('/ai_lab_model_quota'))return new Response(JSON.stringify({allowed:quota,used:1,remaining:29,reason:quota?'':'daily'}));if(url.includes('generativelanguage.googleapis.com'))return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(answer)}]}}]}),{status:upstream});throw new Error('Unexpected request');};return {handler:createHandler({env,fetcher}),calls};}
 function req(body=payload,{auth=true,origin='https://patrickdfg.github.io'}={}){return new Request('https://example/functions/v1/admin-ai',{method:'POST',headers:{Origin:origin,...(auth?{Authorization:'Bearer user-token'}:{}),'Content-Type':'application/json'},body:JSON.stringify(body)});}
 test('미로그인·다른 출처·비관리자 요청이 AI 호출 전에 차단됨',async()=>{for(const [options,settings,code] of [[{auth:false},{},401],[{origin:'https://evil.example'},{},403],[{},{admin:false},403]]){const s=setup(settings);assert.equal((await s.handler(req(payload,options))).status,code);assert(!s.calls.some(x=>x.url.includes('googleapis')));}});
 test('서버 키는 업체 헤더에서만 사용, 응답·요청 본문에는 없음',async()=>{const s=setup();const r=await s.handler(req());const raw=await r.text();assert.equal(r.status,200);assert(!raw.includes(secret));const call=s.calls.find(x=>x.url.includes('googleapis'));assert.equal(call.o.headers['x-goog-api-key'],secret);assert(!call.url.includes(secret));assert(!call.o.body.includes(secret));assert.equal(JSON.parse(raw).answer.claims[0].sources[0].doc,undefined);assert.equal(JSON.parse(s.calls.find(x=>x.url.endsWith('/ai_lab_model_quota')).o.body).p_reserve,true);});
@@ -51,9 +52,9 @@ const clientId='12345678-1234-4123-8123-123456789abc',fixturePassword='fixture-p
 function sharedSetup({password=fixturePassword,service=serviceSecret,quota=true}={}){
  const base=setup({quota});const env=name=>({AI_LAB_PASSWORD:password,SUPABASE_SERVICE_ROLE_KEY:service,GEMINI_API_KEY:secret})[name];
  const fetcher=async(url,o)=>{if(url.endsWith('/ai_lab_model_quota')){base.calls.push({url,o});return new Response(JSON.stringify({allowed:quota,used:1,remaining:29,reason:quota?'':'daily'}));}if(url.endsWith('/get_analytics_dashboard'))throw new Error('public request must not use admin RPC');base.calls.push({url,o});return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(answer)}]}}]}));};
- return {handler:createHandler({env,fetcher}),calls:base.calls};
+ return {handler:createHandler({env,fetcher:approvedFetch(fetcher)}),calls:base.calls};
 }
-function sharedReq(body=payload,{password=fixturePassword,client=clientId}={}){return new Request('https://example/functions/v1/clever-action',{method:'POST',headers:{Origin:'https://patrickdfg.github.io','X-AI-Password':password,'X-AI-Client':client,'Content-Type':'application/json'},body:JSON.stringify(body)});}
+function sharedReq(body=payload,{password=fixturePassword,client=clientId}={}){return new Request('https://example/functions/v1/clever-action',{method:'POST',headers:{Origin:'https://patrickdfg.github.io',Authorization:'Bearer user-token','X-AI-Password':password,'X-AI-Client':client,'Content-Type':'application/json'},body:JSON.stringify(body)});}
 
 function backupSetup({primaryStatus=401,reason,backupStatus=200,secondQuota=true,primary='fixture-primary-key',backup='fixture-backup-key',abortWait=false}={}){
  const events=[],calls=[];let reserved=0;
@@ -67,7 +68,7 @@ function backupSetup({primaryStatus=401,reason,backupStatus=200,secondQuota=true
   return new Response(JSON.stringify(status===200?{candidates:[{content:{parts:[{text:JSON.stringify(answer)}]}}]}:{error:{message:'private provider body '+primary+' '+backup,details:reason?[{reason}]:[]}}),{status});
  };
  const waitForBackup=async signal=>{events.push('wait');assert.equal(signal.aborted,false);if(abortWait)throw new DOMException('Aborted','AbortError');};
- return {handler:createHandler({env,fetcher,waitForBackup}),events,calls};
+ return {handler:createHandler({env,fetcher:approvedFetch(fetcher),waitForBackup}),events,calls};
 }
 
 test('Gemini 키 인증 오류는 간격 대기·별도 한도 예약 뒤 보조키로 한 번만 전환',async()=>{
@@ -108,22 +109,22 @@ test('보조키 모델 연결 진단은 서버 인증 유지·값 비공개·생
  const s=backupSetup(),r=await s.handler(sharedReq({action:'check-provider',provider:'gemini',keySource:'backup'}));const raw=await r.text();assert.equal(r.status,200);assert.equal(JSON.parse(raw).connected,true);assert.equal(s.calls.length,1);assert.equal(s.calls[0].o.method,undefined);assert.equal(s.calls[0].o.body,undefined);assert(!raw.includes('fixture-backup-key'));assert.deepEqual(s.events,[]);
  const missing=backupSetup({backup:''});assert.equal((await (await missing.handler(sharedReq({action:'check-provider',provider:'gemini',keySource:'backup'}))).json()).reason,'key_missing');assert.equal(missing.calls.length,0);
  for(const body of [{action:'check-provider',provider:'gemini',keySource:'primary'},{action:'check-provider',provider:'gemini',keySource:'backup',url:'https://evil.example'}]){const s=backupSetup();assert.equal((await s.handler(sharedReq(body))).status,400);assert.equal(s.calls.length,0);}
- const denied=backupSetup();assert.equal((await denied.handler(sharedReq({action:'check-provider',provider:'gemini',keySource:'backup'},{password:'wrong'}))).status,401);assert.equal(denied.calls.length,0);
+ const denied=backupSetup(),deniedRequest=sharedReq({action:'check-provider',provider:'gemini',keySource:'backup'});deniedRequest.headers.delete('Authorization');assert.equal((await denied.handler(deniedRequest)).status,401);assert.equal(denied.calls.length,0);
 });
 
 test('보조키 구성 상태와 사용 표시에는 값 노출이나 클라이언트 강제 선택 없음',async()=>{
  const s=backupSetup(),status=await (await s.handler(sharedReq({action:'status'}))).json();assert.deepEqual(status.providers.gemini,{configured:true,primaryConfigured:true,backupConfigured:true});
  const forced=backupSetup();assert.equal((await forced.handler(sharedReq({...payload,keySource:'backup'}))).status,400);assert.equal(forced.calls.length,0);
- const result=await generateViaServer(config,{password:fixturePassword,clientId},'gemini-lite','인내',evidence,true,async()=>new Response(JSON.stringify({answer,keySource:'backup',attempts:2})));assert.equal(result.usedBackup,true);assert.equal(result.attempts,2);
+ const result=await generateViaServer(config,'user-token','gemini-lite','인내',evidence,true,async()=>new Response(JSON.stringify({answer,keySource:'backup',attempts:2})));assert.equal(result.usedBackup,true);assert.equal(result.attempts,2);
 });
-test('공유 비밀번호 오류·빈 값·서버 설정 누락은 DB와 AI 호출 전에 차단',async()=>{
- for(const [settings,options,status] of [[{}, {password:'wrong'},401],[{}, {password:''},401],[{password:null},{},503],[{service:null},{},503],[{}, {client:'invalid'},400]]){
-  const s=sharedSetup(settings),r=await s.handler(sharedReq(payload,options));assert.equal(r.status,status);assert.equal(s.calls.length,0);assert(!(await r.text()).includes(serviceSecret));
- }
+test('비밀번호와 클라이언트 ID만으로 승인 계정 인증을 우회할 수 없다',async()=>{
+ const s=sharedSetup(),request=sharedReq();request.headers.delete('Authorization');
+ assert.equal((await s.handler(request)).status,401);assert.equal(s.calls.length,0);
 });
-test('공유 비밀번호 상태 확인은 서버 전용 RPC 사용, 비밀·비밀번호 반환 없이 예약 없음',async()=>{
- const s=sharedSetup(),r=await s.handler(sharedReq({action:'status'}));assert.equal(r.status,200);const raw=await r.text();assert(!raw.includes(fixturePassword));assert(!raw.includes(serviceSecret));assert(!raw.includes(secret));assert.equal(s.calls.length,1);
- const {url,o}=s.calls[0];assert(url.endsWith('/ai_lab_model_quota'));assert.equal(o.headers.Authorization,'Bearer '+serviceSecret);const b=JSON.parse(o.body);assert.equal(b.p_reserve,false);assert.notEqual(b.p_client,clientId);assert.match(b.p_client,/^[a-f0-9-]{36}$/);
+test('승인된 Google JWT는 기존 비밀번호 Secret·클라이언트 ID 없이 같은 제한을 사용한다',async()=>{
+ const s=sharedSetup({password:'',service:''}),request=sharedReq({action:'status'});request.headers.delete('X-AI-Password');request.headers.delete('X-AI-Client');
+ const r=await s.handler(request);assert.equal(r.status,200);const call=s.calls.find(c=>c.url.endsWith('/ai_lab_model_quota'));
+ assert.equal(call.o.headers.Authorization,'Bearer user-token');assert.equal(JSON.parse(call.o.body).p_client,null);assert.equal(JSON.parse(call.o.body).p_reserve,false);
 });
 test('공유 요청도 무료 확인·전역 한도·인용 검증과 키 비공개 유지',async()=>{
  for(const [options,body,status] of [[{},payload,200],[{quota:false},payload,429],[{}, {...payload,freeOnly:false},400]]){
@@ -131,8 +132,9 @@ test('공유 요청도 무료 확인·전역 한도·인용 검증과 키 비공
   const calls=s.calls.filter(x=>x.url.includes('googleapis'));assert.equal(calls.length,status===200?1:0);if(calls.length){assert(!calls[0].o.body.includes(fixturePassword));assert(!calls[0].o.body.includes(serviceSecret));assert.equal(JSON.parse(raw).answer.overview[0].points[0].sources[0].doc,undefined);}
  }
 });
-test('공유 비밀번호는 요청 헤더만 사용하며 브라우저는 관리자 토큰을 보내지 않음',async()=>{
- const result=await generateViaServer(config,{password:fixturePassword,clientId},'gemini-lite','인내',evidence,true,async(url,o)=>{assert.equal(o.headers['X-AI-Password'],fixturePassword);assert.equal(o.headers['X-AI-Client'],clientId);assert.equal(o.headers.Authorization,undefined);assert(!url.includes(fixturePassword));assert(!o.body.includes(fixturePassword));return new Response(JSON.stringify({answer}));});assert.equal(result.answer.claims[0].sources[0].doc.url,evidence[0].url);
+test('브라우저는 Google JWT만 보내고 공유 비밀번호 객체는 거부한다',async()=>{
+ await assert.rejects(requestServer(config,{password:fixturePassword,clientId},{action:'status'},async()=>{throw new Error('must not fetch');}),/Google/);
+ await requestServer(config,'user-token',{action:'status'},async(url,o)=>{assert.equal(o.headers.Authorization,'Bearer user-token');assert.equal(o.headers['X-AI-Password'],undefined);return new Response('{}');});
 });
 test('공유 경로의 CORS preflight는 인증 헤더 허용, AI 호출 없음',async()=>{
  const s=sharedSetup(),r=await s.handler(new Request('https://example',{method:'OPTIONS',headers:{Origin:'https://patrickdfg.github.io'}}));assert.equal(r.status,204);assert.match(r.headers.get('Access-Control-Allow-Headers'),/x-ai-password/);assert.match(r.headers.get('Access-Control-Allow-Headers'),/x-ai-client/);assert.equal(s.calls.length,0);
@@ -149,19 +151,19 @@ test('Groq 키 누락 진단은 업체·DB·AI 호출 없이 구체적으로 안
 test('Groq 실제 모델 목록으로 키·모델 연결 검사, 키 비노출·AI 생성 없이 확인',async()=>{
  for(const [status,active,reason] of [[200,true,'ready'],[200,false,'model_unavailable'],[401,false,'provider_error'],[403,false,'provider_error'],[429,false,'provider_error']]){
   const calls=[],key='gsk_fixture_not_real';const env=n=>({GROQ_API_KEY:key,AI_LAB_PASSWORD:fixturePassword,SUPABASE_SERVICE_ROLE_KEY:serviceSecret})[n];
-  const handler=createHandler({env,fetcher:async(url,o)=>{calls.push({url,o});return new Response(JSON.stringify({data:active?[{id:'openai/gpt-oss-20b'}]:[],secret:key}),{status});}});
+  const handler=createHandler({env,fetcher:approvedFetch(async(url,o)=>{calls.push({url,o});return new Response(JSON.stringify({data:active?[{id:'openai/gpt-oss-20b'}]:[],secret:key}),{status});})});
   const r=await handler(sharedReq({action:'check-provider',provider:'groq'})),raw=await r.text(),d=JSON.parse(raw);assert.equal(d.connected,status===200&&active);assert.equal(d.reason,reason);assert(!raw.includes(key));assert.equal(calls.length,1);assert.equal(calls[0].url,'https://api.groq.com/openai/v1/models');assert.equal(calls[0].o.body,undefined);assert.equal(calls[0].o.headers.Authorization,'Bearer '+key);
  }
 });
 test('Groq 연결 진단도 비밀번호·업체 allowlist·요청 필드 검증',async()=>{
- for(const [body,options,code] of [[{action:'check-provider',provider:'groq'},{password:'wrong'},401],[{action:'check-provider',provider:'other'},{},400],[{action:'check-provider',provider:'groq',url:'https://evil.example'},{},400]]){
+ for(const [body,options,code] of [[{action:'check-provider',provider:'other'},{},400],[{action:'check-provider',provider:'groq',url:'https://evil.example'},{},400]]){
   const s=sharedSetup(),r=await s.handler(sharedReq(body,options));assert.equal(r.status,code);assert.equal(s.calls.length,0);
  }
 });
 test('업체별 잔여량은 서버 SQL 값을 그대로 반환하고 browser 값으로 덮어쓰지 않음',async()=>{
  const quota={allowed:true,used:13,remaining:47,providers:{gemini:{used:13,limit:30,remaining:17},groq:{used:0,limit:30,remaining:30}}};
  const env=n=>({AI_LAB_PASSWORD:fixturePassword,SUPABASE_SERVICE_ROLE_KEY:serviceSecret,GEMINI_API_KEY:secret})[n];
- const handler=createHandler({env,fetcher:async(url)=>{assert(url.endsWith('/ai_lab_model_quota'));return new Response(JSON.stringify(quota));}});
+ const handler=createHandler({env,fetcher:approvedFetch(async(url)=>{assert(url.endsWith('/ai_lab_model_quota'));return new Response(JSON.stringify(quota));})});
  const r=await handler(sharedReq({action:'status'}));assert.deepEqual((await r.json()).quota.providers,quota.providers);
 });
 
@@ -169,4 +171,18 @@ test('검토 메모 인용 후보는 원문 일부만 허용하고 업체 호출
  for(const quotes of [['가짜 원문 구절입니다.'],[],Array(7).fill(evidence[0].text),['x'.repeat(121)]]){const s=setup();const r=await s.handler(req({...payload,evidence:[{...evidence[0],quotes}]}));assert.equal(r.status,400);assert(!s.calls.some(x=>x.url.endsWith('/ai_lab_model_quota')||x.url.includes('googleapis')));}
  const s=setup(),r=await s.handler(req({...payload,evidence:[{...evidence[0],quotes:[evidence[0].text]}]}));assert.equal(r.status,200);
  const body=JSON.parse(s.calls.find(x=>x.url.includes('googleapis')).o.body);assert.deepEqual(JSON.parse(body.contents[0].parts[0].text).evidence[0].quoteChoices.map(c=>c.quote),[evidence[0].text]);
+});
+
+test('대기·거절·승인 취소·잘못된 JWT는 상태·생성·연결 확인 전에 차단한다',async()=>{
+ for(const status of ['pending','rejected','revoked'])for(const body of [payload,{action:'status'},{action:'check-provider',provider:'gemini',keySource:'backup'}]){
+  const calls=[],handler=createHandler({env:n=>n==='GEMINI_API_KEY'?secret:null,fetcher:async(url)=>{calls.push(url);return new Response(JSON.stringify({approved:false,status,isAdmin:false}));}});
+  const r=await handler(req(body));assert.equal(r.status,403);assert.equal((await r.json()).membershipStatus,status);assert.deepEqual(calls,[config.supabaseUrl+'/rest/v1/rpc/ai_chat_membership']);
+ }
+ const invalid=createHandler({env:()=>null,fetcher:async()=>new Response('{}',{status:401})});assert.equal((await invalid(req())).status,401);
+});
+test('회원 상태의 부정확한 응답은 접근 권한으로 인정하지 않는다',async()=>{
+ for(const data of [{approved:true,status:'pending'},{approved:'true',status:'approved'},{}]){
+  let count=0;const handler=createHandler({env:()=>null,fetcher:async()=>{count++;return new Response(JSON.stringify(data));}});
+  assert.equal((await handler(req())).status,403);assert.equal(count,1);
+ }
 });

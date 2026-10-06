@@ -1,4 +1,4 @@
-import {validateAnswer,MODELS,SOURCES} from './admin/ai-core.mjs?v=15';
+import {validateAnswer,MODELS,SOURCES} from './admin/ai-core.mjs?v=16';
 
 export function newThread(uuid=()=>crypto.randomUUID()) {
  return {id:uuid(),title:'새 대화',model_id:'gemini-lite',scope:'all',messages:[],revision:null};

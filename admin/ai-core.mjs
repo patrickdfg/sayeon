@@ -194,15 +194,14 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
  return {answer:validateAnswer(resolveCitationRefs(raw,evidence),evidence,{requireOverview:true}),usage:gem?d.usageMetadata:d.usage,model:m.label};
 }
 export async function requestServer(config,token,body,fetcher=fetch,signal){
- const shared=token&&typeof token==='object';
- if(shared?!token.password:!token)throw new Error(shared?'AI 챗봇 비밀번호가 필요합니다.':'관리자 로그인이 필요합니다.');
+ if(typeof token!=='string'||!token)throw new Error('승인된 Google 계정으로 로그인해 주세요.');
  const functionName=config.aiFunctionName||'admin-ai';
  if(!['admin-ai','clever-action'].includes(functionName))throw new Error('AI 서버 함수 이름을 확인해 주세요.');
  const endpoint=config.supabaseUrl.replace(/\/$/,'')+'/functions/v1/'+functionName;
- const authHeaders=shared?{'X-AI-Password':token.password,'X-AI-Client':token.clientId}:{Authorization:'Bearer '+token};
+ const authHeaders={Authorization:'Bearer '+token};
  const r=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.supabaseAnonKey,...authHeaders},body:JSON.stringify(body),signal});
  let d;try{d=await r.json();}catch{throw new Error('AI 서버 응답을 확인하지 못했습니다.');}
- if(!r.ok)throw new Error(typeof d.error==='string'?d.error:r.status===404?'AI 서버 함수가 아직 배포되지 않았습니다.':'AI 서버 연결을 확인해 주세요.');
+ if(!r.ok)throw Object.assign(new Error(typeof d.error==='string'?d.error:r.status===404?'AI 서버 함수가 아직 배포되지 않았습니다.':'AI 서버 연결을 확인해 주세요.'),{status:r.status,membershipStatus:d.membershipStatus});
  return d;
 }
 export async function generateViaServer(config,token,modelId,question,evidence,freeOnly,fetcher=fetch,signal,whole=false){

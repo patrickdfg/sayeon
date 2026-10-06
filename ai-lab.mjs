@@ -1,8 +1,9 @@
 import {saveOverview} from './ai-export.mjs?v=1';
-import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage} from './admin/ai-core.mjs?v=15';
-import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore} from './ai-chat.mjs?v=2';
+import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage} from './admin/ai-core.mjs?v=16';
+import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore} from './ai-chat.mjs?v=3';
+import {MEMBER_LABELS,membershipStatus,createMemberStore} from './ai-members.mjs?v=1';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
-let token={password:'',clientId:''},authorized=false,chunks=[],cache=new Map(),controller=null,busy=false,providerStatus={};
+let token='',authorized=false,chunks=[],cache=new Map(),controller=null,busy=false,providerStatus={};
 let googleUser=null,authClient=null,chatStore=null,thread=newThread(),threads=[],savedMessageIds=new Set(),dirty=false,saveConflict=false,sessionVersion=0,historySequence=0,historyOffset=0,dialogThread=null,currentTurn=null;
 const text=(el,s)=>{el.textContent=s;};
 function showQuota(quota){
@@ -23,7 +24,13 @@ function applyServerInfo(info){
  if(providerStatus.groq?.configured===false)text($('groqStatus'),'Groq 키 연결이 필요합니다.');
 }
 function status(s,error=false){text($('status'),s);$('status').classList.toggle('error',error);}
-async function check(){if(!authorized||!token.password)throw new Error('AI 챗봇 비밀번호를 입력해 주세요.');}
+async function check(){
+ if(!authorized||!googleUser)throw new Error('승인된 Google 계정으로 로그인해 주세요.');
+ const access=await refreshMembership();if(!access?.approved||!authorized)throw new Error('관리자 승인 후 이용할 수 있습니다.');
+ const {data,error}=await authClient.auth.getSession();
+ if(error||!data.session||data.session.user.id!==googleUser.id)throw new Error('Google로 다시 로그인해 주세요.');
+ token=data.session.access_token;
+}
 function node(tag,s,cls){const el=document.createElement(tag);if(s!=null)el.textContent=s;if(cls)el.className=cls;return el;}
 function link(doc){const a=node('a',sourceCaption(doc));if(doc.url){try{const url=new URL(doc.url,'https://patrickdfg.github.io');if(url.origin==='https://patrickdfg.github.io'&&/^\/(?:sayeon|malsseum)\//.test(url.pathname)){a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';}}catch{}}return a;}
 function showEvidence(found,target=$('evidence')){target.replaceChildren();if(!found.length){text(target,'등록된 자료에서 질문에 맞는 근거를 찾지 못했습니다. 질문을 구체적으로 바꿔 주세요.');return;}found.forEach(doc=>{const box=node('details',null,'source');box.append(node('summary',sourceCaption(doc)),node('p',doc.text),link(doc));target.append(box);});}
@@ -31,7 +38,7 @@ function overviewText(sections){
  return sections.map((section,i)=>(i+1)+'. '+section.title+'\n\n'+section.points.map(p=>'- '+p.label+': '+p.text).join('\n\n')).join('\n\n');
 }
 async function copyOverview(sections,button){
- if(!authorized||!token.password)return;
+ if(!authorized||!token)return;
  button.disabled=true;
  try{
   const value=overviewText(sections);
@@ -61,7 +68,7 @@ function showAnswer(result,target=$('answer'),questionText=$('question').value.t
   const mapButton=node('button','마인드맵','secondary overview-copy');mapButton.type='button';mapButton.setAttribute('aria-expanded','false');
   const actions=node('div',null,'row');actions.append(mapButton,copy);
   const documentTitle=(result.wholeTitle||questionText||'원문 종합 정리')+(result.wholeIntent==='organize'?' 상세 정리':result.wholeIntent==='summary'?' 핵심 요약':'');
-  for(const [format,label] of [['docx','DOCX 저장'],['hwpx','HWPX 저장']]){const save=node('button',label,'secondary overview-copy');save.type='button';save.title='출처를 제외한 편집 가능한 문서 저장';save.onclick=async()=>{if(!authorized||!token.password)return;save.disabled=true;try{await saveOverview(documentTitle,result.answer.overview,format);save.textContent='저장 요청됨';}catch(e){status(e.message,true);}finally{save.disabled=false;setTimeout(()=>{save.textContent=label;},2000);}};actions.append(save);}
+  for(const [format,label] of [['docx','DOCX 저장'],['hwpx','HWPX 저장']]){const save=node('button',label,'secondary overview-copy');save.type='button';save.title='출처를 제외한 편집 가능한 문서 저장';save.onclick=async()=>{if(!authorized||!token)return;save.disabled=true;try{await saveOverview(documentTitle,result.answer.overview,format);save.textContent='저장 요청됨';}catch(e){status(e.message,true);}finally{save.disabled=false;setTimeout(()=>{save.textContent=label;},2000);}};actions.append(save);}
   heading.append(node('h3','근거 원문 종합 정리'),actions);overview.append(heading);
   const map=node('div',null,'mindmap hidden');map.setAttribute('role','region');map.setAttribute('aria-label','요약 마인드맵');
   map.append(node('div',result.wholeTitle||questionText||'원문 종합 정리','mindmap-root'));
@@ -307,18 +314,82 @@ let searchTimer;
 $('historySearch').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadHistory(false),250);});
 $('moreHistory').onclick=()=>loadHistory(true);
 function lockChat(){
- sessionVersion++;historySequence++;authorized=false;controller?.abort();controller=null;setBusy(false);token.password='';cache.clear();chunks=[];thread=newThread();threads=[];savedMessageIds=new Set();dirty=false;saveConflict=false;currentTurn=null;
- ['aiPassword','contentPassword','question','historySearch'].forEach(id=>$(id).value='');$('conversation').replaceChildren();$('threadList').replaceChildren();text($('answer'),'');text($('evidence'),'');
+ sessionVersion++;historySequence++;authorized=false;controller?.abort();controller=null;setBusy(false);token='';cache.clear();chunks=[];thread=newThread();threads=[];savedMessageIds=new Set();dirty=false;saveConflict=false;currentTurn=null;
+ ['contentPassword','question','historySearch'].forEach(id=>$(id).value='');$('conversation').replaceChildren();$('threadList').replaceChildren();text($('answer'),'');text($('evidence'),'');
  $('lab').classList.add('hidden');$('gate').classList.remove('hidden');toggleSettings(false);$('sidebar').classList.remove('open');$('sidebarBackdrop').classList.add('hidden');syncSidebarAccess();setSaveState('');status('');
  if($('threadDialog').open)$('threadDialog').close();
+ if($('membersDialog').open)$('membersDialog').close();$('memberList').replaceChildren();$('manageMembers').classList.add('hidden');membership=null;memberSequence++;
 }
+let membership=null,membershipSequence=0,memberSequence=0,memberOffset=0;
 function showGoogleUser(user){
  if(googleUser?.id!==user?.id)lockChat();
  googleUser=user;const signed=!!user;
- $('loginForm').classList.toggle('hidden',!signed);$('accountBox').classList.toggle('hidden',!signed);$('googleLogin').classList.toggle('hidden',signed);
- if(signed){text($('signedAccount'),user.email||'Google 계정으로 로그인됨');text($('accountName'),user.email?.split('@')[0]||'나의 계정');text($('accountEmail'),user.email||'');text($('gateMessage'),'기존 챗봇 비밀번호를 입력하면 대화를 시작합니다.');}
- else{text($('gateMessage'),'Google로 로그인하면 나의 대화를 다른 기기에서도 볼 수 있습니다.');text($('signedAccount'),'');text($('accountName'),'나의 계정');text($('accountEmail'),'');}
+ $('membershipBox').classList.toggle('hidden',!signed);$('accountBox').classList.toggle('hidden',!signed);$('googleLogin').classList.toggle('hidden',signed);$('login').classList.add('hidden');
+ if(signed){text($('signedAccount'),user.email||'Google 계정으로 로그인됨');text($('accountName'),user.email?.split('@')[0]||'나의 계정');text($('accountEmail'),user.email||'');text($('gateMessage'),'회원 승인 상태를 확인하고 있습니다.');void refreshMembership(true);}
+ else{text($('gateMessage'),'Google로 가입하면 관리자에게 승인 요청이 등록됩니다.');text($('signedAccount'),'');text($('accountName'),'나의 계정');text($('accountEmail'),'');}
 }
+async function refreshMembership(enter=false){
+ if(!googleUser||!authClient)return null;
+ const epoch=sessionVersion,userId=googleUser.id,sequence=++membershipSequence;
+ $('membershipRefresh').disabled=true;
+ try{
+  const access=await membershipStatus(authClient);
+  if(epoch!==sessionVersion||userId!==googleUser?.id||sequence!==membershipSequence)return null;
+  if(!access.approved&&authorized)lockChat();
+  membership=access;text($('membershipLabel'),MEMBER_LABELS[access.status]);$('manageMembers').classList.toggle('hidden',!access.isAdmin);
+  $('login').classList.toggle('hidden',!access.approved);
+  text($('gateMessage'),access.approved?'승인된 계정입니다. 대화를 시작할 수 있습니다.':access.status==='pending'?'가입 신청이 완료되었습니다. 관리자가 승인하면 대화를 시작할 수 있습니다.':access.status==='rejected'?'가입 신청이 승인되지 않았습니다. 관리자에게 문의해 주세요.':'이용 승인이 취소되었습니다. 관리자에게 문의해 주세요.');
+  if(enter&&access.approved&&!authorized)await enterChat();
+  return access;
+ }catch(e){if(epoch===sessionVersion){if(authorized)lockChat();text($('gateMessage'),e.message);}return null;}
+ finally{if(sequence===membershipSequence)$('membershipRefresh').disabled=false;}
+}
+async function enterChat(){
+ if($('login').disabled)return;
+ if(!googleUser||!chatStore){text($('gateMessage'),'Google로 먼저 로그인해 주세요.');return;}
+ const epoch=sessionVersion;$('login').disabled=true;const pending=new AbortController(),timer=setTimeout(()=>pending.abort(),20000);
+ try{
+  const {data,error}=await authClient.auth.getSession();if(error||!data.session||data.session.user.id!==googleUser.id)throw new Error('Google로 다시 로그인해 주세요.');
+  token=data.session.access_token;text($('gateMessage'),'이용 승인 확인 중…');
+  const info=await requestServer(config,token,{action:'status'},fetch,pending.signal);
+  if(!token||pending.signal.aborted||epoch!==sessionVersion)return;
+  if(info.ready!==true||!Array.isArray(info.models))throw new Error('서버 응답을 확인하지 못했습니다.');
+  authorized=true;$('gate').classList.add('hidden');$('lab').classList.remove('hidden');applyServerInfo(info);
+  await loadHistory();drawConversation();await operation(load);$('question').focus();
+  if(location.hash==='#members'&&membership?.isAdmin){history.replaceState(null,'',location.pathname);$('membersDialog').showModal();await loadMembers();}
+ }catch(e){if(epoch===sessionVersion){lockChat();text($('gateMessage'),e.name==='AbortError'?'서버 응답 시간이 초과됐습니다. 다시 시도해 주세요.':e instanceof TypeError?'서버 연결을 확인해 주세요.':e.message);}}
+ finally{clearTimeout(timer);$('login').disabled=false;}
+}
+async function loadMembers(){
+ if(!authorized||!membership?.isAdmin)return;
+ const epoch=sessionVersion,sequence=++memberSequence,store=createMemberStore(authClient);
+ text($('membersStatus'),'회원 목록 확인 중…');$('memberList').replaceChildren();$('refreshMembers').disabled=true;
+ try{
+  const rows=await store.list($('memberFilter').value||'pending',memberOffset);
+  if(epoch!==sessionVersion||sequence!==memberSequence||!authorized)return;
+  for(const member of rows){
+   const card=node('article',null,'member-card'),details=node('div');details.append(node('strong',member.display_name||'Google 계정'),node('div',member.email||''),node('small',MEMBER_LABELS[member.status]+' · 신청 '+new Date(member.requested_at).toLocaleDateString('ko-KR')));card.append(details);
+   const actions=node('div',null,'row');
+   if(member.is_admin)actions.append(node('span','관리자','badge'));
+   else for(const [value,label] of member.status==='approved'?[['revoked','승인 취소']]:member.status==='pending'?[['approved','승인'],['rejected','거절']]:[['approved','승인']]){
+    const button=node('button',label,value==='approved'?'primary':'secondary');button.type='button';
+    button.onclick=async()=>{
+     if(value!=='approved'&&button.dataset.confirmed!=='yes'){button.dataset.confirmed='yes';button.textContent=label+' 확인';text($('membersStatus'),(member.email||'이 회원')+'의 '+label+'를 한 번 더 눌러 확인하세요.');return;}
+     const current=sessionVersion;actions.querySelectorAll('button').forEach(b=>b.disabled=true);
+     try{await store.review(member,value);if(current!==sessionVersion)return;await loadMembers();text($('membersStatus'),label+'했습니다.');}
+     catch(e){if(current===sessionVersion){text($('membersStatus'),e.message);actions.querySelectorAll('button').forEach(b=>b.disabled=false);}}
+    };actions.append(button);
+   }
+   card.append(actions);$('memberList').append(card);
+  }
+  text($('membersStatus'),rows.length?rows.length+'명 표시':'해당 상태의 회원이 없습니다.');$('previousMembers').disabled=memberOffset===0;$('nextMembers').disabled=rows.length<50;
+ }catch(e){if(epoch===sessionVersion)text($('membersStatus'),e.message);}
+ finally{if(epoch===sessionVersion&&sequence===memberSequence)$('refreshMembers').disabled=false;}
+}
+$('membershipRefresh').onclick=()=>refreshMembership(true);$('login').onclick=enterChat;
+$('manageMembers').onclick=()=>{$('membersDialog').showModal();memberOffset=0;return loadMembers();};$('closeMembers').onclick=()=>$('membersDialog').close();
+$('memberFilter').onchange=()=>{memberOffset=0;return loadMembers();};$('refreshMembers').onclick=loadMembers;
+$('previousMembers').onclick=()=>{memberOffset=Math.max(0,memberOffset-50);return loadMembers();};$('nextMembers').onclick=()=>{memberOffset+=50;return loadMembers();};
 async function bootGoogle(){
  try{
   if(!window.supabase?.createClient)throw new Error('Google 로그인 연결을 불러오지 못했습니다. 화면을 새로고침해 주세요.');
@@ -332,7 +403,7 @@ async function bootGoogle(){
   authClient.auth.onAuthStateChange((_event,session)=>{
    const user=session?.user;if(googleUser?.id===user?.id)return;
    if(!user){showGoogleUser(null);return;}
-   setTimeout(async()=>{const verified=await authClient.auth.getUser();showGoogleUser(verified.error?null:verified.data.user);},0);
+   setTimeout(async()=>{const epoch=sessionVersion,verified=await authClient.auth.getUser();if(epoch===sessionVersion&&verified.data.user?.id===user.id)showGoogleUser(verified.error?null:verified.data.user);},0);
   });
   const params=new URLSearchParams(location.search);if(params.get('error')){text($('gateMessage'),'Google 로그인을 완료하지 못했습니다. 다시 로그인해 주세요.');}
   if(params.has('code')||params.has('error'))history.replaceState(null,'',location.pathname);
@@ -349,20 +420,8 @@ async function signOut(){
  try{await currentClient?.auth.signOut({scope:'local'});}finally{$('googleLogin').disabled=false;}
 }
 $('logout').onclick=signOut;$('switchAccount').onclick=signOut;
-$('loginForm').onsubmit=async event=>{
- event.preventDefault();if($('login').disabled)return;
- if(!googleUser||!chatStore){text($('gateMessage'),'Google로 먼저 로그인해 주세요.');return;}
- const epoch=sessionVersion;$('login').disabled=true;const pending=new AbortController(),timer=setTimeout(()=>pending.abort(),15000);
- try{
-  token={password:$('aiPassword').value,clientId:googleUser.id};text($('gateMessage'),'비밀번호 확인 중…');
-  const info=await requestServer(config,token,{action:'status'},fetch,pending.signal);
-  if(!token.password||pending.signal.aborted||epoch!==sessionVersion)return;
-  if(info.ready!==true||!Array.isArray(info.models))throw new Error('서버 응답을 확인하지 못했습니다.');
-  authorized=true;$('aiPassword').value='';$('gate').classList.add('hidden');$('lab').classList.remove('hidden');applyServerInfo(info);
-  await loadHistory();drawConversation();await operation(load);$('question').focus();
- }catch(e){if(epoch===sessionVersion){authorized=false;token.password='';text($('gateMessage'),e.name==='AbortError'?'서버 응답 시간이 초과됐습니다. 다시 시도해 주세요.':e instanceof TypeError?'서버 연결을 확인해 주세요.':e.message);}}
- finally{clearTimeout(timer);$('login').disabled=false;}
-};
 window.addEventListener('pagehide',lockChat);
 window.addEventListener('pageshow',event=>{if(event.persisted){lockChat();showGoogleUser(googleUser);}});
+window.addEventListener('focus',()=>{if(googleUser&&!busy)void refreshMembership(!authorized);});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&googleUser&&!busy)void refreshMembership(!authorized);});
 window.addEventListener('load',bootGoogle,{once:true});if(document.readyState==='complete')void bootGoogle();

@@ -33,7 +33,7 @@
   </section>
   <section id="dashboard" class="hidden">
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><h1>자료실 통계</h1><div class="muted">개인정보 없이 익명 기기 기준으로 집계합니다.</div></div><button id="logout" class="secondary">로그아웃</button></div>
-    <section id="aiTestEntry" class="card hidden"><h2>관리자 AI 질문 테스트</h2><p class="muted">등록된 원고 검색과 무료 AI 모델 답변을 비교합니다. 일반 앱에는 공개하지 않은 테스트입니다.</p><a href="./ai-lab.html" style="display:inline-block;background:var(--accent);color:#14200d;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:700">AI 질문 테스트 열기</a></section>
+    <section id="aiTestEntry" class="card hidden"><h2>AI 챗봇 · 회원 승인</h2><p class="muted">Google로 가입한 회원을 승인하거나 이용 승인을 취소할 수 있습니다.</p><a href="../ai-lab.html#members" style="display:inline-block;background:var(--accent);color:#14200d;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:700">AI 챗봇·회원 관리 열기</a></section>
     <div class="card topbar"><div><label for="from">시작일</label><input id="from" type="date"></div><div><label for="to">종료일</label><input id="to" type="date"></div><button id="refresh">조회</button></div>
     <div class="metrics"><div class="metric"><strong id="totalVisitors">0</strong><span>방문 인원</span></div><div class="metric"><strong id="totalSessions">0</strong><span>방문 세션</span></div><div class="metric"><strong id="pageViews">0</strong><span>페이지 열람</span></div><div class="metric"><strong id="completions">0</strong><span>다 읽음</span></div></div>
     <section class="card"><h2>자료실별 현황</h2><div class="scroll"><table><thead><tr><th>자료실</th><th>방문 인원</th><th>열람 수</th><th>열람 인원</th><th>완독 수</th><th>완독 인원</th></tr></thead><tbody id="sections"></tbody></table></div></section>

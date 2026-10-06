@@ -1,4 +1,4 @@
-"""Bundle the password/admin authenticated Edge Function into a dashboard-deployable file."""
+"""Bundle the approved Google-account authenticated Edge Function into a dashboard-deployable file."""
 from pathlib import Path
 import re
 root = Path(__file__).resolve().parents[1]

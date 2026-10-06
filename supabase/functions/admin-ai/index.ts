@@ -195,15 +195,14 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
  return {answer:validateAnswer(resolveCitationRefs(raw,evidence),evidence,{requireOverview:true}),usage:gem?d.usageMetadata:d.usage,model:m.label};
 }
 export async function requestServer(config,token,body,fetcher=fetch,signal){
- const shared=token&&typeof token==='object';
- if(shared?!token.password:!token)throw new Error(shared?'AI 챗봇 비밀번호가 필요합니다.':'관리자 로그인이 필요합니다.');
+ if(typeof token!=='string'||!token)throw new Error('승인된 Google 계정으로 로그인해 주세요.');
  const functionName=config.aiFunctionName||'admin-ai';
  if(!['admin-ai','clever-action'].includes(functionName))throw new Error('AI 서버 함수 이름을 확인해 주세요.');
  const endpoint=config.supabaseUrl.replace(/\/$/,'')+'/functions/v1/'+functionName;
- const authHeaders=shared?{'X-AI-Password':token.password,'X-AI-Client':token.clientId}:{Authorization:'Bearer '+token};
+ const authHeaders={Authorization:'Bearer '+token};
  const r=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.supabaseAnonKey,...authHeaders},body:JSON.stringify(body),signal});
  let d;try{d=await r.json();}catch{throw new Error('AI 서버 응답을 확인하지 못했습니다.');}
- if(!r.ok)throw new Error(typeof d.error==='string'?d.error:r.status===404?'AI 서버 함수가 아직 배포되지 않았습니다.':'AI 서버 연결을 확인해 주세요.');
+ if(!r.ok)throw Object.assign(new Error(typeof d.error==='string'?d.error:r.status===404?'AI 서버 함수가 아직 배포되지 않았습니다.':'AI 서버 연결을 확인해 주세요.'),{status:r.status,membershipStatus:d.membershipStatus});
  return d;
 }
 export async function generateViaServer(config,token,modelId,question,evidence,freeOnly,fetcher=fetch,signal,whole=false){
@@ -214,8 +213,6 @@ export async function generateViaServer(config,token,modelId,question,evidence,f
 }
 
 const ORIGIN='https://patrickdfg.github.io';
-async function digest(value){return new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)));}
-async function sameSecret(a,b){const x=await digest(a),y=await digest(b);let diff=0;for(let i=0;i<x.length;i++)diff|=x[i]^y[i];return diff===0;}
 function delayForBackup(signal){return new Promise((resolve,reject)=>{
  const abort=()=>{clearTimeout(timer);signal.removeEventListener('abort',abort);reject(new DOMException('Aborted','AbortError'));};
  const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},12000);
@@ -230,25 +227,21 @@ export function createHandler({env,fetcher=fetch,waitForBackup=delayForBackup}){
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
   if(req.method!=='POST')return reply({error:'POST 요청만 허용합니다.'},405);
   const auth=req.headers.get('Authorization')||'';
-  const shared=req.headers.has('X-AI-Password'),password=req.headers.get('X-AI-Password')||'',client=req.headers.get('X-AI-Client')||'';
-  if(!shared&&!/^Bearer \S+$/.test(auth))return reply({error:'AI 챗봇 비밀번호 또는 관리자 로그인이 필요합니다.'},401);
-  const token=auth.slice(7),config={enabled:true,supabaseUrl:env('SUPABASE_URL')||'https://maoylwwnluyyfmwqfkfl.supabase.co',supabaseAnonKey:env('SUPABASE_ANON_KEY')||'sb_publishable_RR5lrEd5ZidVI1fY1v9haw_Hd7pOH1V'};
+  if(!/^Bearer \S+$/.test(auth))return reply({error:'Google로 로그인한 승인 계정이 필요합니다.'},401);
+  const config={enabled:true,supabaseUrl:env('SUPABASE_URL')||'https://maoylwwnluyyfmwqfkfl.supabase.co',supabaseAnonKey:env('SUPABASE_ANON_KEY')||'sb_publishable_RR5lrEd5ZidVI1fY1v9haw_Hd7pOH1V'};
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),50000);
   try{
-   let publicId='',serviceKey='';
-   if(shared){
-    const expected=env('AI_LAB_PASSWORD');serviceKey=env('SUPABASE_SERVICE_ROLE_KEY');
-    if(!expected||!serviceKey)return reply({error:'서버의 AI 챗봇 비밀번호 설정이 아직 준비되지 않았습니다.'},503);
-    if(!password||password.length>128||!await sameSecret(password,expected))return reply({error:'AI 챗봇 비밀번호가 맞지 않습니다.'},401);
-    if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(client))return reply({error:'브라우저 식별 정보를 확인해 주세요.'},400);
-    const hash=Array.from(await digest('ai-lab-public:'+client.toLowerCase()),x=>x.toString(16).padStart(2,'0')).join('').slice(0,32);
-    publicId=hash.slice(0,8)+'-'+hash.slice(8,12)+'-'+hash.slice(12,16)+'-'+hash.slice(16,20)+'-'+hash.slice(20);
-   }else{try{await verifyAdmin(config,token,fetcher,controller.signal);}catch{return reply({error:'관리자 권한을 확인하지 못했습니다. 다시 로그인해 주세요.'},403);}}
+   // PostgREST validates the JWT; the RPC checks live Google identity and approval in Auth/DB.
+   // Existing password Secrets stay intact but can no longer bypass membership approval.
+   const access=await fetcher(config.supabaseUrl+'/rest/v1/rpc/ai_chat_membership',{method:'POST',headers:{apikey:config.supabaseAnonKey,Authorization:auth,'Content-Type':'application/json'},body:'{}',signal:controller.signal});
+   if(!access.ok)return reply({error:'Google 로그인과 회원 승인 상태를 확인해 주세요.'},access.status===401?401:403);
+   let membership;try{membership=await access.json();}catch{return reply({error:'회원 승인 상태를 확인하지 못했습니다.'},503);}
+   if(membership?.approved!==true||membership.status!=='approved')return reply({error:'관리자 승인 후 이용할 수 있습니다.',membershipStatus:['pending','rejected','revoked'].includes(membership?.status)?membership.status:'pending'},403);
    let raw='';if(req.body){const reader=req.body.getReader(),decoder=new TextDecoder();let bytes=0;while(true){const part=await reader.read();if(part.done)break;bytes+=part.value.byteLength;if(bytes>512000){await reader.cancel();return reply({error:'요청 크기가 너무 큽니다.'},413);}raw+=decoder.decode(part.value,{stream:true});}raw+=decoder.decode();}
    let body;try{body=JSON.parse(raw);}catch{return reply({error:'요청 형식을 확인해 주세요.'},400);}
    if(!body||typeof body!=='object'||Array.isArray(body))return reply({error:'요청 형식을 확인해 주세요.'},400);
    const rpc=async (reserve,provider=null)=>{
-    const r=await fetcher(config.supabaseUrl+'/rest/v1/rpc/'+'ai_lab_model_quota',{method:'POST',headers:{apikey:shared?serviceKey:config.supabaseAnonKey,Authorization:shared?'Bearer '+serviceKey:auth,'Content-Type':'application/json'},body:JSON.stringify({p_client:shared?publicId:null,p_provider:provider,p_reserve:reserve}),signal:controller.signal});
+    const r=await fetcher(config.supabaseUrl+'/rest/v1/rpc/'+'ai_lab_model_quota',{method:'POST',headers:{apikey:config.supabaseAnonKey,Authorization:auth,'Content-Type':'application/json'},body:JSON.stringify({p_client:null,p_provider:provider,p_reserve:reserve}),signal:controller.signal});
     if(!r.ok)throw new Error('서버 호출 제한 설정이 준비되지 않았습니다. 관리자에게 확인해 주세요.');
     const d=await r.json();if(!d||typeof d.allowed!=='boolean'||!Number.isInteger(d.used)||!Number.isInteger(d.remaining))throw new Error('서버 호출 제한 응답을 확인하지 못했습니다.');return d;
    };

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#ffffff">
-<title>말씀과 사연 · AI 대화</title><link rel="stylesheet" href="./ai-chat.css?v=1">
+<title>말씀과 사연 · AI 대화</title><link rel="stylesheet" href="./ai-chat.css?v=2">
 <script src="./analytics-config.js?v=2"></script><script src="./crypt.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 </head>
@@ -12,10 +12,10 @@
 <a class="gate-back" href="./">← 자료실로 돌아가기</a>
 <div class="gate-card"><div class="brand-mark" aria-hidden="true">✳</div><p class="eyebrow">말씀과 사연</p><h1>나의 AI 대화</h1>
 <p class="muted">말씀 한 편의 흐름을 함께 읽고,<br>궁금한 내용을 차근차근 나누세요.</p>
-<button id="googleLogin" class="google-button" type="button"><span aria-hidden="true" class="google-g">G</span>Google로 로그인</button>
+<button id="googleLogin" class="google-button" type="button"><span aria-hidden="true" class="google-g">G</span>Google로 가입·로그인</button>
 <div id="accountBox" class="hidden"><p id="signedAccount"></p><button id="switchAccount" class="text-button" type="button">다른 계정으로 로그인</button></div>
-<form id="loginForm" class="hidden"><label for="aiPassword">AI 챗봇 비밀번호</label><input id="aiPassword" type="password" autocomplete="off" maxlength="128" required placeholder="기존 챗봇 비밀번호"><button id="login" type="submit" class="primary">대화 시작하기 →</button></form>
-<p id="gateMessage" class="status" role="status" aria-live="polite">로그인하면 나의 대화를 다른 기기에서도 볼 수 있습니다.</p><p class="gate-fine">대화 기록은 로그인한 본인만 볼 수 있습니다.</p>
+<div id="membershipBox" class="hidden"><p id="membershipLabel" class="membership-label">승인 상태 확인 중</p><button id="membershipRefresh" type="button" class="secondary">승인 상태 다시 확인</button><button id="login" type="button" class="primary hidden">대화 시작하기 →</button></div>
+<p id="gateMessage" class="status" role="status" aria-live="polite">Google로 가입하면 관리자에게 승인 요청이 등록됩니다.</p><p class="gate-fine">승인 후 이용할 수 있으며, 대화 기록은 본인만 볼 수 있습니다.</p>
 </div></section>
 <div id="lab" class="app hidden">
 <div id="sidebarBackdrop" class="sidebar-backdrop hidden"></div>
@@ -31,6 +31,7 @@
 <header class="chat-header"><div class="header-start"><button id="openSidebar" class="icon-button mobile-only" type="button" aria-label="대화 목록 열기" aria-expanded="false" aria-controls="sidebar">☰</button><div class="model-picker"><label class="sr-only" for="model">답변 모델</label><select id="model"><option value="gemini-lite">Gemini 3.5 Flash-Lite</option><option value="gemini-flash">Gemini 3.8 Flash</option><option value="groq-oss">Groq · 짧은 질문용</option><option value="search">원문 검색만</option></select><span class="header-caption">등록 자료를 근거로 답합니다</span></div></div><button id="openSettings" class="settings-button secondary" type="button" aria-controls="settingsPanel" aria-expanded="false">자료·설정</button></header>
 <section id="settingsPanel" class="settings-panel hidden" aria-label="자료 및 대화 설정">
 <div class="panel-heading"><h2>자료·설정</h2><button id="closeSettings" class="icon-button" type="button" aria-label="설정 닫기">×</button></div>
+<button id="manageMembers" type="button" class="secondary hidden">회원 승인 관리</button>
 <label for="scope">검색할 자료</label><select id="scope"><option value="all">등록 자료 전체</option><option value="malsseum">말씀</option><option value="sayeon2026">2026 성령사연</option><option value="sayeon2025">2025 성령사연</option><option value="stones">월명동사연</option></select>
 <div id="unlockBox" class="hidden"><p class="fine">기존 원고 암호로 등록 자료를 열어 주세요.</p><label for="contentPassword">원고 암호</label><div class="row"><input id="contentPassword" type="password" autocomplete="off"><button id="unlock" type="button">원고 열기</button></div></div>
 <p id="corpusStatus" class="status fine" role="status">등록 자료를 확인합니다.</p><button id="loadCorpus" class="secondary" type="button">자료 다시 확인</button>
@@ -46,6 +47,7 @@
 <div class="hidden" aria-hidden="true"><div id="answer"></div><div id="evidence"></div></div>
 </main></div>
 <dialog id="threadDialog"><form id="threadDialogForm"><h2 id="dialogTitle">대화 제목 변경</h2><p id="dialogDescription"></p><label id="renameLabel" for="renameInput">대화 제목</label><input id="renameInput" maxlength="100"><p id="dialogError" class="status error" role="status"></p><div class="dialog-actions"><button id="dialogDelete" type="button" class="danger hidden">대화 삭제</button><button id="dialogCancel" type="button" class="secondary">취소</button><button id="dialogConfirm" type="submit">저장</button></div></form></dialog>
-<script type="module" src="./ai-lab.mjs?v=12"></script>
+<dialog id="membersDialog" class="members-dialog" aria-labelledby="membersTitle"><div class="panel-heading"><h2 id="membersTitle">회원 승인 관리</h2><button id="closeMembers" type="button" class="icon-button" aria-label="회원 관리 닫기">×</button></div><p>Google로 가입한 사람을 확인하고 이용을 승인하세요. 개인 대화 내용은 표시하지 않습니다.</p><div class="row"><label for="memberFilter" class="sr-only">회원 상태</label><select id="memberFilter"><option value="pending">승인 대기</option><option value="approved">승인됨</option><option value="rejected">가입 거절</option><option value="revoked">승인 취소</option><option value="all">전체</option></select><button id="refreshMembers" type="button" class="secondary">새로고침</button></div><p id="membersStatus" class="status" role="status" aria-live="polite"></p><div id="memberList" class="member-list"></div><div class="dialog-actions"><button id="previousMembers" type="button" class="secondary">이전</button><button id="nextMembers" type="button" class="secondary">다음</button></div></dialog>
+<script type="module" src="./ai-lab.mjs?v=13"></script>
 </body></html>
 
