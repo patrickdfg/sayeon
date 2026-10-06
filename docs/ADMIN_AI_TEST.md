@@ -183,7 +183,13 @@
 - 최종 통합의 모든 인용은 AI 검토 메모가 아니라 실제 원고와 다시 대조한다. 문단 인용과 길이 검사는 의미상 모든 핵심이 담겼다는 보증은 아니므로 실제 원고별 품질 확인은 계속 필요하다.
 - 복사 옆에 DOCX 저장/HWPX 저장 추가. 현재 표시된 종합 정리의 제목·소제목·항목명·설명만 편집 가능한 본문으로 저장하고 출처 링크·인용은 제외한다. 저장은 브라우저에서 만들며 AI 호출/답변 업로드 없음. HWPX는 공개 빈 서식만 내려받는다.
 - HWPX 빈 서식: python-hwpx6.7.0의 Apache2.0 Skeleton.hwpx 기반, 라이선스/NOTICE 포함. 본문·작성자 정보·미리보기 그림은 제거하고 A4/맑은고딕 이름/한국어 제목 스타일을 추가했다. 사용자 원고와 임베디드 글꼴은 공개 서식에 없다.
-- DOCX는 python-docx로 재개봉 및 211문단 텍스트 순서를 검사했다. HWPX는 ZIP/XML/mimetype 및 DOCX와 동일한 211문단 검사를 통과했다(STRUCTURAL_ONLY). 실제 한컴 한글 재개봉/렌더링과 휴대폰 다운로드 동작은 아직 미검증이다.
+- DOCX는 python-docx로 재개봉 및 239문단 텍스트 순서를 검사했다. HWPX는 ZIP/XML/mimetype 및 DOCX와 동일한 239문단 검사를 통과했다(STRUCTURAL_ONLY). 실제 한컴 한글 재개봉/렌더링과 휴대폰 다운로드 동작은 아직 미검증이다.
 - 실서버에 같은 짧은 10월4일 원문 일부를 요청: Gemini3.8 Flash는 Google503→함수502, Gemini3.5 Flash-Lite는 답변 JSON 파싱 실패→함수502. 키 오류/모델404가 아니며 정상 생성 성공으로 기록하지 않는다. 자동 재시도나 결제 연결을 하지 않았다.
 - 새 서버 코드에서 Gemini도 공식 responseJsonSchema로 필수 필드 형식을 지정하고, 502/503을 모델명과 일시 서비스 오류로 안내한다. 원문 인용 검사는 계속 별도로 유지한다. Google 공식 참고: https://ai.google.dev/api/generate-content 및 https://ai.google.dev/gemini-api/docs/structured-output.
-- 프런트 저장 버튼은 GitHub Pages 배포 대상이다. 유동적 서버 지침·5개 제한 제거·Gemini JSON Schema/오류 안내는 clever-action에 최신 index.ts를 별도로 적용해야 한다. SQL/Secrets/JWT 설정은 변경하지 않는다. 조작 브라우저는 현재 Supabase 로그인 화면이므로 서버 적용 완료로 기록하지 않는다.
+- 프런트 저장 버튼의 GitHub Pages 배포가 성공했다. Supabase 보안 로그인 완료 후 clever-action의 기존 실행 파일에 유동적 서버 지침·5개 제한 제거·Gemini JSON Schema/502·503 오류 안내의 9개 변경을 직접 적용했다. 편집기 전체 내용 일치와 Deploy updates 후 최신 배포 시각/수정표시 해제를 확인했다. 저장소의 번들에는 서버에서 사용하지 않는 최신 브라우저 검색/전체 정리 도우미도 포함되어 있다. SQL/Secrets/JWT 설정은 변경하지 않았다.
+
+- 배포 후 실제 확인: 3.8 Flash는 업체429 제한 응답, 연속 3.5 Lite 확인은 앱의10초 간격 차단. Gemini 성공을 기록하지 않으며 자동 재호출하지 않는다. 연속 처리 대기는 네트워크/DB 지연 여유를 포함해12초로 조정했다.
+
+- 새 서버의 Groq 실호출 성공: 실제 원문 일부3개를 입력, 주제3개/항목3개 반환, 모든 입력 문단의 실제 인용 검사 통과. 전체10월4일 암호화 원고나2시간 원고 품질을 확인한 테스트는 아니다.
+
+- Gemini3.5 Flash-Lite도 새 JSON Schema 적용 후 실제 원문 일부로 생성 성공: 주제1개/항목2개와 실제 인용 검사 통과. 3.8의 Google429 제한을 없애거나 유료로 전환한 것은 아니다.

@@ -122,7 +122,7 @@ $('groqReconnect').onclick=()=>operation(async()=>{
  }catch(e){text($('groqStatus'),e.name==='AbortError'?'Groq 연결 확인을 중단했습니다.':e.message);throw e;}
 });
 $('preview').onclick=()=>operation(async()=>{const {found,mode,title}=evidenceForQuestion();showEvidence(found);text($('answer'),'원문 검색 결과입니다. AI 답변을 생성하지 않았습니다.');status(mode==='whole'?title+' · 원고 전체 선택 · API 사용 없음':found.length+'개 관련 문단 · API 사용 없음');});
-function pauseBetweenCalls(started,signal){return new Promise((resolve,reject)=>{const abort=()=>{clearTimeout(timer);reject(new DOMException('Aborted','AbortError'));};const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},Math.max(0,10500-(Date.now()-started)));signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();});}
+function pauseBetweenCalls(started,signal){return new Promise((resolve,reject)=>{const abort=()=>{clearTimeout(timer);reject(new DOMException('Aborted','AbortError'));};const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},Math.max(0,12000-(Date.now()-started)));signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();});}
 $('ask').onclick=()=>operation(async()=>{
  const {q,found,mode,title,paragraphs,intent}=evidenceForQuestion();showEvidence(found);text($('answer'),'');if(!found.length){text($('answer'),'등록된 자료에서 답을 찾지 못했습니다.');status('근거 부족 · AI를 호출하지 않았습니다.');return;}
  const modelId=$('model').value;if(modelId==='search'){text($('answer'),'아래 검색 결과에서 원문과 출처를 확인해 주세요.');status('원문 검색만 실행 · API 사용 없음');return;}
