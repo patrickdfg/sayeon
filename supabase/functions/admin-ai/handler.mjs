@@ -1,4 +1,4 @@
-import {MODELS,generate,verifyAdmin,clean} from '../../../admin/ai-core.mjs';
+import {MODELS,generate,verifyAdmin,clean,MAX_WHOLE_CHARS} from '../../../admin/ai-core.mjs';
 const ORIGIN='https://patrickdfg.github.io';
 async function digest(value){return new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)));}
 async function sameSecret(a,b){const x=await digest(a),y=await digest(b);let diff=0;for(let i=0;i<x.length;i++)diff|=x[i]^y[i];return diff===0;}
@@ -25,7 +25,7 @@ export function createHandler({env,fetcher=fetch}){
     const hash=Array.from(await digest('ai-lab-public:'+client.toLowerCase()),x=>x.toString(16).padStart(2,'0')).join('').slice(0,32);
     publicId=hash.slice(0,8)+'-'+hash.slice(8,12)+'-'+hash.slice(12,16)+'-'+hash.slice(16,20)+'-'+hash.slice(20);
    }else{try{await verifyAdmin(config,token,fetcher,controller.signal);}catch{return reply({error:'관리자 권한을 확인하지 못했습니다. 다시 로그인해 주세요.'},403);}}
-   let raw='';if(req.body){const reader=req.body.getReader(),decoder=new TextDecoder();let bytes=0;while(true){const part=await reader.read();if(part.done)break;bytes+=part.value.byteLength;if(bytes>40000){await reader.cancel();return reply({error:'요청 크기가 너무 큽니다.'},413);}raw+=decoder.decode(part.value,{stream:true});}raw+=decoder.decode();}
+   let raw='';if(req.body){const reader=req.body.getReader(),decoder=new TextDecoder();let bytes=0;while(true){const part=await reader.read();if(part.done)break;bytes+=part.value.byteLength;if(bytes>512000){await reader.cancel();return reply({error:'요청 크기가 너무 큽니다.'},413);}raw+=decoder.decode(part.value,{stream:true});}raw+=decoder.decode();}
    let body;try{body=JSON.parse(raw);}catch{return reply({error:'요청 형식을 확인해 주세요.'},400);}
    if(!body||typeof body!=='object'||Array.isArray(body))return reply({error:'요청 형식을 확인해 주세요.'},400);
    const rpc=async (reserve,provider=null)=>{
@@ -46,19 +46,21 @@ export function createHandler({env,fetcher=fetch}){
     const data=await r.json(),active=Array.isArray(data.data)&&data.data.some(m=>m.id===MODELS['groq-oss'].model);
     return reply({connected:active,reason:active?'ready':'model_unavailable',message:active?'Groq 연결 확인 완료 · GPT OSS 20B 사용 가능':'Groq에는 연결됐지만 GPT OSS 20B 모델을 사용할 수 없습니다.'});
    }
-   if(body.action!=='generate'||Object.keys(body).some(k=>!['action','modelId','question','evidence','freeOnly'].includes(k)))return reply({error:'허용되지 않은 요청입니다.'},400);
+   if(body.action!=='generate'||Object.keys(body).some(k=>!['action','modelId','question','evidence','freeOnly','whole'].includes(k))||body.whole!==undefined&&body.whole!==true)return reply({error:'허용되지 않은 요청입니다.'},400);
+   const whole=body.whole===true;
    if(body.freeOnly!==true)return reply({error:'결제가 연결되지 않은 무료 키인지 확인해 주세요.'},400);
    const model=typeof body.modelId==='string'&&Object.hasOwn(MODELS,body.modelId)?MODELS[body.modelId]:null;
    if(!model)return reply({error:'허용되지 않은 모델입니다.'},400);
    if(typeof body.question!=='string'||body.question.trim().length<2||body.question.length>600)return reply({error:'질문은 2~600글자로 입력해 주세요.'},400);
    if(!Array.isArray(body.evidence)||!body.evidence.length||body.evidence.length>6)return reply({error:'기존 원고에서 찾은 근거 문단이 필요합니다.'},400);
+   if(whole&&body.evidence.length!==1)return reply({error:'전체 요약·정리는 한 편의 원고 전체를 하나로 보내 주세요.'},400);
    const ids=new Set();let total=0;const evidence=[];
    for(const d of body.evidence){
-    if(!d||typeof d.id!=='string'||! /^(sayeon2026|sayeon2025|malsseum|stones):[^:]{1,80}:\d+$/.test(d.id)||ids.has(d.id)||typeof d.title!=='string'||d.title.length>300||typeof d.text!=='string'||!d.text.trim()||d.text.length>1800)return reply({error:'근거 문단 형식을 확인해 주세요.'},400);
+    if(!d||typeof d.id!=='string'||! /^(sayeon2026|sayeon2025|malsseum|stones):[^:]{1,80}:\d+$/.test(d.id)||ids.has(d.id)||typeof d.title!=='string'||d.title.length>300||typeof d.text!=='string'||!d.text.trim()||d.text.length>(whole?MAX_WHOLE_CHARS:1800))return reply({error:whole?'원고 전체는 한 편, 최대 80,000글자까지 한 번에 처리합니다. 원문은 자르거나 나누지 않았습니다.':'근거 문단 형식을 확인해 주세요.'},400);
     if(d.quotes!==undefined&&(!Array.isArray(d.quotes)||!d.quotes.length||d.quotes.length>6||d.quotes.some(q=>typeof q!=='string'||clean(q).length<8||q.length>120||!clean(d.text).includes(clean(q)))))return reply({error:'검토 메모의 원문 인용 형식을 확인해 주세요.'},400);
-    ids.add(d.id);total+=d.text.length;evidence.push({id:d.id,title:d.title,text:d.text,...(d.quotes===undefined?{}:{quotes:d.quotes.map(clean)})});
+    ids.add(d.id);total+=d.text.length;evidence.push({id:d.id,title:d.title,text:d.text,...(whole?{whole:true}:{}),...(d.quotes===undefined?{}:{quotes:d.quotes.map(clean)})});
    }
-   if(total>8000)return reply({error:'근거 원문은 총 8,000글자 이하로 제한합니다.'},400);
+   if(total>(whole?MAX_WHOLE_CHARS:8000))return reply({error:'근거 원문의 길이 제한을 초과했습니다.'},400);
    const key=env(model.provider==='gemini'?'GEMINI_API_KEY':'GROQ_API_KEY');if(!key)return reply({error:'선택한 모델의 서버 키가 등록되지 않았습니다.'},503);
    const quota=await rpc(true,model.provider);if(!quota.allowed)return reply({error:quota.reason==='rate'?'요청 간격은 10초 이상입니다. 잠시 후 다시 질문해 주세요.':'AI 챗봇의 하루 호출 한도에 도달했습니다.',quota},429);
    const result=await generate(body.modelId,key,clean(body.question),evidence,fetcher,controller.signal);

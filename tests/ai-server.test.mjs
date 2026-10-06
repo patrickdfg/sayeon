@@ -6,6 +6,24 @@ const evidence=[{id:'malsseum:7:0',title:'인내',text:'끝까지 인내하며 �
 const answer={supported:true,claims:[{text:'인내하며 믿음을 지키라고 설명합니다.',kind:'source',sources:[{id:evidence[0].id,quote:evidence[0].text}]}]};
 answer.overview=[{title:'인내의 의미',points:[{label:'믿음과 실천',text:'자료는 인내하며 믿음을 지키라고 설명합니다. 이 태도를 일상의 실천과 연결해 정리합니다.',kind:'inference',sources:answer.claims[0].sources}]}];
 const payload={action:'generate',modelId:'gemini-lite',question:'인내를 알려줘',evidence,freeOnly:true};
+test('긴 한글 원고 전체를 하나의 근거로 한 번만 전송하고 처음·중간·끝 보존',async()=>{
+ const full={...evidence[0],whole:true,text:'처음의 핵심 내용입니다.\n\n'+evidence[0].text+'\n'+('중간의 전개와 사례를 설명합니다.\n').repeat(1600)+'\n끝의 결론을 정리합니다.'};
+ const s=setup();
+ const result=await generateViaServer(config,'user-token','gemini-lite','전체 원고 요약', [full],true,async(url,o)=>s.handler(new Request(url,{method:o.method,headers:o.headers,body:o.body})),undefined,true);
+ const upstream=s.calls.filter(c=>c.url.includes('googleapis'));assert.equal(upstream.length,1);
+ const input=JSON.parse(JSON.parse(upstream[0].o.body).contents[0].parts[0].text);
+ assert.equal(input.evidence.length,1);assert.equal(input.evidence[0].text,full.text);
+ assert(input.evidence[0].quoteChoices.some(c=>c.quote==='처음의 핵심 내용입니다.'));
+ assert(input.evidence[0].quoteChoices.some(c=>c.quote==='끝의 결론을 정리합니다.'));
+ assert.equal(result.answer.claims[0].sources[0].doc,full);
+});
+test('전체 요청의 여러 원고·초과 길이·잘못된 플래그는 예약과 AI 호출 전 거부',async()=>{
+ for(const body of [{...payload,whole:true,evidence:[...evidence,...evidence]}, {...payload,whole:true,evidence:[{...evidence[0],text:'가'.repeat(80001)}]}, {...payload,whole:'true'}]){
+  const s=setup();assert.equal((await s.handler(req(body))).status,400);
+  assert(!s.calls.some(c=>c.url.endsWith('/ai_lab_model_quota')||c.url.includes('googleapis')));
+ }
+ let calls=0;await assert.rejects(generateViaServer(config,'user-token','gemini-lite','전체',[{...evidence[0],text:'가'.repeat(80001)}],true,async()=>{calls++;},undefined,true),/자르거나 나누지/);assert.equal(calls,0);
+});
 function setup({admin=true,quota=true,key=true,upstream=200}={}){const calls=[];const env=name=>name==='GEMINI_API_KEY'&&key?secret:null;const fetcher=async(url,o)=>{calls.push({url,o});if(url.endsWith('/get_analytics_dashboard'))return new Response(JSON.stringify(admin?{totalVisitors:0}:{}),{status:admin?200:403});if(url.endsWith('/ai_lab_model_quota'))return new Response(JSON.stringify({allowed:quota,used:1,remaining:29,reason:quota?'':'daily'}));if(url.includes('generativelanguage.googleapis.com'))return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(answer)}]}}]}),{status:upstream});throw new Error('Unexpected request');};return {handler:createHandler({env,fetcher}),calls};}
 function req(body=payload,{auth=true,origin='https://patrickdfg.github.io'}={}){return new Request('https://example/functions/v1/admin-ai',{method:'POST',headers:{Origin:origin,...(auth?{Authorization:'Bearer user-token'}:{}),'Content-Type':'application/json'},body:JSON.stringify(body)});}
 test('미로그인·다른 출처·비관리자 요청이 AI 호출 전에 차단됨',async()=>{for(const [options,settings,code] of [[{auth:false},{},401],[{origin:'https://evil.example'},{},403],[{},{admin:false},403]]){const s=setup(settings);assert.equal((await s.handler(req(payload,options))).status,code);assert(!s.calls.some(x=>x.url.includes('googleapis')));}});

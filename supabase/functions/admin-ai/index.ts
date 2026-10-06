@@ -11,6 +11,7 @@ export const SOURCES = Object.freeze([
   {key:'malsseum',label:'말씀',url:'/malsseum/malsseum.json',base:'/sayeon/malsseum/'}
 ]);
 export function clean(s){return String(s??'').normalize('NFKC').replace(/\s+/g,' ').trim();}
+export const MAX_WHOLE_CHARS=80000;
 function paragraph(p){if(!p||p.hr)return '';if(typeof p==='string')return p;if(p.h)return String(p.h);return (Array.isArray(p)?p:Array.isArray(p.p)?p.p:[]).join('\n');}
 export function toChunks(items,source){
  if(!Array.isArray(items))throw new Error(source.label+' 자료 형식을 확인해 주세요.');
@@ -28,7 +29,7 @@ export function sourceCaption(doc){
   caption=(year?year+'년 ':'')+'성령사연 '+doc.no+'번';
   if(!/^(?:성령\s*사연\s*)?\d+\s*(?:번|편)?$/.test(doc.title.trim()))caption+=' · '+doc.title;
  }else caption=doc.label+' · '+doc.title;
- return caption+' · '+(doc.pi+1)+(doc.endPi>doc.pi?'~'+(doc.endPi+1):'')+'번째 문단';
+ return caption+(doc.whole?' · 원고 전체':' · '+(doc.pi+1)+(doc.endPi>doc.pi?'~'+(doc.endPi+1):'')+'번째 문단');
 }
 const STOP=new Set(['무엇','무엇인가요','뭐야','어떻게','왜','대한','대해','설명','설명해줘','알려줘','해주세요','해줘','있나요','인가요','말씀','사연','내용','뜻','의미','이','그','것','좀']);
 export function resolveQuestion(chunks,question,scope='all'){
@@ -43,17 +44,10 @@ export function resolveQuestion(chunks,question,scope='all'){
  }
  if(!matches.size)throw new Error('지정한 날짜의 말씀을 찾지 못했습니다. 말씀 자료가 열려 있는지, 날짜·연도와 검색 범위를 확인해 주세요.');
  if(matches.size>1)throw new Error('같은 날짜의 말씀이 여러 편입니다. 연도나 주일·수요 구분을 추가해 주세요.');
- const original=[...matches.values()][0].sort((a,b)=>a.pi-b.pi),found=[];
- // Keep every character, including long paragraphs. Virtual IDs are unique;
- // displayed paragraph positions and links still point to the original manuscript.
- for(const c of original){
-  for(let offset=0;offset<c.text.length;offset+=1800){
-   const text=c.text.slice(offset,offset+1800),previous=found.at(-1);
-   if(offset===0&&previous&&previous.text.length+2+text.length<=1800){previous.text+='\n\n'+text;previous.endPi=c.pi;}
-   else found.push({...c,id:c.scope+':'+c.no+':'+(1000000+found.length),text,endPi:c.pi});
-  }
- }
- return {mode:'whole',intent:/요약/.test(q)?'summary':'organize',found,title:sourceCaption(original[0]).replace(/ · \d+번째 문단$/,''),paragraphs:original.length};
+ const original=[...matches.values()][0].sort((a,b)=>a.pi-b.pi);
+ const document={...original[0],whole:true,text:original.map(c=>c.text).join('\n\n')};
+ // One manuscript, one evidence record and one model request. Never truncate it.
+ return {mode:'whole',intent:/요약/.test(q)?'summary':'organize',found:[document],title:sourceCaption(original[0]).replace(/ · \d+번째 문단$/,''),paragraphs:original.length};
 }
 export function evidenceBatches(found,maxChars=8000){
  if(!Number.isInteger(maxChars)||maxChars<1800||maxChars>8000)throw new Error('잘못된 원고 처리 크기입니다.');
@@ -66,7 +60,7 @@ export function wholeRequest(title,intent,index,total){
  const detail=intent==='organize'
   ?'원고 순서대로 모든 주제·설명·비유·사례·사건의 과정·교훈·실천·결론을 자세히 정리하세요. 단순 핵심 두 가지로 줄이지 마세요. 사례는 누가 무엇을 했고 무엇을 설명하는지 보존하세요.'
   :'원고 전체의 중요한 주장·논리 흐름·전환·대표 사례의 의미·실천·결론을 빠짐없이 압축하세요. 첫 두 주제만 선택하지 말고 뒤의 핵심도 균형 있게 포함하세요. 반복 표현과 부차적인 사례는 줄이되 서로 다른 핵심 주제는 합쳐 없애지 마세요.';
- return clean(title).slice(0,100)+' '+task+'. 원고 '+(index+1)+'/'+total+' 부분입니다. '+detail+' 주제 수·항목 수·설명 분량은 실제 원고의 길이와 서로 다른 핵심의 수에 맞춰 자유롭게 정하세요. 정해진 개수나 글자 수에 맞추려고 핵심을 생략하거나 내용을 늘리지 마세요. 짧은 자료는 간결히, 긴 자료는 논리와 핵심을 보존할 만큼 충분히 설명하세요. 각 evidence를 모두 검토하고 각 문단 묶음의 핵심을 overview에 포함하세요. 대표 근거를 인용하되 모든 문단을 각각 인용할 필요는 없습니다. claims만 길게 쓰지 말고 overview 자체를 충실히 작성하세요. 원문 밖 지식은 금지합니다.';
+ return clean(title).slice(0,100)+' '+task+'. 입력은 한 편의 원고 전체입니다. '+detail+' 처음부터 끝까지 하나의 글로 읽고 앞뒤의 연결과 전체 흐름을 반영한 한 편의 결과를 작성하세요. 문단별 독립 요약이나 부분별 결과를 나열하지 마세요. 주제 수·항목 수·설명 분량은 실제 원고의 길이와 서로 다른 핵심의 수에 맞춰 자유롭게 정하세요. 정해진 개수나 글자 수에 맞추려고 핵심을 생략하거나 내용을 늘리지 마세요. 짧은 자료는 간결히, 긴 자료는 논리와 핵심을 보존할 만큼 충분히 설명하세요. 대표 근거를 인용하되 모든 문단을 각각 인용할 필요는 없습니다. overview 자체를 충실히 작성하세요. 원문 밖 지식은 금지합니다.';
 }
 export function checkWholeCoverage(answer,evidence,intent){
  // Citation count and character count do not establish semantic coverage.
@@ -100,6 +94,11 @@ kind에는 source 또는 inference 중 하나만 넣는다. points의 모든 항
 export function citationQuotes(doc){
  const text=clean(doc.text);
  if(doc.quotes!==undefined)return [...new Set(doc.quotes.filter(q=>typeof q==='string'&&clean(q).length>=8&&text.includes(clean(q))).map(clean))];
+ if(doc.whole){
+  const candidates=String(doc.text).split(/\n+|(?<=[.!?。])\s+/).map(clean).filter(s=>s.length>=8).map(s=>Array.from(s).slice(0,96).join(''));
+  const count=Math.min(128,candidates.length);
+  if(count)return [...new Set(Array.from({length:count},(_,i)=>candidates[Math.round(i*(candidates.length-1)/Math.max(1,count-1))]))];
+ }
  const chars=Array.from(text);if(chars.length<8)return [];
  const width=Math.min(96,chars.length);
  return [...new Set([0,1/3,2/3,1].map(t=>chars.slice(Math.floor((chars.length-width)*t),Math.floor((chars.length-width)*t)+width).join('')))];
@@ -197,9 +196,10 @@ export async function requestServer(config,token,body,fetcher=fetch,signal){
  if(!r.ok)throw new Error(typeof d.error==='string'?d.error:r.status===404?'AI 서버 함수가 아직 배포되지 않았습니다.':'AI 서버 연결을 확인해 주세요.');
  return d;
 }
-export async function generateViaServer(config,token,modelId,question,evidence,freeOnly,fetcher=fetch,signal){
+export async function generateViaServer(config,token,modelId,question,evidence,freeOnly,fetcher=fetch,signal,whole=false){
  if(!Object.hasOwn(MODELS,modelId))throw new Error('허용되지 않은 모델입니다.');
- const d=await requestServer(config,token,{action:'generate',modelId,question,evidence:evidence.map(({id,title,text,quotes})=>({id,title,text,...(quotes===undefined?{}:{quotes})})),freeOnly},fetcher,signal);
+ if(whole&&(evidence.length!==1||evidence[0].text.length>MAX_WHOLE_CHARS))throw new Error('원고 전체는 한 편, 최대 '+MAX_WHOLE_CHARS.toLocaleString('ko-KR')+'글자까지 한 번에 처리합니다. 원문은 자르거나 나누지 않았습니다.');
+ const d=await requestServer(config,token,{action:'generate',modelId,question,evidence:evidence.map(({id,title,text,quotes})=>({id,title,text,...(quotes===undefined?{}:{quotes})})),freeOnly,...(whole?{whole:true}:{})},fetcher,signal);
  return {answer:validateAnswer(JSON.stringify(d.answer),evidence),model:MODELS[modelId].label,usage:d.usage,quota:d.quota};
 }
 
@@ -229,7 +229,7 @@ export function createHandler({env,fetcher=fetch}){
     const hash=Array.from(await digest('ai-lab-public:'+client.toLowerCase()),x=>x.toString(16).padStart(2,'0')).join('').slice(0,32);
     publicId=hash.slice(0,8)+'-'+hash.slice(8,12)+'-'+hash.slice(12,16)+'-'+hash.slice(16,20)+'-'+hash.slice(20);
    }else{try{await verifyAdmin(config,token,fetcher,controller.signal);}catch{return reply({error:'관리자 권한을 확인하지 못했습니다. 다시 로그인해 주세요.'},403);}}
-   let raw='';if(req.body){const reader=req.body.getReader(),decoder=new TextDecoder();let bytes=0;while(true){const part=await reader.read();if(part.done)break;bytes+=part.value.byteLength;if(bytes>40000){await reader.cancel();return reply({error:'요청 크기가 너무 큽니다.'},413);}raw+=decoder.decode(part.value,{stream:true});}raw+=decoder.decode();}
+   let raw='';if(req.body){const reader=req.body.getReader(),decoder=new TextDecoder();let bytes=0;while(true){const part=await reader.read();if(part.done)break;bytes+=part.value.byteLength;if(bytes>512000){await reader.cancel();return reply({error:'요청 크기가 너무 큽니다.'},413);}raw+=decoder.decode(part.value,{stream:true});}raw+=decoder.decode();}
    let body;try{body=JSON.parse(raw);}catch{return reply({error:'요청 형식을 확인해 주세요.'},400);}
    if(!body||typeof body!=='object'||Array.isArray(body))return reply({error:'요청 형식을 확인해 주세요.'},400);
    const rpc=async (reserve,provider=null)=>{
@@ -250,19 +250,21 @@ export function createHandler({env,fetcher=fetch}){
     const data=await r.json(),active=Array.isArray(data.data)&&data.data.some(m=>m.id===MODELS['groq-oss'].model);
     return reply({connected:active,reason:active?'ready':'model_unavailable',message:active?'Groq 연결 확인 완료 · GPT OSS 20B 사용 가능':'Groq에는 연결됐지만 GPT OSS 20B 모델을 사용할 수 없습니다.'});
    }
-   if(body.action!=='generate'||Object.keys(body).some(k=>!['action','modelId','question','evidence','freeOnly'].includes(k)))return reply({error:'허용되지 않은 요청입니다.'},400);
+   if(body.action!=='generate'||Object.keys(body).some(k=>!['action','modelId','question','evidence','freeOnly','whole'].includes(k))||body.whole!==undefined&&body.whole!==true)return reply({error:'허용되지 않은 요청입니다.'},400);
+   const whole=body.whole===true;
    if(body.freeOnly!==true)return reply({error:'결제가 연결되지 않은 무료 키인지 확인해 주세요.'},400);
    const model=typeof body.modelId==='string'&&Object.hasOwn(MODELS,body.modelId)?MODELS[body.modelId]:null;
    if(!model)return reply({error:'허용되지 않은 모델입니다.'},400);
    if(typeof body.question!=='string'||body.question.trim().length<2||body.question.length>600)return reply({error:'질문은 2~600글자로 입력해 주세요.'},400);
    if(!Array.isArray(body.evidence)||!body.evidence.length||body.evidence.length>6)return reply({error:'기존 원고에서 찾은 근거 문단이 필요합니다.'},400);
+   if(whole&&body.evidence.length!==1)return reply({error:'전체 요약·정리는 한 편의 원고 전체를 하나로 보내 주세요.'},400);
    const ids=new Set();let total=0;const evidence=[];
    for(const d of body.evidence){
-    if(!d||typeof d.id!=='string'||! /^(sayeon2026|sayeon2025|malsseum|stones):[^:]{1,80}:\d+$/.test(d.id)||ids.has(d.id)||typeof d.title!=='string'||d.title.length>300||typeof d.text!=='string'||!d.text.trim()||d.text.length>1800)return reply({error:'근거 문단 형식을 확인해 주세요.'},400);
+    if(!d||typeof d.id!=='string'||! /^(sayeon2026|sayeon2025|malsseum|stones):[^:]{1,80}:\d+$/.test(d.id)||ids.has(d.id)||typeof d.title!=='string'||d.title.length>300||typeof d.text!=='string'||!d.text.trim()||d.text.length>(whole?MAX_WHOLE_CHARS:1800))return reply({error:whole?'원고 전체는 한 편, 최대 80,000글자까지 한 번에 처리합니다. 원문은 자르거나 나누지 않았습니다.':'근거 문단 형식을 확인해 주세요.'},400);
     if(d.quotes!==undefined&&(!Array.isArray(d.quotes)||!d.quotes.length||d.quotes.length>6||d.quotes.some(q=>typeof q!=='string'||clean(q).length<8||q.length>120||!clean(d.text).includes(clean(q)))))return reply({error:'검토 메모의 원문 인용 형식을 확인해 주세요.'},400);
-    ids.add(d.id);total+=d.text.length;evidence.push({id:d.id,title:d.title,text:d.text,...(d.quotes===undefined?{}:{quotes:d.quotes.map(clean)})});
+    ids.add(d.id);total+=d.text.length;evidence.push({id:d.id,title:d.title,text:d.text,...(whole?{whole:true}:{}),...(d.quotes===undefined?{}:{quotes:d.quotes.map(clean)})});
    }
-   if(total>8000)return reply({error:'근거 원문은 총 8,000글자 이하로 제한합니다.'},400);
+   if(total>(whole?MAX_WHOLE_CHARS:8000))return reply({error:'근거 원문의 길이 제한을 초과했습니다.'},400);
    const key=env(model.provider==='gemini'?'GEMINI_API_KEY':'GROQ_API_KEY');if(!key)return reply({error:'선택한 모델의 서버 키가 등록되지 않았습니다.'},503);
    const quota=await rpc(true,model.provider);if(!quota.allowed)return reply({error:quota.reason==='rate'?'요청 간격은 10초 이상입니다. 잠시 후 다시 질문해 주세요.':'AI 챗봇의 하루 호출 한도에 도달했습니다.',quota},429);
    const result=await generate(body.modelId,key,clean(body.question),evidence,fetcher,controller.signal);

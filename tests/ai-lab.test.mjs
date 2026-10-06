@@ -95,9 +95,9 @@ test('날짜 요약은 제목으로 한 편을 골라 검색어 없는 마지막
  const {resolveQuestion,evidenceBatches}=await import('../admin/ai-core.mjs');
  const data=toChunks([{no:73,title:'10월 4일 주일말씀',paragraphs:[['첫 주제입니다. '.repeat(500)],['중간 내용입니다. '.repeat(500)],['끝의 결론입니다.']]},{no:72,title:'10월 1일 수요말씀',paragraphs:[['10월 4일이라는 검색어가 본문에 나옵니다.']]}],SOURCES[3]);
  const result=resolveQuestion(data,'10월 4일 주일말씀 요약해줘');assert.equal(result.mode,'whole');assert(result.found.every(c=>c.no===73));assert(result.found.at(-1).text.includes('끝의 결론'));
- assert.equal(result.found.map(c=>c.text.replace(/\n\n/g,'')).join(''),data.filter(c=>c.no===73).map(c=>c.text).join(''));
- assert.equal(new Set(result.found.map(c=>c.id)).size,result.found.length);
- const batches=evidenceBatches(result.found);assert(batches.length>1);for(const b of batches){assert(b.length<=6);assert(b.reduce((n,c)=>n+c.text.length,0)<=8000);assert(b.every(c=>c.text.length<=1800));}
+ assert.equal(result.found.length,1);assert.equal(result.found[0].whole,true);
+ assert.equal(result.found[0].text,data.filter(c=>c.no===73).map(c=>c.text).join('\n\n'));
+ assert.equal(sourceCaption(result.found[0]),'말씀 · 2026년 10월 4일 주일말씀 · 원고 전체');
  assert.throws(()=>resolveQuestion(data,'10월 5일 주일말씀 요약해줘'),/찾지 못/);
  assert.throws(()=>resolveQuestion(data,'10월 4일 주일말씀 요약해줘','stones'),/찾지 못/);
  assert.equal(resolveQuestion(data,'인내에 대해 알려줘').mode,'search');
@@ -115,7 +115,7 @@ test('전체 상세 정리와 핵심 요약은 다른 지침과 원고 처리 �
  const data=toChunks([{no:73,title:'10월 4일 주일말씀',paragraphs:Array.from({length:8},(_,i)=>['주제 '+i+' 설명입니다. '.repeat(180)])}],SOURCES[3]);
  const a=resolveQuestion(data,'10월 4일 말씀 정리해줘'),b=resolveQuestion(data,'10월 4일 말씀 요약해줘');
  assert.equal(a.intent,'organize');assert.equal(b.intent,'summary');assert.deepEqual(a.found,b.found);
- assert(evidenceBatches(a.found,4000).length>=evidenceBatches(b.found,6000).length);
+ assert.equal(a.found.length,1);assert.equal(b.found.length,1);assert(a.found[0].text.length>8000);
  assert.match(wholeRequest(a.title,a.intent,0,2),/비유·사례/);assert.match(wholeRequest(b.title,b.intent,0,2),/반복 표현과 부차적인 사례는 줄이/);
  for(const intent of ['organize','summary'])assert(wholeRequest('가'.repeat(500),intent,0,30).length<=600);
 });

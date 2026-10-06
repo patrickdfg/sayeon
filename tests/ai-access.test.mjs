@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {webcrypto} from 'node:crypto';
+import * as core from '../admin/ai-core.mjs';
 function setup(){
  class Element{
   constructor(){this.value='';this.textContent='';this.children=[];this.disabled=false;this.checked=false;this.style={};this.classes=new Set();this.classList={add:x=>this.classes.add(x),remove:x=>this.classes.delete(x),toggle:(x,on)=>on?this.classes.add(x):this.classes.delete(x)};}
@@ -11,8 +12,23 @@ function setup(){
  const elements=new Map(),get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};get('lab').classes.add('hidden');get('freeOnly').checked=true;
  const writes=[],calls=[],copied=[];
  const context={document:{getElementById:get,createElement:()=>new Element(),querySelectorAll:()=>[],body:new Element()},window:{SAYEON_ANALYTICS_CONFIG:{},SaCrypt:{ready:()=>false,resume:async()=>false},addEventListener:()=>{}},localStorage:{getItem:()=>null,setItem:(...args)=>writes.push(args)},crypto:webcrypto,AbortController,setTimeout,clearTimeout,fetch:async()=>{},navigator:{clipboard:{writeText:async s=>copied.push(s)}},MODELS:{},SOURCES:[],toChunks:()=>[],retrieve:()=>[],clean:x=>x,sourceCaption:()=>'',requestServer:async(config,token)=>{calls.push({...token});if(token.password!=='fixture-pass')throw new Error('AI 챗봇 비밀번호가 맞지 않습니다.');return {ready:true,models:[],quota:{remaining:30}};},generateViaServer:()=>{}};
- vm.createContext(context);const source=readFileSync(new URL('../ai-lab.mjs',import.meta.url),'utf8').replace(/^import .*;\n/gm,'');vm.runInContext(source,context);return {context,get,writes,calls,copied};
+ vm.createContext(context);const source=readFileSync(new URL('../ai-lab.mjs',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');vm.runInContext(source,context);return {context,get,writes,calls,copied};
 }
+test('날짜 말씀의 원문 카드는 하나이며 요약과 정리 모두 전체 원고를 한 번만 요청',async()=>{
+ for(const verb of ['요약','정리']){
+  const s=setup();s.get('aiPassword').value='fixture-pass';await s.get('loginForm').onsubmit({preventDefault(){}});
+  Object.assign(s.context,{MODELS:core.MODELS,resolveQuestion:core.resolveQuestion,wholeRequest:core.wholeRequest,checkWholeCoverage:core.checkWholeCoverage,sourceCaption:core.sourceCaption});
+  s.context.corpus=core.toChunks([{no:73,title:'10월 4일 주일말씀',paragraphs:[['처음 내용입니다. '.repeat(350)],['중간 내용입니다. '.repeat(350)],['마지막 결론입니다.']]}],core.SOURCES[3]);
+  vm.runInContext('chunks=corpus',s.context);s.get('question').value='10월 4일 주일말씀 '+verb+'해줘';s.get('scope').value='all';s.get('model').value='gemini-lite';
+  await s.get('preview').onclick();assert.equal(s.get('evidence').children.length,1);assert.match(s.get('evidence').children[0].children[0].textContent,/원고 전체/);
+  const seen=[];s.context.generateViaServer=async(...args)=>{
+   seen.push(args);const doc=args[4][0],statement={label:'전체 흐름',text:'처음과 중간의 내용을 결론과 연결해 설명합니다.',kind:'inference',sources:[{id:doc.id,quote:'마지막 결론입니다.'}]};
+   return {model:'fixture',answer:core.validateAnswer(JSON.stringify({supported:true,overview:[{title:'한 편의 정리',points:[statement]}],claims:[statement]}),[doc])};
+  };
+  await s.get('ask').onclick();assert.equal(seen.length,1);assert.equal(seen[0][8],true);assert.equal(seen[0][4].length,1);
+  assert.equal(seen[0][4][0].text,s.context.corpus.map(c=>c.text).join('\n\n'));assert.match(s.get('status').textContent,/1회 사용/);
+ }
+});
 test('새 화면은 서버 승인 전 숨김, 틀린 비밀번호 차단·입장·나가기와 메모리 보관',async()=>{
  const s=setup(),event={preventDefault(){}};assert(s.get('lab').classes.has('hidden'));assert.equal(s.calls.length,0);
  s.get('aiPassword').value='wrong';await s.get('loginForm').onsubmit(event);assert(s.get('lab').classes.has('hidden'));assert.match(s.get('gateMessage').textContent,/맞지/);
