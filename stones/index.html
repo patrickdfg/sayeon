@@ -1722,8 +1722,8 @@ document.getElementById("findBack").addEventListener("click", () => {
    성령사연(2026·2025)·말씀 원본을 그때그때 받아서 함께 찾는다.
    내용이 늘어도 여기는 손댈 것이 없다. */
 const OTHER_SOURCES = [
-  { label:'성령사연 2026', url:'sayeon.json',     base:'../', year:'2026' },
-  { label:'성령사연 2025', url:'sayeon2025.json', base:'../', year:'2025' },
+  { label:'성령사연', url:'sayeon.json',     base:'../', year:'2026' },
+  { label:'성령사연', url:'sayeon2025.json', base:'../', year:'2025' },
   { label:'말씀',          url:'/malsseum/malsseum.json', base:'/sayeon/malsseum/' },
   { label:'말씀 2020~2023', url:'/malsseum/malsseum_old.json', base:'/sayeon/malsseum/' }
 ];
@@ -1781,7 +1781,13 @@ function searchOthers(query){
   }))).then(blocks => {
     if(seq !== otherSearchSeq) return;   // 그 사이 새로 검색했으면 버린다
     box.innerHTML = '';
+    const groups = [];
     for(const { src, hits } of blocks){
+      let group = groups.find(g => g.src.label === src.label);
+      if(!group){ group = { src, hits: [] }; groups.push(group); }
+      for(const h of hits) group.hits.push({ ...h, src });
+    }
+    for(const { src, hits } of groups){
       if(!hits.length) continue;
       const head = document.createElement('div');
       head.className = 'other-cat';
@@ -1793,8 +1799,8 @@ function searchOthers(query){
         btn.innerHTML = `<span>${escapeHtml(h.item.title || '')}` +
           (h.snip ? `<span class="snip">${escapeHtml(h.snip)}</span>` : '') + '</span>';
         btn.addEventListener('click', () => {
-          location.href = src.base + '#n=' + encodeURIComponent(h.item.no) +
-            (src.year ? '&y=' + src.year : '') + '&q=' + encodeURIComponent(query);
+          location.href = h.src.base + '#n=' + encodeURIComponent(h.item.no) +
+            (h.src.year ? '&y=' + h.src.year : '') + '&q=' + encodeURIComponent(query);
         });
         box.appendChild(btn);
       }
