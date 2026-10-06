@@ -54,6 +54,68 @@ function sharedSetup({password=fixturePassword,service=serviceSecret,quota=true}
  return {handler:createHandler({env,fetcher}),calls:base.calls};
 }
 function sharedReq(body=payload,{password=fixturePassword,client=clientId}={}){return new Request('https://example/functions/v1/clever-action',{method:'POST',headers:{Origin:'https://patrickdfg.github.io','X-AI-Password':password,'X-AI-Client':client,'Content-Type':'application/json'},body:JSON.stringify(body)});}
+
+function backupSetup({primaryStatus=401,reason,backupStatus=200,secondQuota=true,primary='fixture-primary-key',backup='fixture-backup-key',abortWait=false}={}){
+ const events=[],calls=[];let reserved=0;
+ const env=n=>({GEMINI_API_KEY:primary,GEMINI_API_KEY_BACKUP:backup,AI_LAB_PASSWORD:fixturePassword,SUPABASE_SERVICE_ROLE_KEY:serviceSecret})[n];
+ const fetcher=async(url,o)=>{
+  calls.push({url,o});
+  if(url.endsWith('/ai_lab_model_quota')){const b=JSON.parse(o.body);events.push(b.p_reserve?'reserve':'status');if(b.p_reserve)reserved++;return new Response(JSON.stringify({allowed:reserved<2||secondQuota,used:reserved,remaining:30-reserved,reason:reserved>=2&&!secondQuota?'daily':''}));}
+  if(o.method!=='POST')return new Response(JSON.stringify({name:'models/gemini-3.5-flash-lite',supportedGenerationMethods:['generateContent'],private:backup}),{status:backupStatus});
+  const isBackup=o.headers['x-goog-api-key']===backup&&backup!==primary;events.push(isBackup?'backup':'primary');
+  const status=isBackup?backupStatus:primaryStatus;
+  return new Response(JSON.stringify(status===200?{candidates:[{content:{parts:[{text:JSON.stringify(answer)}]}}]}:{error:{message:'private provider body '+primary+' '+backup,details:reason?[{reason}]:[]}}),{status});
+ };
+ const waitForBackup=async signal=>{events.push('wait');assert.equal(signal.aborted,false);if(abortWait)throw new DOMException('Aborted','AbortError');};
+ return {handler:createHandler({env,fetcher,waitForBackup}),events,calls};
+}
+
+test('Gemini 키 인증 오류는 간격 대기·별도 한도 예약 뒤 보조키로 한 번만 전환',async()=>{
+ for(const [primaryStatus,reason] of [[401,undefined],[400,'API_KEY_INVALID'],[400,'API_KEY_SERVICE_BLOCKED'],[403,'API_KEY_SERVICE_BLOCKED']]){
+  const s=backupSetup({primaryStatus,reason}),r=await s.handler(sharedReq());assert.equal(r.status,200);const raw=await r.text(),d=JSON.parse(raw);
+  assert.deepEqual(s.events,['reserve','primary','wait','reserve','backup']);assert.equal(d.keySource,'backup');assert.equal(d.attempts,2);assert.equal(d.quota.used,2);
+  assert(!raw.includes('fixture-primary-key'));assert(!raw.includes('fixture-backup-key'));assert(!raw.includes('keyFailure'));assert(!raw.includes(serviceSecret));
+  const modelCalls=s.calls.filter(c=>c.url.includes(':generateContent'));assert.equal(modelCalls[0].o.body,modelCalls[1].o.body);
+ }
+});
+
+test('한도·결제·지역·서비스·모델·입력 오류와 일반 권한 거절에는 계정 전환 없음',async()=>{
+ for(const [primaryStatus,reason] of [[429,undefined],[402,undefined],[503,undefined],[502,undefined],[413,undefined],[404,undefined],[400,undefined],[400,'FAILED_PRECONDITION'],[400,'LOCATION_NOT_SUPPORTED'],[403,undefined],[403,'BILLING_DISABLED']]){
+  const s=backupSetup({primaryStatus,reason}),r=await s.handler(sharedReq());assert.notEqual(r.status,200);assert.deepEqual(s.events,['reserve','primary']);
+ }
+});
+
+test('보조키 전환에서도 긴 원고는 같은 원문 전체 하나를 그대로 전송',async()=>{
+ const full={...payload,whole:true,evidence:[{...evidence[0],text:evidence[0].text+'\n\n'+('중간 전개와 사례를 보존하는 원문입니다.\n').repeat(500)+'\n마지막 결론을 보존하는 원문입니다.'}]};
+ const s=backupSetup(),r=await s.handler(sharedReq(full));assert.equal(r.status,200);
+ const calls=s.calls.filter(c=>c.url.includes(':generateContent'));assert.equal(calls.length,2);assert.equal(calls[0].o.body,calls[1].o.body);
+ for(const call of calls){const input=JSON.parse(JSON.parse(call.o.body).contents[0].parts[0].text);assert.equal(input.evidence.length,1);assert.equal(input.evidence[0].text,full.evidence[0].text);}
+});
+
+test('보조키 실패·한도 부족·취소는 세 번째 호출 없이 종료',async()=>{
+ const failed=backupSetup({backupStatus:401});assert.equal((await failed.handler(sharedReq())).status,502);assert.deepEqual(failed.events,['reserve','primary','wait','reserve','backup']);
+ const limited=backupSetup({secondQuota:false});assert.equal((await limited.handler(sharedReq())).status,429);assert.deepEqual(limited.events,['reserve','primary','wait','reserve']);
+ const aborted=backupSetup({abortWait:true});assert.equal((await aborted.handler(sharedReq())).status,502);assert.deepEqual(aborted.events,['reserve','primary','wait']);
+});
+
+test('정상 주키·보조키 없음·같은 값의 보조키는 불필요한 추가 호출 없음',async()=>{
+ const healthy=backupSetup({primaryStatus:200});const d=await (await healthy.handler(sharedReq())).json();assert.deepEqual(healthy.events,['reserve','primary']);assert.equal(d.keySource,'primary');assert.equal(d.attempts,1);
+ for(const backup of ['', 'fixture-primary-key']){const s=backupSetup({backup});assert.equal((await s.handler(sharedReq())).status,502);assert.equal(s.calls.filter(c=>c.url.includes(':generateContent')).length,1);assert(!s.events.includes('wait'));}
+ const onlyBackup=backupSetup({primary:''});const b=await (await onlyBackup.handler(sharedReq())).json();assert.equal(b.keySource,'backup');assert.equal(b.attempts,1);assert.deepEqual(onlyBackup.events,['reserve','backup']);
+});
+
+test('보조키 모델 연결 진단은 서버 인증 유지·값 비공개·생성 및 한도 예약 없음',async()=>{
+ const s=backupSetup(),r=await s.handler(sharedReq({action:'check-provider',provider:'gemini',keySource:'backup'}));const raw=await r.text();assert.equal(r.status,200);assert.equal(JSON.parse(raw).connected,true);assert.equal(s.calls.length,1);assert.equal(s.calls[0].o.method,undefined);assert.equal(s.calls[0].o.body,undefined);assert(!raw.includes('fixture-backup-key'));assert.deepEqual(s.events,[]);
+ const missing=backupSetup({backup:''});assert.equal((await (await missing.handler(sharedReq({action:'check-provider',provider:'gemini',keySource:'backup'}))).json()).reason,'key_missing');assert.equal(missing.calls.length,0);
+ for(const body of [{action:'check-provider',provider:'gemini',keySource:'primary'},{action:'check-provider',provider:'gemini',keySource:'backup',url:'https://evil.example'}]){const s=backupSetup();assert.equal((await s.handler(sharedReq(body))).status,400);assert.equal(s.calls.length,0);}
+ const denied=backupSetup();assert.equal((await denied.handler(sharedReq({action:'check-provider',provider:'gemini',keySource:'backup'},{password:'wrong'}))).status,401);assert.equal(denied.calls.length,0);
+});
+
+test('보조키 구성 상태와 사용 표시에는 값 노출이나 클라이언트 강제 선택 없음',async()=>{
+ const s=backupSetup(),status=await (await s.handler(sharedReq({action:'status'}))).json();assert.deepEqual(status.providers.gemini,{configured:true,primaryConfigured:true,backupConfigured:true});
+ const forced=backupSetup();assert.equal((await forced.handler(sharedReq({...payload,keySource:'backup'}))).status,400);assert.equal(forced.calls.length,0);
+ const result=await generateViaServer(config,{password:fixturePassword,clientId},'gemini-lite','인내',evidence,true,async()=>new Response(JSON.stringify({answer,keySource:'backup',attempts:2})));assert.equal(result.usedBackup,true);assert.equal(result.attempts,2);
+});
 test('공유 비밀번호 오류·빈 값·서버 설정 누락은 DB와 AI 호출 전에 차단',async()=>{
  for(const [settings,options,status] of [[{}, {password:'wrong'},401],[{}, {password:''},401],[{password:null},{},503],[{service:null},{},503],[{}, {client:'invalid'},400]]){
   const s=sharedSetup(settings),r=await s.handler(sharedReq(payload,options));assert.equal(r.status,status);assert.equal(s.calls.length,0);assert(!(await r.text()).includes(serviceSecret));

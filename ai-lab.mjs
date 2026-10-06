@@ -1,5 +1,5 @@
 import {saveOverview} from './ai-export.mjs?v=1';
-import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage} from './admin/ai-core.mjs?v=14';
+import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage} from './admin/ai-core.mjs?v=15';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
 let token={password:'',clientId:''},authorized=false,chunks=[],cache=new Map(),controller=null,busy=false,providerStatus={};
 const text=(el,s)=>{el.textContent=s;};
@@ -51,7 +51,7 @@ async function copyOverview(sections,button){
 function showAnswer(result){
  $('answer').replaceChildren();
  if(!result.answer.supported){text($('answer'),'등록된 자료에서 답을 뒷받침할 근거를 찾지 못했습니다.');return;}
- $('answer').append(node('p',result.model+' · 인용 원문 확인','fine'));
+ $('answer').append(node('p',result.model+(result.usedBackup?' · 보조키로 처리':'')+' · 인용 원문 확인','fine'));
  if(result.wholeTitle)$('answer').append(node('h3',result.wholeTitle+(result.wholeIntent==='organize'?' 전체 상세 정리':' 전체 핵심 요약')));
  if(result.answer.overview?.length){
   const overview=node('section',null,'overview'),heading=node('div',null,'overview-heading');
@@ -132,7 +132,7 @@ $('ask').onclick=()=>operation(async()=>{
   result=await generateViaServer(config,token,modelId,question,found,true,fetch,controller.signal,mode==='whole');
   if(mode==='whole'){checkWholeCoverage(result.answer,found,intent);result={...result,wholeTitle:title,wholeIntent:intent};}
  }catch(e){if(!controller.signal.aborted&&authorized)await serverInfo();if(e instanceof TypeError)throw new Error('AI 서버에 연결하지 못했습니다. 서버 연결 상태를 확인해 주세요.');throw e;}
- if(controller.signal.aborted||!authorized)return;showAnswer(result);cache.set(ck,result);showQuota(result.quota);status(mode==='whole'?'완료 · '+title+' · 원고 한 편 전체 '+(intent==='organize'?'상세 정리':'핵심 요약')+' · 1회 사용 · 원문 인용 검사 통과':'완료 · 원문 인용 검사 통과');
+ if(controller.signal.aborted||!authorized)return;showAnswer(result);cache.set(ck,result);showQuota(result.quota);status(mode==='whole'?'완료 · '+title+' · 원고 한 편 전체 '+(intent==='organize'?'상세 정리':'핵심 요약')+' · '+(result.attempts===2?2:1)+'회 사용 · 원문 인용 검사 통과':'완료 · 원문 인용 검사 통과');
 },60000);
 $('cancel').onclick=()=>controller?.abort();$('clear').onclick=()=>{controller?.abort();cache.clear();['question'].forEach(id=>$(id).value='');$('freeOnly').checked=true;text($('answer'),'질문하면 여기에 결과가 나옵니다.');text($('evidence'),'관련 원문을 먼저 찾아보세요.');status('답변을 지웠습니다. 기존 등록 자료는 그대로 검색할 수 있습니다.');};$('logout').onclick=()=>{authorized=false;clearAll();token.password='';$('lab').classList.add('hidden');$('gate').classList.remove('hidden');text($('gateMessage'),'비밀번호를 입력해 주세요.');$('aiPassword').focus();};document.querySelectorAll('.example').forEach(b=>b.onclick=()=>{$('question').value=b.textContent;});window.addEventListener('pagehide',()=>{authorized=false;token.password='';clearAll();});window.addEventListener('pageshow',event=>{if(event.persisted){$('lab').classList.add('hidden');$('gate').classList.remove('hidden');text($('gateMessage'),'비밀번호를 다시 입력해 주세요.');}});
 $('loginForm').onsubmit=async event=>{

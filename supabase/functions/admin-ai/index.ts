@@ -180,7 +180,13 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
    else if(/thinkingLevel|thinking_level|thinkingConfig|thinking_config/i.test(message))hint='Gemini가 이 모델의 추론 옵션을 거절했습니다 (400). 서버 요청 옵션 수정이 필요합니다.';
    else if(/responseMimeType|response_mime_type|responseSchema|response_schema/i.test(message))hint='Gemini가 JSON 출력 옵션을 거절했습니다 (400). 서버 요청 옵션 수정이 필요합니다.';
    // Classify privately; never forward provider text, keys or request contents.
-   throw new Error(hint);
+   throw Object.assign(new Error(hint),{keyFailure:reasons.includes('API_KEY_INVALID')||reasons.includes('API_KEY_SERVICE_BLOCKED')||/API key not valid|invalid api key|api key.*expired/i.test(message)});
+  }
+  if(gem&&r.status===401)throw Object.assign(new Error('Gemini API 키 인증에 실패했습니다 (401).'),{keyFailure:true});
+  if(gem&&r.status===403){
+   let error={};try{error=(await r.json()).error||{};}catch{}
+   const reasons=Array.isArray(error.details)?error.details.map(d=>d?.reason):[];
+   throw Object.assign(new Error('Gemini API 키 또는 모델 사용 권한을 확인해 주세요 (403).'),{keyFailure:reasons.includes('API_KEY_INVALID')||reasons.includes('API_KEY_SERVICE_BLOCKED')});
   }
   const msg=r.status===503||r.status===502?m.label+' 서비스가 일시적으로 응답하지 않습니다 ('+r.status+'). 잠시 후 다시 요청하거나 다른 모델을 선택해 주세요. 자동 재시도는 하지 않았습니다.':r.status===429?'무료 한도 또는 호출 속도 제한에 도달했습니다. 원문을 확인하거나 다른 모델을 선택해 주세요.':r.status===401||r.status===403?'API 키 또는 모델 사용 권한을 확인해 주세요.':r.status===404?'이 모델은 계정에서 사용할 수 없거나 종료됐습니다. 다른 모델을 선택해 주세요.':'AI 요청을 처리하지 못했습니다 ('+r.status+').';throw new Error(msg);
  }
@@ -204,13 +210,18 @@ export async function generateViaServer(config,token,modelId,question,evidence,f
  if(!Object.hasOwn(MODELS,modelId))throw new Error('허용되지 않은 모델입니다.');
  if(whole&&(evidence.length!==1||evidence[0].text.length>MAX_WHOLE_CHARS))throw new Error('원고 전체는 한 편, 최대 '+MAX_WHOLE_CHARS.toLocaleString('ko-KR')+'글자까지 한 번에 처리합니다. 원문은 자르거나 나누지 않았습니다.');
  const d=await requestServer(config,token,{action:'generate',modelId,question,evidence:evidence.map(({id,title,text,quotes})=>({id,title,text,...(quotes===undefined?{}:{quotes})})),freeOnly,...(whole?{whole:true}:{})},fetcher,signal);
- return {answer:validateAnswer(JSON.stringify(d.answer),evidence),model:MODELS[modelId].label,usage:d.usage,quota:d.quota};
+ return {answer:validateAnswer(JSON.stringify(d.answer),evidence),model:MODELS[modelId].label,usage:d.usage,quota:d.quota,usedBackup:d.keySource==='backup',attempts:d.attempts===2?2:1};
 }
 
 const ORIGIN='https://patrickdfg.github.io';
 async function digest(value){return new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)));}
 async function sameSecret(a,b){const x=await digest(a),y=await digest(b);let diff=0;for(let i=0;i<x.length;i++)diff|=x[i]^y[i];return diff===0;}
-export function createHandler({env,fetcher=fetch}){
+function delayForBackup(signal){return new Promise((resolve,reject)=>{
+ const abort=()=>{clearTimeout(timer);signal.removeEventListener('abort',abort);reject(new DOMException('Aborted','AbortError'));};
+ const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},12000);
+ signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();
+});}
+export function createHandler({env,fetcher=fetch,waitForBackup=delayForBackup}){
  return async function handler(req){
   const origin=req.headers.get('Origin');
   const headers={'Content-Type':'application/json','Cache-Control':'no-store','Vary':'Origin',...(origin===ORIGIN?{'Access-Control-Allow-Origin':ORIGIN,'Access-Control-Allow-Headers':'authorization,apikey,content-type,x-ai-password,x-ai-client','Access-Control-Allow-Methods':'POST,OPTIONS'}:{})};
@@ -243,7 +254,17 @@ export function createHandler({env,fetcher=fetch}){
    };
    if(body.action==='status'){
     const quota=await rpc(false);
-    return reply({ready:true,providers:{gemini:{configured:!!env('GEMINI_API_KEY')},groq:{configured:!!env('GROQ_API_KEY')}},models:Object.entries(MODELS).filter(([,m])=>!!env(m.provider==='gemini'?'GEMINI_API_KEY':'GROQ_API_KEY')).map(([id])=>id),quota});
+    const primaryConfigured=!!env('GEMINI_API_KEY')?.trim(),backupConfigured=!!env('GEMINI_API_KEY_BACKUP')?.trim();
+    return reply({ready:true,providers:{gemini:{configured:primaryConfigured||backupConfigured,primaryConfigured,backupConfigured},groq:{configured:!!env('GROQ_API_KEY')}},models:Object.entries(MODELS).filter(([,m])=>m.provider==='gemini'?primaryConfigured||backupConfigured:!!env('GROQ_API_KEY')).map(([id])=>id),quota});
+   }
+   if(body.action==='check-provider'&&body.provider==='gemini'){
+    if(body.keySource!=='backup'||Object.keys(body).some(k=>!['action','provider','keySource'].includes(k)))return reply({error:'허용되지 않은 연결 확인입니다.'},400);
+    const key=env('GEMINI_API_KEY_BACKUP')?.trim();
+    if(!key)return reply({connected:false,keySource:'backup',reason:'key_missing',message:'Supabase Secrets에 GEMINI_API_KEY_BACKUP이 등록되지 않았습니다.'});
+    const r=await fetcher('https://generativelanguage.googleapis.com/v1beta/models/'+MODELS['gemini-lite'].model,{headers:{'x-goog-api-key':key},signal:controller.signal});
+    if(!r.ok)return reply({connected:false,keySource:'backup',reason:'provider_error',message:'Gemini 보조키 연결을 확인하지 못했습니다 ('+r.status+'). 키의 API 제한과 프로젝트 설정을 확인해 주세요.'});
+    const data=await r.json(),active=data.name==='models/'+MODELS['gemini-lite'].model&&Array.isArray(data.supportedGenerationMethods)&&data.supportedGenerationMethods.includes('generateContent');
+    return reply({connected:active,keySource:'backup',reason:active?'ready':'model_unavailable',message:active?'Gemini 보조키 연결 확인 완료 · Flash-Lite 모델 사용 가능':'Gemini 보조키의 Flash-Lite 모델 지원을 확인하지 못했습니다.'});
    }
    if(body.action==='check-provider'){
     if(body.provider!=='groq'||Object.keys(body).some(k=>!['action','provider'].includes(k)))return reply({error:'허용되지 않은 연결 확인입니다.'},400);
@@ -269,12 +290,23 @@ export function createHandler({env,fetcher=fetch}){
     ids.add(d.id);total+=d.text.length;evidence.push({id:d.id,title:d.title,text:d.text,...(whole?{whole:true}:{}),...(d.quotes===undefined?{}:{quotes:d.quotes.map(clean)})});
    }
    if(total>(whole?MAX_WHOLE_CHARS:8000))return reply({error:'근거 원문의 길이 제한을 초과했습니다.'},400);
-   const key=env(model.provider==='gemini'?'GEMINI_API_KEY':'GROQ_API_KEY');if(!key)return reply({error:'선택한 모델의 서버 키가 등록되지 않았습니다.'},503);
-   const quota=await rpc(true,model.provider);if(!quota.allowed)return reply({error:quota.reason==='rate'?'요청 간격은 10초 이상입니다. 잠시 후 다시 질문해 주세요.':'AI 챗봇의 하루 호출 한도에 도달했습니다.',quota},429);
-   const result=await generate(body.modelId,key,clean(body.question),evidence,fetcher,controller.signal);
+   const gemini=model.provider==='gemini',primary=env(gemini?'GEMINI_API_KEY':'GROQ_API_KEY')?.trim()||'',backup=gemini?env('GEMINI_API_KEY_BACKUP')?.trim()||'':'';
+   const key=primary||backup;if(!key)return reply({error:'선택한 모델의 서버 키가 등록되지 않았습니다.'},503);
+   let quota=await rpc(true,model.provider);const limited=()=>reply({error:quota.reason==='rate'?'요청 간격은 10초 이상입니다. 잠시 후 다시 질문해 주세요.':'AI 챗봇의 하루 호출 한도에 도달했습니다.',quota},429);
+   if(!quota.allowed)return limited();
+   let result,keySource=gemini&&!primary?'backup':'primary',attempts=1;
+   try{result=await generate(body.modelId,key,clean(body.question),evidence,fetcher,controller.signal);}
+   catch(e){
+    if(!gemini||!primary||!backup||backup===primary||e.keyFailure!==true||controller.signal.aborted)throw e;
+    // Credential recovery only: no switching on quota, billing, content or service errors.
+    await waitForBackup(controller.signal);if(controller.signal.aborted)throw new DOMException('Aborted','AbortError');
+    quota=await rpc(true,model.provider);if(!quota.allowed)return limited();
+    keySource='backup';attempts=2;
+    result=await generate(body.modelId,backup,clean(body.question),evidence,fetcher,controller.signal);
+   }
    const strip=c=>({text:c.text,kind:c.kind,sources:c.sources.map(s=>({id:s.id,quote:s.quote}))});
    const answer={supported:result.answer.supported,overview:result.answer.overview.map(section=>({title:section.title,points:section.points.map(p=>({label:p.label,...strip(p)}))})),claims:result.answer.claims.map(strip)};
-   return reply({answer,model:result.model,usage:result.usage,quota});
+   return reply({answer,model:result.model,usage:result.usage,quota,keySource,attempts});
   }catch(e){
    // Never return upstream bodies, request data, tokens or secret values.
    const msg=e.name==='AbortError'?'AI 요청 시간이 초과됐습니다. 질문을 좁혀 다시 시도해 주세요.':e instanceof TypeError?'AI 서버 연결에 실패했습니다.':String(e.message||'AI 요청 처리에 실패했습니다.');

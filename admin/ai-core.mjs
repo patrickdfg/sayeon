@@ -179,7 +179,13 @@ export async function generate(modelId,key,question,evidence,fetcher=fetch,signa
    else if(/thinkingLevel|thinking_level|thinkingConfig|thinking_config/i.test(message))hint='Gemini가 이 모델의 추론 옵션을 거절했습니다 (400). 서버 요청 옵션 수정이 필요합니다.';
    else if(/responseMimeType|response_mime_type|responseSchema|response_schema/i.test(message))hint='Gemini가 JSON 출력 옵션을 거절했습니다 (400). 서버 요청 옵션 수정이 필요합니다.';
    // Classify privately; never forward provider text, keys or request contents.
-   throw new Error(hint);
+   throw Object.assign(new Error(hint),{keyFailure:reasons.includes('API_KEY_INVALID')||reasons.includes('API_KEY_SERVICE_BLOCKED')||/API key not valid|invalid api key|api key.*expired/i.test(message)});
+  }
+  if(gem&&r.status===401)throw Object.assign(new Error('Gemini API 키 인증에 실패했습니다 (401).'),{keyFailure:true});
+  if(gem&&r.status===403){
+   let error={};try{error=(await r.json()).error||{};}catch{}
+   const reasons=Array.isArray(error.details)?error.details.map(d=>d?.reason):[];
+   throw Object.assign(new Error('Gemini API 키 또는 모델 사용 권한을 확인해 주세요 (403).'),{keyFailure:reasons.includes('API_KEY_INVALID')||reasons.includes('API_KEY_SERVICE_BLOCKED')});
   }
   const msg=r.status===503||r.status===502?m.label+' 서비스가 일시적으로 응답하지 않습니다 ('+r.status+'). 잠시 후 다시 요청하거나 다른 모델을 선택해 주세요. 자동 재시도는 하지 않았습니다.':r.status===429?'무료 한도 또는 호출 속도 제한에 도달했습니다. 원문을 확인하거나 다른 모델을 선택해 주세요.':r.status===401||r.status===403?'API 키 또는 모델 사용 권한을 확인해 주세요.':r.status===404?'이 모델은 계정에서 사용할 수 없거나 종료됐습니다. 다른 모델을 선택해 주세요.':'AI 요청을 처리하지 못했습니다 ('+r.status+').';throw new Error(msg);
  }
@@ -203,5 +209,5 @@ export async function generateViaServer(config,token,modelId,question,evidence,f
  if(!Object.hasOwn(MODELS,modelId))throw new Error('허용되지 않은 모델입니다.');
  if(whole&&(evidence.length!==1||evidence[0].text.length>MAX_WHOLE_CHARS))throw new Error('원고 전체는 한 편, 최대 '+MAX_WHOLE_CHARS.toLocaleString('ko-KR')+'글자까지 한 번에 처리합니다. 원문은 자르거나 나누지 않았습니다.');
  const d=await requestServer(config,token,{action:'generate',modelId,question,evidence:evidence.map(({id,title,text,quotes})=>({id,title,text,...(quotes===undefined?{}:{quotes})})),freeOnly,...(whole?{whole:true}:{})},fetcher,signal);
- return {answer:validateAnswer(JSON.stringify(d.answer),evidence),model:MODELS[modelId].label,usage:d.usage,quota:d.quota};
+ return {answer:validateAnswer(JSON.stringify(d.answer),evidence),model:MODELS[modelId].label,usage:d.usage,quota:d.quota,usedBackup:d.keySource==='backup',attempts:d.attempts===2?2:1};
 }
