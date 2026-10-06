@@ -143,3 +143,24 @@ test('인용 ref를 서버 원문의 구절로 복원하고 없는 선택은 차
  const valid=validateAnswer(resolveCitationRefs(JSON.stringify(d),documents),documents,{requireOverview:true});assert.equal(valid.claims[0].sources[0].quote,choices[0].quote);
  d.claims[0].sources=[{ref:'does-not-exist'}];assert.throws(()=>resolveCitationRefs(JSON.stringify(d),documents),/선택값/);
 });
+
+test('한 편 전체는 전용 지침과 원문 인용 선택을 사용하며 처음부터 끝까지 한 번만 전송',async()=>{
+ const doc={id:'malsseum:39:0',title:'10월 4일 주일말씀',whole:true,text:'처음 주제를 설명하는 원문입니다.\n\n'+('중간 전개와 사례를 설명하는 원문입니다.\n').repeat(300)+'\n마지막 실천과 결론을 설명하는 원문입니다.'};
+ const {citationChoices,wholeRequest}=await import('../admin/ai-core.mjs');
+ const choice=citationChoices([doc]).at(-1),point={label:'전체 흐름',text:'처음의 주제를 마지막 실천과 결론에 연결합니다.',kind:'inference',sources:[{ref:choice.ref}]};
+ let calls=0;
+ const result=await generate('gemini-lite','fixture-key',wholeRequest(doc.title,'organize'),[doc],async(url,o)=>{
+  calls++;const b=JSON.parse(o.body),input=JSON.parse(b.contents[0].parts[0].text);
+  assert.equal(input.documentMode,'complete_manuscript');assert.equal(input.evidence.length,1);assert.equal(input.evidence[0].text,doc.text);
+  assert.match(b.systemInstruction.parts[0].text,/짧은 핵심 요약으로 대체하지/);assert.match(input.readingRule,/마지막 결론/);
+  assert.deepEqual(b.generationConfig.responseJsonSchema.properties.claims.items.properties.sources.items.properties.ref.enum,citationChoices([doc]).map(c=>c.ref));
+  return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({supported:true,overview:[{title:'원고 종합',points:[point]}],claims:[point]})}]}}]})};
+ });
+ assert.equal(calls,1);assert.equal(result.answer.overview[0].points[0].sources[0].quote,choice.quote);
+});
+
+test('전체 원고의 업체 입력 크기 거절은 분할·재시도·키 노출 없이 안내',async()=>{
+ let calls=0;const key='fixture-private-key';
+ const doc={id:'malsseum:39:0',whole:true,title:'전체 원고',text:'처음부터 끝까지 한 편으로 읽는 원고입니다.'};
+ await assert.rejects(generate('groq-oss',key,'전체 정리',[doc],async()=>{calls++;return {ok:false,status:413};}),e=>e.message.includes('413')&&e.message.includes('나누거나 줄이지 않았습니다')&&!e.message.includes(key));assert.equal(calls,1);
+});
