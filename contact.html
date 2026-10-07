@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#ffffff">
+<title>관리자에게 문의하기 · 월명동사연</title>
+<link rel="stylesheet" href="./contact.css?v=1">
+<script src="./analytics-config.js?v=2"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+</head>
+<body>
+<header><a href="./stones/" aria-label="월명동사연으로 돌아가기">← 월명동사연</a><button id="adminLogin" type="button">관리자 로그인</button><button id="guestMode" type="button" hidden>내 문의</button><button id="inboxMode" type="button" hidden>문의함</button></header>
+<div class="layout">
+<aside id="inbox" hidden><div class="inbox-title"><h2>문의함</h2><button id="refreshList" type="button">새로고침</button></div><div id="threadList"></div><p id="listStatus" role="status"></p><div class="pages"><button id="previous" type="button">이전</button><button id="next" type="button">다음</button></div></aside>
+<main>
+<div class="heading"><span class="mark" aria-hidden="true">✉</span><h1 id="title">관리자에게 문의하기</h1><p id="description">로그인 없이 문의를 남겨 주세요. 관리자가 확인한 뒤 이 대화창에서 답변합니다.</p><p id="visitorNote" class="muted">이 기기의 같은 브라우저에서 문의와 답변을 이어 볼 수 있습니다.</p></div>
+<div id="messages" class="messages" aria-label="문의 대화" aria-live="polite"></div>
+<p id="status" class="status" role="status"></p>
+<form id="composer"><label id="nameLabel" class="name">이름 <span>(선택)</span><input id="name" maxlength="80" autocomplete="name" placeholder="방문자"></label><label class="sr-only" for="body">문의 메시지</label><textarea id="body" maxlength="4000" rows="3" placeholder="문의할 내용을 입력하세요…"></textarea><div class="tools"><span id="sendHint">Enter로 보내기 · Shift+Enter로 줄바꿈</span><button id="send" type="submit" disabled>보내기 ↑</button></div></form>
+<p class="fine">관리자와 나누는 비공개 문의입니다.</p>
+</main>
+</div>
+<script type="module" src="./contact.mjs?v=1"></script>
+</body></html>

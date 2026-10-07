@@ -13,7 +13,7 @@ function setup(){
  }
  const elements=new Map(),get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};get('lab').classes.add('hidden');get('freeOnly').checked=true;
  const writes=[],calls=[],copied=[];
- const context={...chat,...members,URL,location:{hash:"",pathname:"/ai-lab.html"},DOMException,TextEncoder,structuredClone,document:{getElementById:get,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener:()=>{},body:new Element()},window:{SAYEON_ANALYTICS_CONFIG:{},SaCrypt:{ready:()=>false,resume:async()=>false},addEventListener:()=>{}},localStorage:{getItem:()=>null,setItem:(...args)=>writes.push(args)},crypto:webcrypto,AbortController,setTimeout,clearTimeout,fetch:async()=>{},navigator:{clipboard:{writeText:async s=>copied.push(s)}},normalizeScope:core.normalizeScope,MODELS:{},SOURCES:[],toChunks:()=>[],retrieve:()=>[],clean:x=>x,sourceCaption:()=>'',requestServer:async(config,token)=>{calls.push(token);if(token!=='fixture-token')throw new Error('Google 로그인 확인이 필요합니다.');return {ready:true,models:[],quota:{remaining:30}};},generateViaServer:()=>{}};
+ const context={...chat,...members,createVoiceInput:()=>({stop(){}}),URL,location:{hash:"",pathname:"/ai-lab.html"},DOMException,TextEncoder,structuredClone,document:{getElementById:get,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener:()=>{},body:new Element()},window:{SAYEON_ANALYTICS_CONFIG:{},SaCrypt:{ready:()=>false,resume:async()=>false},addEventListener:()=>{}},localStorage:{getItem:()=>null,setItem:(...args)=>writes.push(args)},crypto:webcrypto,AbortController,setTimeout,clearTimeout,fetch:async()=>{},navigator:{clipboard:{writeText:async s=>copied.push(s)}},normalizeScope:core.normalizeScope,MODELS:{},SOURCES:[],toChunks:()=>[],retrieve:()=>[],clean:x=>x,sourceCaption:()=>'',requestServer:async(config,token)=>{calls.push(token);if(token!=='fixture-token')throw new Error('Google 로그인 확인이 필요합니다.');return {ready:true,models:[],quota:{remaining:30}};},generateViaServer:()=>{}};
  context.membershipFixture={approved:true,status:'approved',isAdmin:false};vm.createContext(context);const source=readFileSync(new URL('../ai-lab.mjs',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');vm.runInContext(source,context);
  vm.runInContext("googleUser={id:'31dfdc34-a567-4e6d-9a15-d37ab6f517db',email:'fixture@example.test'};authClient={rpc:async()=>({data:membershipFixture,error:null}),auth:{signOut:async()=>{},getSession:async()=>({data:{session:{access_token:'fixture-token',user:googleUser}}})}};chatStore={list:async()=>[],save:async t=>({id:t.id,revision:(t.revision??-1)+1}),remove:async()=>{}}",context);
  return {context,get,writes,calls,copied};
@@ -46,16 +46,16 @@ test('승인된 계정 화면의 종합 정리 복사도 출처·인용 없이 �
  const s=setup();await vm.runInContext('refreshMembership(true)',s.context);
  s.context.fixture=[{title:'길의 역사',points:[{label:'개척',text:'원고의 내용을 종합한 설명입니다.',sources:[{id:'source',quote:'원문 인용',doc:{url:'/출처주소'}}]}]}];
  const button=s.context.document.createElement('button');s.context.copyButton=button;await vm.runInContext('copyOverview(fixture,copyButton)',s.context);
- assert.equal(s.copied.length,1);assert.match(s.copied[0],/길의 역사/);assert.match(s.copied[0],/개척/);assert(!s.copied[0].includes('원문 인용'));assert(!s.copied[0].includes('출처주소'));assert.equal(button.textContent,'복사됨');
+ assert.equal(s.copied.length,1);assert.match(s.copied[0],/길의 역사/);assert.match(s.copied[0],/원고의 내용을 종합한 설명/);assert(!s.copied[0].includes('개척'));assert(!s.copied[0].includes('원문 인용'));assert(!s.copied[0].includes('출처주소'));assert.equal(button.textContent,'복사됨');
 });
 
 
-test('Gemini 잔여량만 표시하며 과거 Groq 사용량은 화면에서 제외',()=>{
+test('앱 집계를 실제 Gemini 잔여량으로 표시하지 않고 Groq는 제외',()=>{
  const s=setup();s.context.quotaFixture={providers:{gemini:{remaining:17,limit:30},groq:{remaining:30,limit:30}}};
  vm.runInContext("providerStatus={gemini:{configured:true}};showQuota(quotaFixture)",s.context);
- assert.equal(s.get('usage').children[0].textContent,'Gemini 57% 남음');assert.equal(s.get('usage').children.length,1);
+ assert.equal(s.get('usage').children[0].textContent,'Gemini 실제 잔여량: 조회 연동 필요');assert(s.get('usage').children.some(el=>el.textContent.includes('17/30회 남음')));assert(!s.get('usage').children.some(el=>el.textContent.includes('Groq')||el.textContent.includes('57%')));
  vm.runInContext("providerStatus.gemini.configured=false;showQuota(quotaFixture)",s.context);assert.equal(s.get('usage').children[0].textContent,'Gemini 연결 필요');
- vm.runInContext("providerStatus.gemini.configured=true;showQuota({remaining:30})",s.context);assert.match(s.get('usage').children[0].textContent,/집계 준비 중/);
+ vm.runInContext("providerStatus.gemini.configured=true;showQuota({remaining:30})",s.context);assert.equal(s.get('usage').children.length,2);
 });
 test('무료 확인은 숨김 기본 체크 유지, 모델을 바꾸거나 답변을 지워도 보이지 않음',()=>{
  const s=setup();s.get('keyBox').classes.add('hidden');s.get('model').value='gemini-lite';s.get('model').onchange();assert(s.get('keyBox').classes.has('hidden'));s.get('clear').onclick();assert.equal(s.get('freeOnly').checked,true);
@@ -89,4 +89,9 @@ test('기존 연도별·Groq 대화는 본문을 보존하며 합친 범위와 G
  const s=setup();await vm.runInContext('refreshMembership(true)',s.context);Object.assign(s.context,{MODELS:core.MODELS});
  vm.runInContext("chatStore.load=async()=>({id:'old',title:'이전 대화',scope:'sayeon2025',model_id:'groq-oss',messages:[{id:'q',role:'user',content:'이전 질문'}],revision:2})",s.context);
  await vm.runInContext("openThread('old')",s.context);assert.equal(s.get('scope').value,'sayeon');assert.equal(s.get('model').value,'gemini-lite');assert.equal(vm.runInContext('thread.messages[0].content',s.context),'이전 질문');
+});
+
+test('문의 관리자 로그인은 고정 문의 주소로 돌아오고 일반 AI 로그인은 그대로 둠',()=>{
+ const s=setup(),routes=[];s.context.location.replace=url=>routes.push(url);s.context.localStorage.getItem=()=> '1';s.context.localStorage.removeItem=()=>{};
+ vm.runInContext("showGoogleUser({id:'fixture',email:'fixture@example.test'})",s.context);assert.deepEqual(routes,['./contact.html']);
 });
