@@ -538,6 +538,8 @@ main{padding-top:28px;}
 body.photo-open{overflow:hidden;}
 .gallery.single{grid-template-columns:1fr;}
 .gallery.single img{max-height:520px;object-fit:contain;}
+.gallery.featured > figure:first-child{grid-column:1 / -1;}
+.gallery.featured > figure:first-child img{max-height:520px;object-fit:contain;}
 .gallery figure{
   margin:0;
   border:1px solid var(--border);
@@ -997,7 +999,7 @@ function paintSections(){
 
 function renderGallery(images, crops = [], afterProse = false){
   if(!images.length) return '';
-  const cls = (images.length === 1 ? 'gallery single' : 'gallery') + (afterProse ? ' after-prose' : '');
+  const cls = (images.length === 1 ? 'gallery single' : images.length === 2 ? 'gallery featured' : 'gallery') + (afterProse ? ' after-prose' : '');
   // 사진도 잠겨 있어 바로 붙일 수 없다. 자리만 잡아 두고 풀리는 대로 채운다.
   return `<div class="${cls}">` + images.map((src, index) => {
     const crop = crops[index];
