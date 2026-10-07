@@ -4,6 +4,7 @@ import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,sourceC
 import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore,resolveChatQuestion} from './ai-chat.mjs?v=7';
 import {MEMBER_LABELS,membershipStatus,createMemberStore} from './ai-members.mjs?v=1';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
+const selectableModels=new Set(['gemini-lite','search']);
 let token='',authorized=false,chunks=[],controller=null,busy=false,providerStatus={};
 let googleUser=null,authClient=null,chatStore=null,thread=newThread(),threads=[],savedMessageIds=new Set(),dirty=false,saveConflict=false,sessionVersion=0,historySequence=0,historyOffset=0,dialogThread=null,currentTurn=null;
 const text=(el,s)=>{el.textContent=s;};
@@ -287,7 +288,7 @@ async function openThread(id){
  const epoch=sessionVersion;setBusy(true);text($('historyStatus'),'대화 불러오는 중…');
  try{
   const loaded=await chatStore.load(id);if(epoch!==sessionVersion||!authorized)return;
-  thread={...loaded,scope:normalizeScope(loaded.scope),model_id:Object.hasOwn(MODELS,loaded.model_id)||loaded.model_id==='search'?loaded.model_id:'gemini-lite'};savedMessageIds=new Set(thread.messages.map(message=>message.id));$('model').value=Object.hasOwn(MODELS,thread.model_id)||thread.model_id==='search'?thread.model_id:'gemini-lite';$('scope').value=thread.scope;
+  thread={...loaded,scope:normalizeScope(loaded.scope),model_id:selectableModels.has(loaded.model_id)?loaded.model_id:'gemini-lite'};savedMessageIds=new Set(thread.messages.map(message=>message.id));$('model').value=thread.model_id;$('scope').value=thread.scope;
   $('question').value='';resizeQuestion();drawConversation(true);drawThreads();setSaveState('나의 계정에 저장됨');status('');if(mobileSidebar?.matches)toggleSidebar(false);
  }catch(e){if(epoch===sessionVersion)status(e.message,true);}
  finally{if(epoch===sessionVersion){setBusy(false);text($('historyStatus'),'');drawThreads();}}

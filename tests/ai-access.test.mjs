@@ -89,10 +89,12 @@ test('기록 저장이 실패하면 AI를 호출하지 않고 현재 대화를 �
  assert.equal(aiCalls,0);assert.equal(vm.runInContext('dirty',s.context),true);assert.equal(vm.runInContext('thread.messages[0].content',s.context),'10월 4일 주일말씀 요약해줘');assert(!s.get('retrySave').classes.has('hidden'));
 });
 
-test('기존 연도별·Groq 대화는 본문을 보존하며 합친 범위와 Gemini로 연다',async()=>{
- const s=setup();await vm.runInContext('refreshMembership(true)',s.context);Object.assign(s.context,{MODELS:core.MODELS});
- vm.runInContext("chatStore.load=async()=>({id:'old',title:'이전 대화',scope:'sayeon2025',model_id:'groq-oss',messages:[{id:'q',role:'user',content:'이전 질문'}],revision:2})",s.context);
- await vm.runInContext("openThread('old')",s.context);assert.equal(s.get('scope').value,'sayeon');assert.equal(s.get('model').value,'gemini-lite');assert.equal(vm.runInContext('thread.messages[0].content',s.context),'이전 질문');
+test('이전 Groq·3.8 대화는 본문을 보존하고 다음 질문은 3.5, 원문 검색 대화는 검색으로 연다',async()=>{
+ for(const [saved,selected] of [['groq-oss','gemini-lite'],['gemini-flash','gemini-lite'],['search','search']]){
+  const s=setup();await vm.runInContext('refreshMembership(true)',s.context);Object.assign(s.context,{MODELS:core.MODELS});s.context.savedModel=saved;
+  vm.runInContext("chatStore.load=async()=>({id:'old',title:'이전 대화',scope:'sayeon2025',model_id:savedModel,messages:[{id:'q',role:'user',content:'이전 질문'}],revision:2})",s.context);
+  await vm.runInContext("openThread('old')",s.context);assert.equal(s.get('scope').value,'sayeon');assert.equal(s.get('model').value,selected);assert.equal(vm.runInContext('thread.messages[0].content',s.context),'이전 질문');
+ }
 });
 
 test('문의 관리자 로그인은 고정 문의 주소로 돌아오고 일반 AI 로그인은 그대로 둠',()=>{
