@@ -8,6 +8,6 @@
 - 메시지 ID를 재사용하여 응답 유실 재전송이 중복되지 않게 한다. 방문자·관리자 역할은 서버가 고정한다. HTML은 화면에서 textContent로 표시한다. 방문자에게 1분 10회 전송 제한을 적용하며 문의·답변은 각각 4,000자까지다. 대화는 100개씩 순서대로 읽고 문의함은 50개씩 표시한다.
 - 열린 화면은 8초마다 새 대화와 답변을 확인한다. 관리자 접속·실시간 온라인 상태나 즉시 답변을 보장하는 표시는 하지 않는다. 현재 페이지가 숨겨져 있으면 주기 조회를 중단한다. 계정 변경·로그아웃 때 관리자 대화 화면을 비우고 오래된 요청 결과를 버린다.
 - supabase/support-chat.sql을 원격 private_visitor_support_chat migration으로 적용했다. tests/support-chat-access.sql은 실제 DB에서 익명 A/B 분리, 직접 접근 거부, 조작 이메일·다른 Google 계정 거부, 지정 관리자 답변, 메시지 재전송, 긴 기록 조회, 호출 속도 제한을 확인 후 rollback한다. 시험 메시지와 시험 회원은 남지 않는다.
-- 로컬 문의/AI 로그인 회귀 검사 14개 통과. 기존 테스트의 빠진 음성 입력 mock과 이전 복사/사용량 표시 기대값을 현재 승인된 화면 동작에 맞췄다. 새 문의 관련 보안 Advisor 경고는 없다.
+- 로컬 문의/AI 로그인 회귀 검사 16개 통과. 별도의 UI 네트워크 시험 자료에서 문의 전송·관리자 응답·브라우저 기록 복원·관리자 로그아웃 시 화면 비우기도 확인했다. 기존 테스트의 빠진 음성 입력 mock과 이전 복사/사용량 표시 기대값을 현재 승인된 화면 동작에 맞췄다. 새 문의 관련 보안 Advisor 경고는 없다.
 
 참고: [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [Database RPC와 권한](https://supabase.com/docs/guides/database/functions).
