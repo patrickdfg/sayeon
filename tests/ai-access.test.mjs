@@ -101,7 +101,7 @@ test('문의 관리자 로그인은 고정 문의 주소로 돌아오고 일반 
 });
 
 
-test('저장된 원문 검색 안내 옆 버튼은 전체 원문만 줄바꿈 그대로 복사·공유한다',async()=>{
+test('저장된 원문 보기 옆 버튼은 전체 원문만 줄바꿈 그대로 복사·공유한다',async()=>{
  const s=setup();await vm.runInContext('refreshMembership(true)',s.context);
  const first='첫 원문입니다.\n둘째 줄입니다.\n\n마지막 문단입니다.',last='다른 근거 원문입니다.';
  s.context.sourceFixture=[{id:'one',title:'출처 제목',text:first,url:'/출처주소'},{id:'two',title:'다른 제목',text:last}];
@@ -122,4 +122,18 @@ test('원문 공유 미지원은 복사 안내, 공유 취소는 오류·재전�
  await vm.runInContext('shareSource(sourceFixture,sourceButton)',s.context);assert.equal(s.copied.length,1);assert.equal(s.get('status').textContent,'');assert.equal(s.context.sourceButton.disabled,false);
  s.context.navigator.share=async()=>{throw new TypeError('share unavailable');};await vm.runInContext('shareSource(sourceFixture,sourceButton)',s.context);assert.match(s.get('status').textContent,/공유하지 못/);assert.equal(s.copied.length,1);
  vm.runInContext('authorized=false',s.context);let shared=0;s.context.navigator.share=async()=>{shared++;};await vm.runInContext('shareSource(sourceFixture,sourceButton)',s.context);assert.equal(shared,0);
+});
+
+
+test('AI 답변 아래에서도 원문 보기 옆 복사·공유를 표시하고 열기와 독립적으로 원문 전체를 복사한다',async()=>{
+ const s=setup();await vm.runInContext('refreshMembership(true)',s.context);
+ const doc={id:'whole',title:'검사용 말씀',whole:true,text:'검사용 전체 원고의 문장입니다.\n\n끝까지 그대로 보존합니다.'};
+ const point={label:'설명',text:'AI가 생성한 설명입니다.',kind:'source',sources:[{id:doc.id,quote:'검사용 전체 원고의 문장입니다.'}]};
+ s.context.answerFixture=chat.makeMessage('assistant','',{evidence:[doc],result:chat.packResult({model:'Gemini',answer:core.validateAnswer(JSON.stringify({supported:true,overview:[{title:'정리',points:[point]}],claims:[point]}),[doc])})});
+ vm.runInContext('thread.messages=[answerFixture];drawConversation()',s.context);
+ const all=el=>[el,...el.children.flatMap(all)],elements=all(s.get('conversation'));
+ const heading=elements.find(el=>el.className==='source-heading'),view=heading.children[0],actions=heading.children[1],body=elements.find(el=>el.className==='source-evidence hidden');
+ assert.equal(view.textContent,'원문 보기 · 원고 전체 1편');assert.equal(actions.children[0].textContent,'원문만 복사');assert.equal(actions.children[1].textContent,'원문 공유');assert(body.classes.has('hidden')||body.className.includes('hidden'));
+ body.classList.add('hidden');view.onclick();assert(!body.classes.has('hidden'));view.onclick();assert(body.classes.has('hidden'));
+ await actions.children[0].onclick();assert.equal(s.copied[0],doc.text);assert(!s.copied[0].includes(point.text));
 });

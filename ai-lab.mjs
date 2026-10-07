@@ -240,15 +240,18 @@ function drawConversation(scroll=false){
     if(result)showAnswer(result,content,question);
     else{
      const notice=node('div',null,'source-notice');notice.append(node('p',message.content||'원문 검색 결과입니다.'));
-     if(!message.failed&&message.evidence?.length)notice.append(sourceActions(message.evidence));
      content.append(notice);
     }
    }
    catch{content.append(node('p','저장된 답변의 인용을 확인하지 못했습니다. 원문을 다시 검색해 주세요.','error'));}
    article.append(content);
    if(message.evidence?.length){
-    const sources=node('details',null,'message-source');sources.append(node('summary',message.evidence.length===1&&message.evidence[0].whole?'원문 보기 · 원고 전체 1편':'원문 보기 · '+message.evidence.length+'개 근거'));
-    const evidence=node('div');showEvidence(message.evidence,evidence);sources.append(evidence);article.append(sources);
+    const sources=node('section',null,'message-source'),heading=node('div',null,'source-heading');
+    const view=node('button',message.evidence.length===1&&message.evidence[0].whole?'원문 보기 · 원고 전체 1편':'원문 보기 · '+message.evidence.length+'개 근거','source-toggle');
+    const evidence=node('div',null,'source-evidence hidden');evidence.id='source-'+message.id;
+    view.type='button';view.setAttribute('aria-expanded','false');view.setAttribute('aria-controls',evidence.id);
+    view.onclick=()=>{const open=!evidence.classList.toggle('hidden');view.setAttribute('aria-expanded',String(open));};
+    heading.append(view,sourceActions(message.evidence));showEvidence(message.evidence,evidence);sources.append(heading,evidence);article.append(sources);
    }
   }
   box.append(article);
