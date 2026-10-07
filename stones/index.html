@@ -550,6 +550,18 @@ body.photo-open{overflow:hidden;}
   width:100%;
   height:auto;
 }
+.gallery.after-prose{padding-top:0;padding-bottom:28px;}
+.image-crop{
+  position:relative;overflow:hidden;
+  width:100%;aspect-ratio:var(--crop-ratio);
+  max-width:calc(520px * var(--crop-ratio));margin-inline:auto;
+}
+.gallery .image-crop img,.photo-viewer .image-crop img{
+  position:absolute;max-width:none;max-height:none;object-fit:fill;
+}
+.photo-viewer .image-crop{
+  width:min(100vw,calc(100vh * var(--crop-ratio)));max-width:none;
+}
 
 .prose{
   padding:22px calc(10px + var(--content-pad, 18px)) 30px;
@@ -983,13 +995,20 @@ function paintSections(){
   if(prose) prose.innerHTML = renderSections(it.sections, it.num);
 }
 
-function renderGallery(images){
+function renderGallery(images, crops = [], afterProse = false){
   if(!images.length) return '';
-  const cls = images.length === 1 ? 'gallery single' : 'gallery';
+  const cls = (images.length === 1 ? 'gallery single' : 'gallery') + (afterProse ? ' after-prose' : '');
   // 사진도 잠겨 있어 바로 붙일 수 없다. 자리만 잡아 두고 풀리는 대로 채운다.
-  return `<div class="${cls}">` + images.map(src =>
-    `<figure><img data-enc="${src}" alt="" loading="lazy"></figure>`
-  ).join('') + `</div>`;
+  return `<div class="${cls}">` + images.map((src, index) => {
+    const crop = crops[index];
+    // 원본 카드를 변형하지 않고 사진과 위치 그림의 영역만 각각 표시한다.
+    if(crop && [crop.x,crop.y,crop.width,crop.height,crop.sourceWidth,crop.sourceHeight].every(Number.isFinite)
+        && crop.x >= 0 && crop.y >= 0 && crop.width > 0 && crop.height > 0
+        && crop.x + crop.width <= crop.sourceWidth && crop.y + crop.height <= crop.sourceHeight){
+      return `<figure><div class="image-crop" style="--crop-ratio:${crop.width / crop.height}"><img data-enc="${escapeHtml(src)}" alt="${escapeHtml(crop.alt || '')}" loading="lazy" style="width:${100 * crop.sourceWidth / crop.width}%;height:${100 * crop.sourceHeight / crop.height}%;left:${-100 * crop.x / crop.width}%;top:${-100 * crop.y / crop.height}%"></div></figure>`;
+    }
+    return `<figure><img data-enc="${escapeHtml(src)}" alt="" loading="lazy"></figure>`;
+  }).join('') + `</div>`;
 }
 
 /* 제목이 두 줄로 넘치면 글자를 한 단계씩 줄여 본다.
@@ -1021,13 +1040,19 @@ function fillGallery(){
   const box = document.createElement('div');
   box.className = 'photo-viewer';
   box.hidden = true;
-  box.innerHTML = '<button type="button" class="photo-close" aria-label="닫기">✕</button><img alt="">';
+  box.innerHTML = '<button type="button" class="photo-close" aria-label="닫기">✕</button><div class="photo-content"><img alt=""></div>';
   document.body.appendChild(box);
   const big = box.querySelector('img');
+  const photoContent = box.querySelector('.photo-content');
   function close(){ box.hidden = true; big.removeAttribute('src'); document.body.classList.remove('photo-open'); }
   els.card.addEventListener('click', ev => {
     const img = ev.target.closest('.gallery img');
     if(!img || !img.src) return;
+    const crop = img.closest('.image-crop');
+    photoContent.className = crop ? 'image-crop' : 'photo-content';
+    photoContent.style.cssText = crop ? crop.style.cssText : '';
+    big.style.cssText = crop ? img.style.cssText : '';
+    big.alt = img.alt;
     big.src = img.src;
     box.hidden = false;
     document.body.classList.add('photo-open');
@@ -1062,8 +1087,9 @@ function render(index){
       <span class="seektime" id="seekTime"></span>
     </div>
     ${it.meta ? `<div class="card-meta">${escapeHtml(it.meta)}</div>` : ''}
-    ${renderGallery(it.images)}
+    ${renderGallery(it.images, it.imageCrops)}
     <div class="prose">${renderSections(it.sections, it.num)}</div>
+    ${renderGallery(it.imagesAfter || [], it.imageCropsAfter, true)}
   `;
   fillGallery();
   fitTitle();
