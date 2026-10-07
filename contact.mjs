@@ -1,5 +1,6 @@
 import {guestIdentity,createSupportStore,GUEST_KEY} from './contact-store.mjs?v=2';
 import {createSupportNotifications} from './contact-push.mjs?v=1';
+import {mountInquiryBadge} from './support-badge.mjs?v=1';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG;
 let guest,authClient,store,isAdmin=false,adminMode=false,selected=null,rows=[],offset=0,messages=[],cursor=0,busy=false,pending=null,epoch=0,polling=false,guestStarted=false,refreshingList=false,adminUserId=null;
 const messageMap=new Map();
@@ -69,6 +70,7 @@ async function boot(){
   notifications=createSupportNotifications({store,panel:$('pushPanel'),on:$('pushEnable'),off:$('pushDisable'),test:$('pushTest'),info:$('pushStatus'),isAdmin:()=>isAdmin});
   const {data}=await authClient.auth.getSession();if(data.session){try{isAdmin=await store.adminStatus()===true;adminUserId=isAdmin?data.session.user.id:null;}catch{}}
   $('adminLogin').hidden=isAdmin;await mode(isAdmin);
+  mountInquiryBadge({client:authClient,config});
   authClient.auth.onAuthStateChange((_event,session)=>{if(isAdmin&&session?.user?.id!==adminUserId){isAdmin=false;adminUserId=null;busy=false;void mode(false);$('adminLogin').hidden=false;}});
   sync();setInterval(()=>{if(!document.hidden){void read();if(adminMode)void list();}},8000);document.addEventListener('visibilitychange',()=>{if(!document.hidden){void read();if(adminMode)void list();}});
  }catch(e){store=null;sync();status(e.message,true);}
