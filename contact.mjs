@@ -1,7 +1,9 @@
-import {guestIdentity,createSupportStore,GUEST_KEY} from './contact-store.mjs?v=1';
+import {guestIdentity,createSupportStore,GUEST_KEY} from './contact-store.mjs?v=2';
+import {createSupportNotifications} from './contact-push.mjs?v=1';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG;
 let guest,authClient,store,isAdmin=false,adminMode=false,selected=null,rows=[],offset=0,messages=[],cursor=0,busy=false,pending=null,epoch=0,polling=false,guestStarted=false,refreshingList=false,adminUserId=null;
 const messageMap=new Map();
+let notifications;
 function status(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error);}
 function sync(){ $('send').disabled=busy||!store||(!$('body').value.trim())||(adminMode&&!selected);$('body').disabled=busy||(adminMode&&!selected);$('name').disabled=busy||guestStarted; }
 function draw(){
@@ -37,7 +39,7 @@ function drawList(){
 }
 async function list(){if(refreshingList||!adminMode)return;refreshingList=true;const version=epoch;try{const data=await store.adminList(offset);if(!adminMode||version!==epoch)return;rows=data;drawList();}catch(e){status(e.message,true);}finally{refreshingList=false;}}
 async function mode(admin){
- if(busy)return;adminMode=admin;selected=null;resetMessages();document.body.classList.toggle('admin',admin);$('inbox').hidden=!admin;$('nameLabel').hidden=admin;$('visitorNote').hidden=admin;$('title').textContent=admin?'관리자 문의함':'관리자에게 문의하기';$('description').textContent=admin?'문의자를 선택하면 대화와 답변창이 열립니다.':'로그인 없이 문의를 남겨 주세요. 관리자가 확인한 뒤 이 대화창에서 답변합니다.';
+ if(busy)return;adminMode=admin;selected=null;resetMessages();document.body.classList.toggle('admin',admin);$('inbox').hidden=!admin;$('nameLabel').hidden=admin;$('visitorNote').hidden=admin;$('title').textContent=admin?'관리자 문의함':'관리자에게 문의하기';$('description').textContent=admin?'문의자를 선택하면 대화와 답변창이 열립니다.':'로그인 없이 문의를 남겨 주세요. 관리자가 확인한 뒤 이 대화창에서 답변합니다.';notifications?.setAdmin(admin);
  $('guestMode').hidden=!isAdmin||!admin;$('inboxMode').hidden=!isAdmin||admin;$('body').placeholder=admin?'답변을 입력하세요…':'문의할 내용을 입력하세요…';sync();if(admin)await list();else await read();
 }
 async function send(event){
@@ -64,6 +66,7 @@ async function boot(){
   if(!config?.enabled||!window.supabase?.createClient)throw new Error('문의 연결을 불러오지 못했습니다. 새로고침해 주세요.');
   authClient=window.supabase.createClient(config.supabaseUrl,config.supabaseAnonKey,{auth:{flowType:'pkce',storageKey:'sayeon-ai-google-session',persistSession:true,autoRefreshToken:true,detectSessionInUrl:false},global:{fetch:async(input,options={})=>{const timeout=new AbortController(),timer=setTimeout(()=>timeout.abort(),15000);try{return await fetch(input,{...options,signal:options.signal?AbortSignal.any([options.signal,timeout.signal]):timeout.signal});}finally{clearTimeout(timer);}}}});
   store=createSupportStore(config,{getAccessToken:async()=>{const verified=await authClient.auth.getUser();if(verified.error||!verified.data.user)return null;const {data}=await authClient.auth.getSession();return data.session?.user.id===verified.data.user.id?data.session.access_token:null;}});
+  notifications=createSupportNotifications({store,panel:$('pushPanel'),on:$('pushEnable'),off:$('pushDisable'),test:$('pushTest'),info:$('pushStatus'),isAdmin:()=>isAdmin});
   const {data}=await authClient.auth.getSession();if(data.session){try{isAdmin=await store.adminStatus()===true;adminUserId=isAdmin?data.session.user.id:null;}catch{}}
   $('adminLogin').hidden=isAdmin;await mode(isAdmin);
   authClient.auth.onAuthStateChange((_event,session)=>{if(isAdmin&&session?.user?.id!==adminUserId){isAdmin=false;adminUserId=null;busy=false;void mode(false);$('adminLogin').hidden=false;}});

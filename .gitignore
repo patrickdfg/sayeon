@@ -1,5 +1,6 @@
 .seg_cache/
 __pycache__/
+node_modules/
 
 # 잠그기 전 원고·사진은 올리지 않는다 (.enc 만 올린다)
 /sayeon.json

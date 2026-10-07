@@ -22,6 +22,11 @@ export function createSupportStore(config,{fetcher=fetch,getAccessToken=async()=
   adminStatus:()=>rpc('support_admin_status',{},true),
   adminList:(offset=0)=>rpc('support_admin_list',{p_offset:offset},true),
   adminRead:(id,after=0)=>rpc('support_admin_read',{p_id:id,p_after:after},true),
-  adminSend:(id,message)=>rpc('support_admin_send',{p_id:id,p_message_id:message.id,p_body:message.body},true)
+  adminSend:(id,message)=>rpc('support_admin_send',{p_id:id,p_message_id:message.id,p_body:message.body},true),
+  pushConfig:()=>rpc('support_admin_push_config',{},true),
+  pushStatus:endpoint=>rpc('support_admin_push_status',{p_endpoint:endpoint},true),
+  pushSave:j=>rpc('support_admin_push_save',{p_endpoint:j.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth},true),
+  pushRemove:endpoint=>rpc('support_admin_push_remove',{p_endpoint:endpoint},true),
+  pushTest:endpoint=>rpc('support_admin_push_test',{p_endpoint:endpoint},true)
  };
 }

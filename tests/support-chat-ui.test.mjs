@@ -18,7 +18,8 @@ async function page(f,admin=false,saved=new Map()){
  const nodes=new Map(),get=id=>{if(!nodes.has(id))nodes.set(id,new Element());return nodes.get(id);},events=[];
  const user={id:'fixture-owner',email:'owner@example.invalid'},session=admin?{user,access_token:'fixture-owner-token'}:null;
  const ctx={console,URL,Date,Map,JSON,Number,crypto:webcrypto,AbortController,AbortSignal,localStorage:{getItem:k=>saved.get(k)||null,setItem:(k,v)=>saved.set(k,v),removeItem:k=>saved.delete(k)},location:{origin:'https://fixture.invalid'},setInterval:()=>1,setTimeout,clearTimeout,fetch:f.fetcher,document:{getElementById:get,createElement:()=>new Element(),hidden:false,body:new Element(),addEventListener(){}},window:{SAYEON_ANALYTICS_CONFIG:{enabled:true,supabaseUrl:'https://fixture.invalid',supabaseAnonKey:'public'},supabase:{createClient:()=>({auth:{getSession:async()=>({data:{session}}),getUser:async()=>({data:{user},error:null}),onAuthStateChange:cb=>events.push(cb)}})}},guestIdentity,createSupportStore:(cfg,o)=>createSupportStore(cfg,{...o,fetcher:f.fetcher}),GUEST_KEY};
- vm.createContext(ctx);let source=readFileSync(new URL('../contact.mjs',import.meta.url),'utf8').replace(/^import.*\r?\n/,'').replace('draw();void boot();','draw();globalThis.ready=boot();');vm.runInContext(source,ctx);await ctx.ready;return {ctx,get,events,saved};
+ ctx.createSupportNotifications=()=>({setAdmin(){}});
+ vm.createContext(ctx);let source=readFileSync(new URL('../contact.mjs',import.meta.url),'utf8').replace(/^import.*\r?\n/gm,'').replace('draw();void boot();','draw();globalThis.ready=boot();');vm.runInContext(source,ctx);await ctx.ready;return {ctx,get,events,saved};
 }
 test('문의 화면에서 로그인 없이 전송하고 같은 대화의 관리자 답변을 이어 읽음',async()=>{
  const f=fixture(),guest=await page(f);guest.get('body').value='<script>문의 내용</script>';await vm.runInContext('send()',guest.ctx);
