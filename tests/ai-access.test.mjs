@@ -99,3 +99,27 @@ test('문의 관리자 로그인은 고정 문의 주소로 돌아오고 일반 
  const s=setup(),routes=[];s.context.location.replace=url=>routes.push(url);s.context.localStorage.getItem=()=> '1';s.context.localStorage.removeItem=()=>{};
  vm.runInContext("showGoogleUser({id:'fixture',email:'fixture@example.test'})",s.context);assert.deepEqual(routes,['./contact.html']);
 });
+
+
+test('저장된 원문 검색 안내 옆 버튼은 전체 원문만 줄바꿈 그대로 복사·공유한다',async()=>{
+ const s=setup();await vm.runInContext('refreshMembership(true)',s.context);
+ const first='첫 원문입니다.\n둘째 줄입니다.\n\n마지막 문단입니다.',last='다른 근거 원문입니다.';
+ s.context.sourceFixture=[{id:'one',title:'출처 제목',text:first,url:'/출처주소'},{id:'two',title:'다른 제목',text:last}];
+ vm.runInContext("thread.messages=[makeMessage('assistant','관련 원문을 찾았습니다. 아래에서 원문과 출처를 확인해 주세요.',{evidence:sourceFixture})];drawConversation()",s.context);
+ const all=el=>[el,...el.children.flatMap(all)];
+ const buttons=all(s.get('conversation')),copy=buttons.find(el=>el.textContent==='원문만 복사'),share=buttons.find(el=>el.textContent==='원문 공유');
+ assert(copy&&share);await copy.onclick();assert.equal(s.copied[0],first+'\n\n'+last);
+ assert(!s.copied[0].includes('출처 제목'));assert(!s.copied[0].includes('관련 원문을 찾았습니다'));assert(!s.copied[0].includes('/출처주소'));
+ const shared=[];s.context.navigator.share=async data=>shared.push(data);await share.onclick();
+ assert.deepEqual(Object.keys(shared[0]),['text']);assert.equal(shared[0].text,s.copied[0]);assert.equal(share.disabled,false);
+});
+
+test('원문 공유 미지원은 복사 안내, 공유 취소는 오류·재전송 없이 끝낸다',async()=>{
+ const s=setup();await vm.runInContext('refreshMembership(true)',s.context);
+ s.context.sourceFixture=[{text:'한 편의 전체 원고입니다.'}];s.context.sourceButton=s.context.document.createElement('button');s.context.sourceButton.textContent='원문 공유';
+ await vm.runInContext('shareSource(sourceFixture,sourceButton)',s.context);assert.equal(s.copied[0],'한 편의 전체 원고입니다.');assert.match(s.get('status').textContent,/공유할 앱에 붙여/);
+ s.get('status').textContent='';s.context.navigator.share=async()=>{throw new DOMException('cancelled','AbortError');};
+ await vm.runInContext('shareSource(sourceFixture,sourceButton)',s.context);assert.equal(s.copied.length,1);assert.equal(s.get('status').textContent,'');assert.equal(s.context.sourceButton.disabled,false);
+ s.context.navigator.share=async()=>{throw new TypeError('share unavailable');};await vm.runInContext('shareSource(sourceFixture,sourceButton)',s.context);assert.match(s.get('status').textContent,/공유하지 못/);assert.equal(s.copied.length,1);
+ vm.runInContext('authorized=false',s.context);let shared=0;s.context.navigator.share=async()=>{shared++;};await vm.runInContext('shareSource(sourceFixture,sourceButton)',s.context);assert.equal(shared,0);
+});

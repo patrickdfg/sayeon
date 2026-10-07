@@ -64,3 +64,5 @@
 .send-button{margin-left:0;background:#387df7}
 .send-button:hover{background:#276ae5}
 @media(max-width:760px){.composer{padding:16px 13px 11px}.composer-tools{gap:8px}.composer .model-picker select{font-size:12px}.composer textarea{min-height:58px}.composer .model-picker{max-width:calc(100% - 90px)}}
+
+.source-notice{display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap}.source-notice>p{margin:0}.source-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.source-actions .tool-button{min-height:36px;white-space:nowrap}

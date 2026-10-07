@@ -38,7 +38,7 @@ function showEvidence(found,target=$('evidence')){target.replaceChildren();if(!f
 function overviewText(sections){
  return sections.map((section,i)=>(i+1)+'. '+section.title+'\n\n'+section.points.map(p=>p.text).join('\n\n')).join('\n\n');
 }
-async function copyText(value,button){
+async function copyText(value,button,successTitle='출처를 제외한 종합 정리를 복사했습니다.'){
  if(!authorized||!token)return;
  const original=button.textContent,originalTitle=button.title;button.disabled=true;
  try{
@@ -52,11 +52,31 @@ async function copyText(value,button){
    try{input.select();if(!document.execCommand('copy'))throw new Error('copy failed');}
    finally{input.remove();active?.focus();}
   }
-  button.textContent='복사됨';button.title='출처를 제외한 종합 정리를 복사했습니다.';
- }catch{button.textContent='복사 실패';button.title='브라우저의 클립보드 권한을 확인해 주세요.';}
+  button.textContent='복사됨';button.title=successTitle;return true;
+ }catch{button.textContent='복사 실패';button.title='브라우저의 클립보드 권한을 확인해 주세요.';return false;}
  finally{button.disabled=false;setTimeout(()=>{button.textContent=original;button.title=originalTitle;},2000);}
 }
 async function copyOverview(sections,button){return copyText(overviewText(sections),button);}
+function sourceText(found){return found.map(doc=>doc.text).join('\n\n');}
+async function shareSource(found,button){
+ if(!authorized||!token)return;
+ const value=sourceText(found);if(!value)return;
+ if(!navigator.share){
+  if(await copyText(value,button,'원문만 복사했습니다.'))status('원문을 복사했습니다. 공유할 앱에 붙여 넣어 주세요.');
+  return;
+ }
+ button.disabled=true;
+ try{await navigator.share({text:value});}
+ catch(e){if(e.name!=='AbortError')status('공유하지 못했습니다. 원문만 복사하여 공유할 앱에 붙여 넣어 주세요.',true);}
+ finally{button.disabled=false;}
+}
+function sourceActions(found){
+ const actions=node('div',null,'source-actions');
+ const copy=node('button','원문만 복사','tool-button ui-copy'),share=node('button','원문 공유','tool-button');
+ copy.type=share.type='button';copy.title='안내·출처를 제외하고 원문 내용만 복사';share.title='원문 내용만 공유';
+ copy.onclick=()=>copyText(sourceText(found),copy,'원문만 복사했습니다.');share.onclick=()=>shareSource(found,share);
+ actions.append(copy,share);return actions;
+}
 function showAnswer(result,target=$('answer'),questionText=$('question').value.trim()){
  target.replaceChildren();
  if(!result.answer.supported){text(target,'등록된 자료에서 답을 뒷받침할 근거를 찾지 못했습니다.');return;}
@@ -215,7 +235,15 @@ function drawConversation(scroll=false){
   else{
    const label=node('div',null,'assistant-label');label.append(node('span','✦'),node('strong',message.failed?'답변 안내':'말씀과 사연'));article.append(label);
    const content=node('div',null,'assistant-content');
-   try{const result=unpackResult(message);if(result)showAnswer(result,content,question);else content.append(node('p',message.content||'원문 검색 결과입니다.'));}
+   try{
+    const result=unpackResult(message);
+    if(result)showAnswer(result,content,question);
+    else{
+     const notice=node('div',null,'source-notice');notice.append(node('p',message.content||'원문 검색 결과입니다.'));
+     if(!message.failed&&message.evidence?.length)notice.append(sourceActions(message.evidence));
+     content.append(notice);
+    }
+   }
    catch{content.append(node('p','저장된 답변의 인용을 확인하지 못했습니다. 원문을 다시 검색해 주세요.','error'));}
    article.append(content);
    if(message.evidence?.length){
