@@ -18,7 +18,7 @@ function setup(){
  vm.runInContext("googleUser={id:'31dfdc34-a567-4e6d-9a15-d37ab6f517db',email:'fixture@example.test'};authClient={rpc:async()=>({data:membershipFixture,error:null}),auth:{signOut:async()=>{},getSession:async()=>({data:{session:{access_token:'fixture-token',user:googleUser}}})}};chatStore={list:async()=>[],save:async t=>({id:t.id,revision:(t.revision??-1)+1}),remove:async()=>{}}",context);
  return {context,get,writes,calls,copied};
 }
-test('날짜 말씀의 원문 카드는 하나이며 요약과 정리 모두 전체 원고를 한 번만 요청',async()=>{
+test('날짜 말씀은 원고 하나로 전송하며 같은 요약·정리 질문도 매번 새로 생성',async()=>{
  for(const verb of ['요약','정리']){
   const s=setup();await vm.runInContext('refreshMembership(true)',s.context);
   Object.assign(s.context,{MODELS:core.MODELS,resolveQuestion:core.resolveQuestion,wholeRequest:core.wholeRequest,checkWholeCoverage:core.checkWholeCoverage,sourceCaption:core.sourceCaption});
@@ -29,9 +29,13 @@ test('날짜 말씀의 원문 카드는 하나이며 요약과 정리 모두 전
    seen.push(args);const doc=args[4][0],statement={label:'전체 흐름',text:'처음과 중간의 내용을 결론과 연결해 설명합니다.',kind:'inference',sources:[{id:doc.id,quote:'마지막 결론입니다.'}]};
    return {model:'fixture',answer:core.validateAnswer(JSON.stringify({supported:true,overview:[{title:'한 편의 정리',points:[statement]}],claims:[statement]}),[doc])};
   };
+  s.get('useCache').checked=true; // 예전 화면의 기본값이 남아도 답변을 재사용하지 않는다.
   s.get('question').value='10월 4일 주일말씀 '+verb+'해줘';
   await s.get('ask').onclick();assert.equal(seen.length,1);assert.equal(seen[0][8],true);assert.equal(seen[0][4].length,1);
   assert.equal(seen[0][4][0].text,s.context.corpus.map(c=>c.text).join('\n\n'));assert.match(s.get('status').textContent,/1회 사용/);
+  s.get('question').value='10월 4일 주일말씀 '+verb+'해줘';
+  await s.get('ask').onclick();assert.equal(seen.length,2);assert.equal(seen[1][8],true);assert.equal(seen[1][4].length,1);
+  assert.equal(seen[1][4][0].text,seen[0][4][0].text);
  }
 });
 test('Google 가입 대기는 화면·AI 입장을 막고 승인을 다시 확인하면 비밀번호 없이 입장한다',async()=>{

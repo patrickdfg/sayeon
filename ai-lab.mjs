@@ -1,10 +1,10 @@
 import {createVoiceInput} from './ai-voice.mjs?v=1';
 import {saveOverview} from './ai-export.mjs?v=2';
-import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,clean,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage,normalizeScope} from './admin/ai-core.mjs?v=21';
+import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage,normalizeScope} from './admin/ai-core.mjs?v=21';
 import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore,resolveChatQuestion} from './ai-chat.mjs?v=7';
 import {MEMBER_LABELS,membershipStatus,createMemberStore} from './ai-members.mjs?v=1';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
-let token='',authorized=false,chunks=[],cache=new Map(),controller=null,busy=false,providerStatus={};
+let token='',authorized=false,chunks=[],controller=null,busy=false,providerStatus={};
 let googleUser=null,authClient=null,chatStore=null,thread=newThread(),threads=[],savedMessageIds=new Set(),dirty=false,saveConflict=false,sessionVersion=0,historySequence=0,historyOffset=0,dialogThread=null,currentTurn=null;
 const text=(el,s)=>{el.textContent=s;};
 function showQuota(quota){
@@ -140,7 +140,7 @@ async function operation(fn,timeoutMs=60000){
   }
  }finally{clearTimeout(timeout);if(controller===active){setBusy(false);controller=null;currentTurn=null;if(authorized){drawConversation(false);drawThreads();}}}
 }
-async function load(){status('기존 등록 말씀·사연을 자동으로 확인하는 중…');if(!window.SaCrypt.ready()&&!await window.SaCrypt.resume()){$('unlockBox').classList.remove('hidden');toggleSettings(true);text($('corpusStatus'),'기존 원고가 잠겨 있습니다. 앱에서 사용하던 원고 암호로 열면 등록 자료 전체에서 검색합니다.');status('새 자료 업로드 없이 기존 원고를 사용합니다.');return;}const results=await Promise.allSettled(SOURCES.map(async source=>toChunks(await window.SaCrypt.json(source.url),source)));if(controller.signal.aborted||!authorized)return;const docs=[],ok=[],failed=[];results.forEach((r,i)=>{if(r.status==='fulfilled'){docs.push(...r.value);const group=SOURCES[i].key.startsWith('sayeon')?'성령사연':SOURCES[i].label;ok.push({group,count:r.value.length});}else failed.push(SOURCES[i].label);});chunks=docs;cache.clear();$('unlockBox').classList.add('hidden');$('contentPassword').value='';text($('corpusStatus'),[...new Set(ok.map(v=>v.group))].map(group=>group+': '+ok.filter(v=>v.group===group).reduce((n,v)=>n+v.count,0)+'문단').join(' / ')+(failed.length?'\n불러오지 못한 자료: '+failed.join(', '):'')+'\n총 '+chunks.length+'문단 · 새 원고는 화면 새로고침 시 자동 반영');status(failed.length?'일부 자료를 불러오지 못했습니다. 불러온 자료만 검색합니다.':'기존 등록 자료에서 바로 질문할 수 있습니다.',!!failed.length);}
+async function load(){status('기존 등록 말씀·사연을 자동으로 확인하는 중…');if(!window.SaCrypt.ready()&&!await window.SaCrypt.resume()){$('unlockBox').classList.remove('hidden');toggleSettings(true);text($('corpusStatus'),'기존 원고가 잠겨 있습니다. 앱에서 사용하던 원고 암호로 열면 등록 자료 전체에서 검색합니다.');status('새 자료 업로드 없이 기존 원고를 사용합니다.');return;}const results=await Promise.allSettled(SOURCES.map(async source=>toChunks(await window.SaCrypt.json(source.url),source)));if(controller.signal.aborted||!authorized)return;const docs=[],ok=[],failed=[];results.forEach((r,i)=>{if(r.status==='fulfilled'){docs.push(...r.value);const group=SOURCES[i].key.startsWith('sayeon')?'성령사연':SOURCES[i].label;ok.push({group,count:r.value.length});}else failed.push(SOURCES[i].label);});chunks=docs;$('unlockBox').classList.add('hidden');$('contentPassword').value='';text($('corpusStatus'),[...new Set(ok.map(v=>v.group))].map(group=>group+': '+ok.filter(v=>v.group===group).reduce((n,v)=>n+v.count,0)+'문단').join(' / ')+(failed.length?'\n불러오지 못한 자료: '+failed.join(', '):'')+'\n총 '+chunks.length+'문단 · 새 원고는 화면 새로고침 시 자동 반영');status(failed.length?'일부 자료를 불러오지 못했습니다. 불러온 자료만 검색합니다.':'기존 등록 자료에서 바로 질문할 수 있습니다.',!!failed.length);}
 $('loadCorpus').onclick=()=>operation(load);
 $('unlock').onclick=()=>operation(async()=>{if(!await window.SaCrypt.unlock($('contentPassword').value))throw new Error('원고 암호를 확인해 주세요.');await load();});
 async function serverInfo(){
@@ -256,14 +256,14 @@ async function openThread(id){
  const epoch=sessionVersion;setBusy(true);text($('historyStatus'),'대화 불러오는 중…');
  try{
   const loaded=await chatStore.load(id);if(epoch!==sessionVersion||!authorized)return;
-  thread={...loaded,scope:normalizeScope(loaded.scope),model_id:Object.hasOwn(MODELS,loaded.model_id)||loaded.model_id==='search'?loaded.model_id:'gemini-lite'};savedMessageIds=new Set(thread.messages.map(message=>message.id));cache.clear();$('model').value=Object.hasOwn(MODELS,thread.model_id)||thread.model_id==='search'?thread.model_id:'gemini-lite';$('scope').value=thread.scope;
+  thread={...loaded,scope:normalizeScope(loaded.scope),model_id:Object.hasOwn(MODELS,loaded.model_id)||loaded.model_id==='search'?loaded.model_id:'gemini-lite'};savedMessageIds=new Set(thread.messages.map(message=>message.id));$('model').value=Object.hasOwn(MODELS,thread.model_id)||thread.model_id==='search'?thread.model_id:'gemini-lite';$('scope').value=thread.scope;
   $('question').value='';resizeQuestion();drawConversation(true);drawThreads();setSaveState('나의 계정에 저장됨');status('');if(mobileSidebar?.matches)toggleSidebar(false);
  }catch(e){if(epoch===sessionVersion)status(e.message,true);}
  finally{if(epoch===sessionVersion){setBusy(false);text($('historyStatus'),'');drawThreads();}}
 }
 function startNew(){
  if(busy)return;if(dirty){setSaveState('현재 대화를 먼저 저장해 주세요.',true);return;}
- thread=newThread();savedMessageIds=new Set();thread.model_id=$('model').value||'gemini-lite';thread.scope=$('scope').value||'all';cache.clear();$('question').value='';
+ thread=newThread();savedMessageIds=new Set();thread.model_id=$('model').value||'gemini-lite';thread.scope=$('scope').value||'all';$('question').value='';
  text($('answer'),'질문하면 여기에 결과가 나옵니다.');text($('evidence'),'관련 원문을 먼저 찾아보세요.');$('freeOnly').checked=true;
  resizeQuestion();drawConversation();drawThreads();setSaveState('');status('');if(mobileSidebar?.matches)toggleSidebar(false);$('question').focus();
 }
@@ -314,16 +314,12 @@ async function sendQuestion(previewOnly=false){
   const instruction=mode==='whole'&&intent?wholeRequest(title,intent):null;
   const combined=instruction?instruction+' 사용자 요청: '+q:'';
   const question=instruction?(combined.length<=600?combined:q):followUp?followUpQuestion(q,outline):q;
-  const ck=JSON.stringify([modelId,clean(question),$('scope').value,found.map(c=>[c.id,c.text])]);
   let result;
-  if($('useCache').checked&&cache.has(ck)){result=cache.get(ck);status('저장된 답변 재사용 · 새 AI 호출 없음');}
-  else{
-   status(mode==='whole'?title+' · 원고 한 편 전체를 읽는 중…':model.label+' 답변 생성 중…');
-   try{result=await generateViaServer(config,token,modelId,question,found,true,fetch,controller.signal,mode==='whole');}
-   catch(e){if(!controller.signal.aborted&&authorized)await serverInfo();throw e;}
-   if(mode==='whole'){checkWholeCoverage(result.answer,found,intent);result={...result,wholeTitle:title,wholeIntent:intent};}
-   cache.set(ck,result);showQuota(result.quota);
-  }
+  status(mode==='whole'?title+' · 원고 한 편 전체를 읽는 중…':model.label+' 답변 생성 중…');
+  try{result=await generateViaServer(config,token,modelId,question,found,true,fetch,controller.signal,mode==='whole');}
+  catch(e){if(!controller.signal.aborted&&authorized)await serverInfo();throw e;}
+  if(mode==='whole'){checkWholeCoverage(result.answer,found,intent);result={...result,wholeTitle:title,wholeIntent:intent};}
+  showQuota(result.quota);
   if(!authorized)return;if(controller.signal.aborted)throw new DOMException('Aborted','AbortError');
   showAnswer(result,$('answer'),q);thread.messages.push(makeMessage('assistant','',{result:packResult(result),evidence:found,title}));drawConversation(true);await persistThread();
   status(mode==='whole'?'완료 · 원고 전체 한 편 · '+(result.attempts===2?2:1)+'회 사용 · 원문 인용 확인':'완료 · 원문 인용 확인');
@@ -354,7 +350,7 @@ $('historySearch').addEventListener('input',()=>{clearTimeout(searchTimer);searc
 $('moreHistory').onclick=()=>loadHistory(true);
 function lockChat(){
  voiceInput.stop();
- sessionVersion++;historySequence++;authorized=false;controller?.abort();controller=null;setBusy(false);token='';cache.clear();chunks=[];thread=newThread();threads=[];savedMessageIds=new Set();dirty=false;saveConflict=false;currentTurn=null;
+ sessionVersion++;historySequence++;authorized=false;controller?.abort();controller=null;setBusy(false);token='';chunks=[];thread=newThread();threads=[];savedMessageIds=new Set();dirty=false;saveConflict=false;currentTurn=null;
  ['contentPassword','question','historySearch'].forEach(id=>$(id).value='');$('conversation').replaceChildren();$('threadList').replaceChildren();text($('answer'),'');text($('evidence'),'');
  $('lab').classList.add('hidden');$('gate').classList.remove('hidden');toggleSettings(false);$('sidebar').classList.remove('open');$('sidebarBackdrop').classList.add('hidden');syncSidebarAccess();$('scrollBottom').classList.add('hidden');setSaveState('');status('');
  if($('threadDialog').open)$('threadDialog').close();
