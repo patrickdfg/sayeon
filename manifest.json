@@ -1,7 +1,7 @@
 {
- "name": "성령 사연",
- "short_name": "성령사연",
- "description": "성령사연 · 월명동사연 · 말씀 자료실",
+ "name": "성령말씀",
+ "short_name": "성령말씀",
+ "description": "성령말씀 · 월명동사연 · 말씀 자료실",
  "start_url": "./",
  "scope": "/sayeon/",
  "display": "standalone",
