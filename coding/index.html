@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#087f8c">
+  <title>코딩 놀이터 · 블록으로 배우는 코딩</title>
+  <link rel="stylesheet" href="style.css?v=1">
+  <script src="vendor/blockly_compressed.js"></script>
+  <script src="vendor/blocks_compressed.js"></script>
+  <script src="vendor/ko.js"></script>
+  <script type="module" src="app.mjs?v=1"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="#">✦ 코딩 놀이터</a><a href="../">우리 사이트</a><button id="courseBtn">수업 목록</button></header>
+  <main id="course">
+    <section class="hero"><div><p class="eyebrow">생각을 연결하면, 모험이 시작돼요</p><h1>블록으로 배우는 코딩</h1><p>미로를 탐험하고, 그림을 그리고, 캐릭터를 움직여 보세요.<br>순서부터 반복·조건·이벤트까지 차근차근 배우는 100개의 미션.</p><button id="continueBtn" class="primary">학습 시작하기 →</button></div><div class="hero-art" aria-hidden="true"><span>↱</span><span>🔁</span><span>🤖</span><span>★</span></div></section>
+    <section class="progress-summary"><strong id="progressLabel">100단계 중 0단계 완료</strong><progress id="totalProgress" max="100" value="0"></progress><span>진도와 블록은 이 브라우저에 자동 저장돼요.</span></section>
+    <div id="lessons"></div>
+    <footer>블록을 끌어 연결하고 실행해 보세요. 실패해도 괜찮아요. 고치면서 배우는 곳입니다.<br>우리 사이트의 독립적인 코딩 학습 과정 · 블록 편집기: Blockly</footer>
+  </main>
+  <main id="activity" hidden>
+    <div class="lessonbar"><div><span id="lessonLabel"></span><h1 id="levelTitle"></h1></div><nav id="levelNav" aria-label="수업 단계"></nav></div>
+    <div class="instruction"><span class="guide-icon" aria-hidden="true">🤖</span><div><strong id="goalText"></strong><p id="instructionText"></p></div><button id="hintBtn">💡 힌트</button></div>
+    <div id="hint" class="hint" hidden></div>
+    <div class="studio">
+      <section class="stage-panel" aria-label="실행 화면">
+        <div class="panel-title"><strong id="stageLabel">실행 화면</strong><label>속도 <select id="speed" aria-label="실행 속도"><option value="450">천천히</option><option value="220" selected>보통</option><option value="65">빠르게</option></select></label></div>
+        <canvas id="stage" width="420" height="420" tabindex="0" aria-label="코딩 실행 화면. 이벤트 수업에서는 화살표 키를 사용할 수 있습니다."></canvas>
+        <div class="run-controls"><button id="runBtn" class="primary">▶ 실행</button><button id="stepBtn">한 단계씩</button><button id="stopBtn" disabled>■ 멈춤</button><button id="resetBtn">↺ 다시 시작</button></div>
+        <div id="eventControls" hidden><p>실행한 뒤 아래 버튼이나 키보드로 움직여요.</p><div class="direction-pad"><button data-dir="3" aria-label="위쪽">↑</button><button data-dir="2" aria-label="왼쪽">←</button><button data-dir="1" aria-label="아래쪽">↓</button><button data-dir="0" aria-label="오른쪽">→</button></div></div>
+        <p id="status" role="status" aria-live="polite">블록을 연결하고 실행을 눌러 보세요.</p>
+      </section>
+      <section class="workspace-panel" aria-label="블록 코딩 공간"><div class="panel-title"><strong>블록 작업 공간</strong><span id="blockCount"></span><button id="clearBtn">블록 초기화</button></div><div id="blockly"></div><details class="code-view"><summary>내 블록을 글로 보기</summary><pre id="codeText"></pre></details></section>
+    </div>
+    <div class="bottom-nav"><button id="prevBtn">← 이전 단계</button><button id="backBtn">수업 목록</button><button id="nextBtn">다음 단계 →</button></div>
+  </main>
+  <dialog id="successDialog"><div class="celebration">★</div><h2>미션 성공!</h2><p id="successText"></p><button id="successNext" class="primary">다음 단계 →</button><button id="successClose">다시 살펴보기</button></dialog>
+  <noscript>코딩 놀이터를 사용하려면 브라우저의 자바스크립트를 켜 주세요.</noscript>
+</body>
+</html>
