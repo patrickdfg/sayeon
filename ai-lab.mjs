@@ -386,7 +386,7 @@ function lockChat(){
  ['contentPassword','question','historySearch'].forEach(id=>$(id).value='');$('conversation').replaceChildren();$('threadList').replaceChildren();text($('answer'),'');text($('evidence'),'');
  $('lab').classList.add('hidden');$('gate').classList.remove('hidden');toggleSettings(false);$('sidebar').classList.remove('open');$('sidebarBackdrop').classList.add('hidden');syncSidebarAccess();$('scrollBottom').classList.add('hidden');setSaveState('');status('');
  if($('threadDialog').open)$('threadDialog').close();
- if($('membersDialog').open)$('membersDialog').close();$('memberList').replaceChildren();$('manageMembers').classList.add('hidden');membership=null;memberSequence++;
+ if($('membersDialog').open)$('membersDialog').close();$('memberList').replaceChildren();$('manageMembers').classList.add('hidden');$('adminLinks').classList.add('hidden');membership=null;memberSequence++;
 }
 let membership=null,membershipSequence=0,memberSequence=0,memberOffset=0;
 function showGoogleUser(user){
@@ -406,7 +406,7 @@ async function refreshMembership(enter=false){
   const access=await membershipStatus(authClient);
   if(epoch!==sessionVersion||userId!==googleUser?.id||sequence!==membershipSequence)return null;
   if(!access.approved&&authorized)lockChat();
-  membership=access;text($('membershipLabel'),MEMBER_LABELS[access.status]);$('manageMembers').classList.toggle('hidden',!access.isAdmin);
+  membership=access;text($('membershipLabel'),MEMBER_LABELS[access.status]);$('manageMembers').classList.toggle('hidden',!access.isAdmin);$('adminLinks').classList.toggle('hidden',!access.isAdmin);
   $('login').classList.toggle('hidden',!access.approved);
   text($('gateMessage'),access.approved?'승인된 계정입니다. 대화를 시작할 수 있습니다.':access.status==='pending'?'가입 신청이 완료되었습니다. 관리자가 승인하면 대화를 시작할 수 있습니다.':access.status==='rejected'?'가입 신청이 승인되지 않았습니다. 관리자에게 문의해 주세요.':'이용 승인이 취소되었습니다. 관리자에게 문의해 주세요.');
   if(enter&&access.approved&&!authorized)await enterChat();

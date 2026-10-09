@@ -34,6 +34,7 @@
   <section id="dashboard" class="hidden">
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><h1>자료실 통계</h1><div class="muted">개인정보 없이 익명 기기 기준으로 집계합니다.</div></div><button id="logout" class="secondary">로그아웃</button></div>
     <section id="aiTestEntry" class="card hidden"><h2>AI 챗봇 · 회원 승인</h2><p class="muted">Google로 가입한 회원을 승인하거나 이용 승인을 취소할 수 있습니다.</p><a href="../ai-lab.html#members" style="display:inline-block;background:var(--accent);color:#14200d;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:700">AI 챗봇·회원 관리 열기</a></section>
+    <section id="uploadEntry" class="card hidden"><h2>올리기 · 성령말씀 글 / 말씀 원고·녹음</h2><p class="muted">새 성령말씀 글, 말씀 한글 원고(.hwp)와 녹음(.mp3)을 올려 자동으로 게시합니다.</p><a href="../upload/" style="display:inline-block;background:var(--accent);color:#14200d;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:700">올리기 화면 열기</a></section>
     <section class="card"><h2>월명동 전체 가이드</h2><p class="muted">돌보석 안내 28개 작품의 사진·설명·녹음을 한곳에서 확인합니다.</p><a href="stone-guides.html" style="display:inline-block;background:var(--accent);color:#14200d;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:700">전체 가이드 열기</a></section>
     <div class="card topbar"><div><label for="from">시작일</label><input id="from" type="date"></div><div><label for="to">종료일</label><input id="to" type="date"></div><button id="refresh">조회</button></div>
     <div class="metrics"><div class="metric"><strong id="totalVisitors">0</strong><span>방문 인원</span></div><div class="metric"><strong id="totalSessions">0</strong><span>방문 세션</span></div><div class="metric"><strong id="pageViews">0</strong><span>페이지 열람</span></div><div class="metric"><strong id="completions">0</strong><span>다 읽음</span></div></div>
@@ -62,9 +63,9 @@
   async function load(){
     $("dashMessage").textContent="불러오는 중…";
     var from=$("from").value+"T00:00:00+09:00",toDate=new Date($("to").value+"T00:00:00+09:00");toDate.setDate(toDate.getDate()+1);
-    try{$("aiTestEntry").classList.add("hidden");var d=await request("/rest/v1/rpc/get_analytics_dashboard",{method:"POST",headers:{Authorization:"Bearer "+token},body:JSON.stringify({p_from:from,p_to:toDate.toISOString()})});
+    try{$("aiTestEntry").classList.add("hidden");$("uploadEntry").classList.add("hidden");var d=await request("/rest/v1/rpc/get_analytics_dashboard",{method:"POST",headers:{Authorization:"Bearer "+token},body:JSON.stringify({p_from:from,p_to:toDate.toISOString()})});
       if(!d||typeof d!=="object"||!("totalVisitors" in d))throw new Error("관리자 인증 응답을 확인하지 못했습니다.");
-      show("dashboard");$("aiTestEntry").classList.remove("hidden");
+      show("dashboard");$("aiTestEntry").classList.remove("hidden");$("uploadEntry").classList.remove("hidden");
       $("totalVisitors").textContent=num(d.totalVisitors);$("totalSessions").textContent=num(d.totalSessions);$("pageViews").textContent=num(d.pageViews);$("completions").textContent=num(d.completions);
       var by={};(d.sections||[]).forEach(function(s){by[s.section]=s});["sayeon","malsseum","stones"].forEach(function(k){if(!by[k])by[k]={section:k,visitors:0,page_views:0,page_readers:0,completions:0,completion_readers:0}});$("sections").innerHTML=["sayeon","malsseum","stones"].map(function(k){return sectionRow(by[k])}).join("");
       $("topPages").innerHTML=(d.topPages||[]).map(function(p){return '<tr><td>'+esc(names[p.section]||p.section)+'</td><td>'+esc((p.content_year?p.content_year+" · ":"")+(p.item_no||""))+'</td><td>'+esc(p.item_title||"")+'</td><td class="num">'+num(p.page_views)+'</td><td class="num">'+num(p.readers)+'</td><td class="num">'+num(p.completions)+'</td></tr>'}).join("")||'<tr><td colspan="6" class="muted">아직 기록이 없습니다.</td></tr>';
@@ -74,7 +75,7 @@
   if(location.hash){var params=new URLSearchParams(location.hash.slice(1));var incoming=params.get("access_token");if(incoming){token=incoming;sessionStorage.setItem("sayeonAdminToken",token);history.replaceState(null,"",location.pathname)}}
   if(!configured){show("setup");return}defaults();if(token){show("login");$("loginMessage").textContent="관리자 권한을 확인하는 중…";load()}else show("login");
   $("googleLogin").onclick=googleLogin;
-  $("refresh").onclick=load;$("logout").onclick=function(){token="";sessionStorage.removeItem("sayeonAdminToken");$("aiTestEntry").classList.add("hidden");show("login")};
+  $("refresh").onclick=load;$("logout").onclick=function(){token="";sessionStorage.removeItem("sayeonAdminToken");$("aiTestEntry").classList.add("hidden");$("uploadEntry").classList.add("hidden");show("login")};
 })();
 </script>
 </body>

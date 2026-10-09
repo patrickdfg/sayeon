@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#ffffff">
-<title>말씀과 사연 · AI 대화</title><link rel="stylesheet" href="./ai-chat.css?v=7">
+<title>말씀과 사연 · AI 대화</title><link rel="stylesheet" href="./ai-chat.css?v=8">
 <script src="./analytics-config.js?v=2"></script><script src="./crypt.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 </head>
@@ -32,6 +32,7 @@
 <section id="settingsPanel" class="settings-panel hidden" aria-label="자료 및 대화 설정">
 <div class="panel-heading"><h2>자료·설정</h2><button id="closeSettings" class="icon-button" type="button" aria-label="설정 닫기">×</button></div>
 <button id="manageMembers" type="button" class="secondary hidden">회원 승인 관리</button>
+<div id="adminLinks" class="admin-links hidden"><a href="./admin/">관리자 화면</a><a href="./upload/">올리기</a></div>
 <label for="scope">검색할 자료</label><select id="scope"><option value="all">등록 자료 전체</option><option value="malsseum">말씀</option><option value="sayeon">성령사연</option><option value="stones">월명동사연</option></select>
 <div id="unlockBox" class="hidden"><p class="fine">기존 원고 암호로 등록 자료를 열어 주세요.</p><label for="contentPassword">원고 암호</label><div class="row"><input id="contentPassword" type="password" autocomplete="off"><button id="unlock" type="button">원고 열기</button></div></div>
 <p id="corpusStatus" class="status fine" role="status">등록 자료를 확인합니다.</p><button id="loadCorpus" class="secondary" type="button">자료 다시 확인</button>
@@ -48,6 +49,6 @@
 </main></div>
 <dialog id="threadDialog"><form id="threadDialogForm"><h2 id="dialogTitle">대화 제목 변경</h2><p id="dialogDescription"></p><label id="renameLabel" for="renameInput">대화 제목</label><input id="renameInput" maxlength="100"><p id="dialogError" class="status error" role="status"></p><div class="dialog-actions"><button id="dialogDelete" type="button" class="danger hidden">대화 삭제</button><button id="dialogCancel" type="button" class="secondary">취소</button><button id="dialogConfirm" type="submit">저장</button></div></form></dialog>
 <dialog id="membersDialog" class="members-dialog" aria-labelledby="membersTitle"><div class="panel-heading"><h2 id="membersTitle">회원 승인 관리</h2><button id="closeMembers" type="button" class="icon-button" aria-label="회원 관리 닫기">×</button></div><p>Google로 가입한 사람을 확인하고 이용을 승인하세요. 개인 대화 내용은 표시하지 않습니다.</p><div class="row"><label for="memberFilter" class="sr-only">회원 상태</label><select id="memberFilter"><option value="pending">승인 대기</option><option value="approved">승인됨</option><option value="rejected">가입 거절</option><option value="revoked">승인 취소</option><option value="all">전체</option></select><button id="refreshMembers" type="button" class="secondary">새로고침</button></div><p id="membersStatus" class="status" role="status" aria-live="polite"></p><div id="memberList" class="member-list"></div><div class="dialog-actions"><button id="previousMembers" type="button" class="secondary">이전</button><button id="nextMembers" type="button" class="secondary">다음</button></div></dialog>
-<script type="module" src="./ai-lab.mjs?v=26"></script>
+<script type="module" src="./ai-lab.mjs?v=27"></script>
 </body></html>
 
