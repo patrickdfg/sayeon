@@ -23,6 +23,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install cryptography==46.0.3
+      - name: 오디오 변환 도구 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
       - name: 같은 작품의 녹음만 가져오기
         env:
           SAYEON_PASS: ${{ secrets.SAYEON_PASS }}
