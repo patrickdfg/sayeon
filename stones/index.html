@@ -1498,8 +1498,8 @@ function guideLineHtml(num){
   const path = GUIDE_AUDIO[String(num)];
   if(!path) return '';
   return `<div class="guide-line" id="guideLine">
-      <span class="guide-name">가이드 녹음</span>
-      <button type="button" class="guide-btn" id="guideBtn" aria-pressed="false">▶ 듣기</button>
+      <span class="guide-name">가이드</span>
+      <button type="button" class="guide-btn" id="guideBtn" aria-pressed="false">▶ 가이드 듣기</button>
       <input type="range" id="guideRange" min="0" max="1000" value="0" step="1" aria-label="가이드 재생 위치">
       <span class="guide-time" id="guideTime"></span>
     </div>`;
@@ -1510,7 +1510,7 @@ function updateGuideUI(){
   const playing = !guidePlayer.paused && !guidePlayer.ended;
   btn.classList.toggle('on', playing);
   btn.setAttribute('aria-pressed', String(playing));
-  btn.textContent = playing ? '■ 정지' : '▶ 듣기';
+  btn.textContent = playing ? '■ 정지' : '▶ 가이드 듣기';
   const range = document.getElementById('guideRange');
   const time = document.getElementById('guideTime');
   const d = guidePlayer.duration;
