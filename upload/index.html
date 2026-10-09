@@ -1,0 +1,274 @@
+<!doctype html>
+<!-- 성령말씀 원고를 앱에서 붙여 넣어 work-upload 작업표로 올리는 숨은 화면 -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#1b2018">
+<title>성령말씀 올리기</title>
+<style>
+:root { --bg:#f6f4ee; --card:#fff; --ink:#222; --sub:#6b6b60; --line:#d9d5c8; --accent:#2f5d3a; --accent-ink:#fff; --bad:#b3261e; --ok:#2f6b3a; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg:#1b2018; --card:#252c21; --ink:#ece9de; --sub:#a9a794; --line:#3a4335; --accent:#8fbf8a; --accent-ink:#13200f; --bad:#ff8a80; --ok:#9bd08f; }
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif;
+  padding:16px max(16px, env(safe-area-inset-right)) 48px max(16px, env(safe-area-inset-left)); }
+main { max-width:640px; margin:0 auto; }
+h1 { font-size:1.25rem; margin:4px 0 4px; }
+.back { color:var(--sub); font-size:.9rem; text-decoration:none; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin:14px 0; }
+.card h2 { font-size:1rem; margin:0 0 8px; }
+label { display:block; font-size:.9rem; color:var(--sub); margin:10px 0 4px; }
+input, textarea { width:100%; font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px; }
+textarea { min-height:260px; resize:vertical; line-height:1.6; }
+.row { display:flex; gap:8px; }
+.row > * { flex:1; }
+.row > .fit { flex:none; }
+button { font:inherit; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; padding:10px 14px; cursor:pointer; }
+button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600; width:100%; padding:13px; }
+button:disabled { opacity:.45; cursor:default; }
+.note { font-size:.85rem; color:var(--sub); margin:6px 0 0; }
+.stat { font-size:.9rem; margin:8px 0 0; }
+.msg { font-size:.92rem; margin:10px 0 0; white-space:pre-wrap; }
+.msg.bad { color:var(--bad); } .msg.ok { color:var(--ok); }
+ol.steps { margin:6px 0 0 18px; padding:0; font-size:.88rem; color:var(--sub); }
+.hidden { display:none; }
+</style>
+</head>
+<body>
+<main>
+<a class="back" href="../">← 성령말씀으로</a>
+<h1>성령말씀 올리기</h1>
+<p class="note">원고를 붙여 넣고 올리면 음성·시간표·게시까지 자동으로 이어집니다(약 3분).</p>
+
+<section class="card" id="tokenCard">
+  <h2>1. 올리기 열쇠(토큰)</h2>
+  <p id="tokenState" class="note">이 기기에 저장된 열쇠가 없습니다.</p>
+  <div id="tokenForm">
+    <label for="token">GitHub 토큰</label>
+    <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…">
+    <div class="row" style="margin-top:8px">
+      <button id="saveToken" type="button">저장하고 확인</button>
+    </div>
+    <ol class="steps">
+      <li>GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token</li>
+      <li>Repository access: Only select repositories → sayeon 하나만</li>
+      <li>Permissions: Contents = Read and write, Actions = Read-only</li>
+      <li>만료일을 정하고(예: 90일) 만든 토큰을 위에 붙여 넣기</li>
+    </ol>
+  </div>
+  <div id="tokenDone" class="hidden"><button id="clearToken" type="button">이 기기에서 열쇠 지우기</button></div>
+  <p id="tokenMsg" class="msg" role="status"></p>
+</section>
+
+<section class="card">
+  <h2>2. 원고</h2>
+  <div id="unlockRow" class="hidden">
+    <label for="pass">원고 암호 (다음 번호 자동 확인용, 건너뛰어도 됩니다)</label>
+    <div class="row"><input id="pass" type="password" autocomplete="off" inputmode="numeric"><button id="unlock" class="fit" type="button">열기</button></div>
+  </div>
+  <div class="row">
+    <div><label for="no">편 번호</label><input id="no" inputmode="numeric" pattern="[0-9]*" placeholder="예: 178"></div>
+    <div style="flex:2"><label for="title">제목</label><input id="title" placeholder="성령 말씀 178"></div>
+  </div>
+  <label for="text">원고 붙여 넣기 (빈 줄이 문단 경계)</label>
+  <textarea id="text" placeholder="2026년 성령 말씀 178&#10;&#10;첫 문단 첫 줄&#10;첫 문단 둘째 줄&#10;&#10;둘째 문단"></textarea>
+  <p id="stat" class="stat"></p>
+  <p class="note">맨 윗줄이 “2026년 성령 말씀 번호”(또는 성령 사연) 모양이면 제목 줄로 보고 본문에서 뺍니다.</p>
+</section>
+
+<button id="send" class="primary" type="button" disabled>올리기</button>
+<p id="sendMsg" class="msg" role="status" aria-live="polite"></p>
+</main>
+
+<script src="../crypt.js"></script>
+<script>
+(function () {
+  var OWNER = 'patrickdfg', REPO = 'sayeon', BRANCH = 'main';
+  var API = 'https://api.github.com/repos/' + OWNER + '/' + REPO;
+  var TOKEN_KEY = 'sayeonGhToken';
+  var $ = function (id) { return document.getElementById(id); };
+  var known = [];            // 이미 올라간 편 번호들
+  var titleTouched = false;
+  var busy = false;
+
+  function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
+  function setToken(v) { try { if (v) localStorage.setItem(TOKEN_KEY, v); else localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
+  function say(id, text, kind) { var el = $(id); el.textContent = text || ''; el.className = 'msg' + (kind ? ' ' + kind : ''); }
+
+  function gh(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({
+      'Accept': 'application/vnd.github+json',
+      'Authorization': 'Bearer ' + getToken(),
+      'X-GitHub-Api-Version': '2022-11-28'
+    }, opts.headers || {});
+    return fetch(API + path, opts);
+  }
+
+  /* ---------- 열쇠 ---------- */
+  function showTokenState(ok, text) {
+    $('tokenForm').classList.toggle('hidden', ok);
+    $('tokenDone').classList.toggle('hidden', !ok);
+    $('tokenState').textContent = text;
+    refresh();
+  }
+  function checkToken() {
+    if (!getToken()) { showTokenState(false, '이 기기에 저장된 열쇠가 없습니다.'); return Promise.resolve(false); }
+    say('tokenMsg', '열쇠를 확인하는 중…');
+    return gh('').then(function (r) {
+      if (r.status === 401) throw new Error('열쇠가 맞지 않거나 만료됐습니다. 새로 만들어 붙여 넣어 주세요.');
+      if (r.status === 404) throw new Error('이 열쇠로는 sayeon 저장소를 볼 수 없습니다. 저장소 선택을 확인하세요.');
+      if (!r.ok) throw new Error('확인하지 못했습니다 (' + r.status + ')');
+      return r.json();
+    }).then(function (repo) {
+      if (!repo.permissions || !repo.permissions.push) throw new Error('이 열쇠에는 쓰기 권한(Contents: Read and write)이 없습니다.');
+      say('tokenMsg', '');
+      showTokenState(true, '열쇠가 저장되어 있고 쓰기 권한이 확인됐습니다.');
+      return true;
+    }).catch(function (e) {
+      say('tokenMsg', e.message, 'bad');
+      showTokenState(false, '열쇠를 다시 넣어 주세요.');
+      return false;
+    });
+  }
+  $('saveToken').onclick = function () {
+    var v = $('token').value.trim();
+    if (!v) { say('tokenMsg', '토큰을 붙여 넣어 주세요.', 'bad'); return; }
+    setToken(v); $('token').value = '';
+    checkToken();
+  };
+  $('clearToken').onclick = function () {
+    setToken(''); say('tokenMsg', '이 기기에서 열쇠를 지웠습니다.', 'ok');
+    showTokenState(false, '이 기기에 저장된 열쇠가 없습니다.');
+  };
+
+  /* ---------- 다음 번호 ---------- */
+  function loadKnown() {
+    return SaCrypt.json('sayeon.json').then(function (list) {
+      known = list.map(function (x) { return x.no; });
+      if (!$('no').value) {
+        $('no').value = String(Math.max.apply(null, known) + 1);
+        followTitle();
+      }
+      $('unlockRow').classList.add('hidden');
+      refresh();
+    });
+  }
+  SaCrypt.resume().then(function (ok) {
+    if (ok) return loadKnown();
+    $('unlockRow').classList.remove('hidden');
+  }).catch(function () { $('unlockRow').classList.remove('hidden'); });
+  $('unlock').onclick = function () {
+    SaCrypt.unlock($('pass').value).then(function (ok) {
+      if (!ok) { say('sendMsg', '원고 암호가 맞지 않습니다.', 'bad'); return; }
+      say('sendMsg', ''); return loadKnown();
+    }).catch(function (e) { say('sendMsg', e.message, 'bad'); });
+  };
+
+  /* ---------- 원고 ---------- */
+  function parse(text, no) {
+    var lines = String(text).replace(/\r\n?/g, '\n').split('\n').map(function (s) { return s.replace(/ /g, ' ').replace(/\s+$/, ''); });
+    while (lines.length && !lines[0].trim()) lines.shift();
+    var headRe = new RegExp('^(?:2026년\\s*)?성령\\s*(?:사연|말씀)\\s*' + no + '$');
+    var dropped = false;
+    if (no && lines.length && headRe.test(lines[0].trim())) { lines.shift(); dropped = true; }
+    var paras = 0, cur = 0, count = 0;
+    lines.forEach(function (l) {
+      if (l.trim()) { cur++; count++; } else if (cur) { paras++; cur = 0; }
+    });
+    if (cur) paras++;
+    return { paras: paras, lines: count, dropped: dropped };
+  }
+  function followTitle() {
+    if (!titleTouched) $('title').value = $('no').value ? '성령 말씀 ' + $('no').value : '';
+  }
+  function problem() {
+    var no = Number($('no').value);
+    if (!getToken()) return '열쇠가 없습니다.';
+    if (!$('no').value || !Number.isInteger(no) || no < 1) return '편 번호를 숫자로 넣어 주세요.';
+    if (known.indexOf(no) >= 0) return no + '편은 이미 있습니다. 교체는 이 화면에서 하지 않습니다.';
+    if (!$('title').value.trim()) return '제목을 넣어 주세요.';
+    if (!parse($('text').value, no).paras) return '본문이 비어 있습니다.';
+    return '';
+  }
+  function refresh() {
+    var no = Number($('no').value) || 0;
+    var p = parse($('text').value, no);
+    $('stat').textContent = p.paras ? (p.paras + '문단 · ' + p.lines + '줄' + (p.dropped ? ' · 맨 윗줄 제목은 뺌' : '')) : '';
+    $('send').disabled = busy || !!problem();
+  }
+  /* 입력할 때만 부족한 점을 알려 준다(올린 뒤 결과 메시지를 지우지 않으려고 refresh 와 나눔) */
+  function typed() {
+    refresh();
+    var why = problem();
+    say('sendMsg', $('text').value && why && why !== '열쇠가 없습니다.' ? why : '', why ? 'bad' : '');
+  }
+  $('no').oninput = function () { followTitle(); typed(); };
+  $('title').oninput = function () { titleTouched = true; typed(); };
+  $('text').oninput = typed;
+
+  /* ---------- 올리기 ---------- */
+  function b64(str) {
+    var bytes = new TextEncoder().encode(str), bin = '', i;
+    for (i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+  function pause(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  function watch(sha) {
+    var tries = 0;
+    function step() {
+      tries++;
+      return gh('/actions/workflows/work-upload.yml/runs?head_sha=' + sha + '&per_page=3').then(function (r) {
+        if (!r.ok) throw new Error('진행 상황을 읽지 못했습니다 (' + r.status + '). 열쇠에 Actions 읽기 권한이 있는지 확인하세요.');
+        return r.json();
+      }).then(function (d) {
+        var run = (d.workflow_runs || [])[0];
+        if (!run) {
+          if (tries > 20) throw new Error('자동 게시가 시작되지 않았습니다. GitHub Actions 탭에서 확인해 주세요.');
+          say('sendMsg', '올렸습니다. 자동 게시가 시작되기를 기다리는 중…'); return pause(5000).then(step);
+        }
+        if (run.status !== 'completed') {
+          if (tries > 120) throw new Error('10분이 지나도 끝나지 않았습니다. GitHub Actions 탭에서 확인해 주세요.');
+          say('sendMsg', '음성·시간표를 만드는 중… (' + (run.status === 'queued' ? '대기' : '실행') + ')'); return pause(5000).then(step);
+        }
+        if (run.conclusion !== 'success') throw new Error('자동 게시가 실패했습니다 (' + run.conclusion + '). GitHub Actions에서 실패한 줄을 확인해 주세요.');
+        say('sendMsg', '게시가 끝났습니다. 배포 반영까지 1~2분 더 걸릴 수 있습니다.\n앱에서 새로고침하면 보입니다.', 'ok');
+      });
+    }
+    return step();
+  }
+
+  $('send').onclick = function () {
+    var why = problem();
+    if (why) { say('sendMsg', why, 'bad'); return; }
+    var no = Number($('no').value), p = parse($('text').value, no);
+    if (!confirm(no + '편 · ' + p.paras + '문단을 올립니다. 올리면 바로 게시됩니다. 계속할까요?')) return;
+    busy = true; refresh(); say('sendMsg', '올리는 중…');
+    var job = { category: 'sayeon', year: 2026, no: no, title: $('title').value.trim(),
+                content: $('text').value.replace(/\r\n?/g, '\n').replace(/\s+$/, '') };
+    var body = { message: '성령말씀 ' + no + ' 작업표 추가 (앱에서 올림)', branch: BRANCH,
+                 content: b64(JSON.stringify(job, null, 1) + '\n') };
+    gh('/contents/work-upload/' + no + '.json', { method: 'PUT', body: JSON.stringify(body) }).then(function (r) {
+      if (r.status === 401) throw new Error('열쇠가 맞지 않거나 만료됐습니다.');
+      if (r.status === 403 || r.status === 404) throw new Error('이 열쇠로는 올릴 수 없습니다 (' + r.status + '). 쓰기 권한과 저장소 선택을 확인하세요.');
+      if (r.status === 409 || r.status === 422) throw new Error('같은 번호의 작업표가 이미 올라가 있습니다. 처리 중이거나 막 끝난 것일 수 있습니다.');
+      if (!r.ok) throw new Error('올리지 못했습니다 (' + r.status + ')');
+      return r.json();
+    }).then(function (res) {
+      known.push(no);
+      return watch(res.commit.sha);
+    }).catch(function (e) {
+      say('sendMsg', e.message, 'bad');
+    }).then(function () { busy = false; refresh(); });
+  };
+
+  checkToken();
+})();
+</script>
+</body>
+</html>
