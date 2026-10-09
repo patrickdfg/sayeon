@@ -503,6 +503,33 @@ main{padding-top:28px;}
 @media (max-width:640px){
   .seekwrap{padding:10px 12px 0;}
 }
+/* 가이드 녹음 줄 — 제목 줄 바로 아래. 가이드 파일이 있는 돌에만 나온다 */
+.guide-line{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 28px 0;
+}
+.guide-name{font-size:.85rem; color:var(--muted); white-space:nowrap;}
+.guide-btn{
+  border:1px solid var(--accent);
+  background:transparent;
+  color:var(--accent);
+  border-radius:999px;
+  padding:4px 11px;
+  font:inherit;
+  font-size:.78rem;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.guide-btn.on{background:var(--accent); color:var(--accent-ink);}
+.guide-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.guide-line input[type=range]{flex:1; min-width:0; accent-color:var(--accent); height:4px; cursor:pointer;}
+.guide-time{font-size:.78rem; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums;}
+@media (max-width:640px){
+  .guide-line{padding:10px 12px 0; gap:7px;}
+}
+
 .card-meta{
   padding:10px 28px 0;
   color:var(--muted);
@@ -1066,6 +1093,7 @@ function fillGallery(){
 
 function render(index){
   stopReading();
+  stopGuide();
   hideHlToolbar();
   current = index;
   const it = DATA[index];
@@ -1085,6 +1113,7 @@ function render(index){
         <span id="readBtnLabel">듣기</span>
       </button>
     </div>
+    ${guideLineHtml(it.num)}
     <div class="seekwrap" id="seekWrap">
       <input type="range" id="seekRange" min="0" max="1000" value="0" step="1" aria-label="재생 위치">
       <span class="seektime" id="seekTime"></span>
@@ -1434,6 +1463,7 @@ function speakNextChunk(session){
 }
 
 function beginReadCurrent(){
+  stopGuide();
   readSession++;
   const session = readSession;
   isReading = true;
@@ -1457,6 +1487,69 @@ function beginReadCurrent(){
   if(silentAnchor) silentAnchor.play().catch(()=>{});
   speakNextChunk(session);
 }
+
+// ===== 가이드 녹음 (기본 듣기와 따로, 제목 줄 아래 한 줄) =====
+// 돌 번호 → 파일. 가이드 녹음은 `audio/<번호>-guide.mp3` 로 올리고 여기에 적는다. 적은 돌에만 줄이 나온다.
+const GUIDE_AUDIO = {};
+const guidePlayer = new Audio();
+guidePlayer.preload = 'none';
+let guideDragging = false;
+function guideLineHtml(num){
+  const path = GUIDE_AUDIO[String(num)];
+  if(!path) return '';
+  return `<div class="guide-line" id="guideLine">
+      <span class="guide-name">가이드 녹음</span>
+      <button type="button" class="guide-btn" id="guideBtn" aria-pressed="false">▶ 듣기</button>
+      <input type="range" id="guideRange" min="0" max="1000" value="0" step="1" aria-label="가이드 재생 위치">
+      <span class="guide-time" id="guideTime"></span>
+    </div>`;
+}
+function updateGuideUI(){
+  const btn = document.getElementById('guideBtn');
+  if(!btn) return;
+  const playing = !guidePlayer.paused && !guidePlayer.ended;
+  btn.classList.toggle('on', playing);
+  btn.setAttribute('aria-pressed', String(playing));
+  btn.textContent = playing ? '■ 정지' : '▶ 듣기';
+  const range = document.getElementById('guideRange');
+  const time = document.getElementById('guideTime');
+  const d = guidePlayer.duration;
+  if(guideDragging || !range || !time) return;
+  if(guidePlayer.currentSrc && isFinite(d) && d > 0){
+    range.value = Math.round((guidePlayer.currentTime / d) * 1000);
+    time.textContent = formatAudioTime(guidePlayer.currentTime) + ' / ' + formatAudioTime(d);
+  } else {
+    range.value = 0;
+    time.textContent = '';
+  }
+}
+function stopGuide(){
+  guidePlayer.pause();
+  if(guidePlayer.currentSrc) guidePlayer.currentTime = 0;
+  updateGuideUI();
+}
+function toggleGuide(){
+  const path = GUIDE_AUDIO[String(DATA[current].num)];
+  if(!path) return;
+  if(!guidePlayer.paused){ stopGuide(); return; }
+  stopReading();                       // 기본 듣기가 돌고 있으면 멈춘다
+  if(!guidePlayer.src || !guidePlayer.src.endsWith(path)) guidePlayer.src = path;
+  guidePlayer.play().catch(() => { stopGuide(); });
+  updateGuideUI();
+}
+guidePlayer.addEventListener('timeupdate', updateGuideUI);
+guidePlayer.addEventListener('loadedmetadata', updateGuideUI);
+guidePlayer.addEventListener('play', updateGuideUI);
+guidePlayer.addEventListener('pause', updateGuideUI);
+guidePlayer.addEventListener('ended', () => { guidePlayer.currentTime = 0; updateGuideUI(); });
+els.card.addEventListener('click', e => { if(e.target && e.target.id === 'guideBtn') toggleGuide(); });
+els.card.addEventListener('input', e => { if(e.target && e.target.id === 'guideRange') guideDragging = true; });
+els.card.addEventListener('change', e => {
+  if(!e.target || e.target.id !== 'guideRange') return;
+  guideDragging = false;
+  const d = guidePlayer.duration;
+  if(guidePlayer.currentSrc && isFinite(d) && d > 0) guidePlayer.currentTime = (Number(e.target.value) / 1000) * d;
+});
 
 function toggleReading(){
   if(!RECORDED_AUDIO[String(DATA[current].num)] && !('speechSynthesis' in window)){
