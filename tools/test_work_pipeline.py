@@ -18,6 +18,12 @@ class WorkPipelineTests(unittest.TestCase):
             process_work_upload.paragraphs_from_content(content, 162),
             [['첫 줄', '둘째 줄'], ['마지막']])
 
+    def test_heading_with_new_name_is_dropped(self):
+        content = '2026년 성령 말씀 177\n\n첫 줄\n둘째 줄\n\n마지막'
+        self.assertEqual(
+            process_work_upload.paragraphs_from_content(content, 177),
+            [['첫 줄', '둘째 줄'], ['마지막']])
+
     def test_tts_returns_sentence_boundaries(self):
         async def run():
             handle, path = tempfile.mkstemp(suffix='.mp3')

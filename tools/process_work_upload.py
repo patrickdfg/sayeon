@@ -26,7 +26,7 @@ def paragraphs_from_content(content, number):
     lines = [clean_line(line) for line in str(content).splitlines()]
     while lines and not lines[0].strip():
         lines.pop(0)
-    if lines and re.fullmatch(r'(?:2026년\s*)?성령\s*사연\s*%d' % number,
+    if lines and re.fullmatch(r'(?:2026년\s*)?성령\s*(?:사연|말씀)\s*%d' % number,
                               lines[0].strip()):
         lines.pop(0)
     paragraphs = []
