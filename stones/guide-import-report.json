@@ -10,6 +10,14 @@
       "path": "audio/1-guide.mp3"
     },
     {
+      "number": "2",
+      "title": "큰바위얼굴 바위",
+      "guide": "큰바위얼굴",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/keunbawi-eolgul.v4.m4a",
+      "duration": 178.81,
+      "path": "audio/2-guide.mp3"
+    },
+    {
       "number": "4",
       "title": "산수경석",
       "guide": "산수경석",
@@ -18,12 +26,28 @@
       "path": "audio/4-guide.mp3"
     },
     {
+      "number": "7",
+      "title": "코끼리돌 (구)두꺼비돌",
+      "guide": "코끼리바위",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/kokkiri-bawi.v4.m4a",
+      "duration": 101.09,
+      "path": "audio/7-guide.mp3"
+    },
+    {
       "number": "9",
       "title": "독수리형상괴석",
       "guide": "독수리 형상 괴석",
       "source": "https://grand-pasca-8d267f.netlify.app/audio/doksuri-goeseok.v4.m4a",
       "duration": 105.74,
       "path": "audio/9-guide.mp3"
+    },
+    {
+      "number": "13",
+      "title": "호랑이돌",
+      "guide": "호랑이 바위",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/horangi-dol.v4.m4a",
+      "duration": 114.63,
+      "path": "audio/13-guide.mp3"
     },
     {
       "number": "17",
@@ -58,12 +82,12 @@
       "path": "audio/30-guide.mp3"
     },
     {
-      "number": "34",
-      "title": "성령바위",
+      "number": "33",
+      "title": "기도바위 (성령바위)",
       "guide": "기도바위",
       "source": "https://grand-pasca-8d267f.netlify.app/audio/gido-bawi.v4.m4a",
       "duration": 118.41,
-      "path": "audio/34-guide.mp3"
+      "path": "audio/33-guide.mp3"
     },
     {
       "number": "44",
@@ -72,6 +96,30 @@
       "source": "https://grand-pasca-8d267f.netlify.app/audio/chogajip-dol.v4.m4a",
       "duration": 153.47,
       "path": "audio/44-guide.mp3"
+    },
+    {
+      "number": "45",
+      "title": "두꺼비형상석",
+      "guide": "두꺼비돌",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/dukkeobi-dol.v4.m4a",
+      "duration": 169.93,
+      "path": "audio/45-guide.mp3"
+    },
+    {
+      "number": "65",
+      "title": "항공모함 형상 수석",
+      "guide": "항공모함 수석",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/hanggongmoham-suseok.v4.m4a",
+      "duration": 119.07,
+      "path": "audio/65-guide.mp3"
+    },
+    {
+      "number": "66",
+      "title": "현대식 전투기 형상 수석",
+      "guide": "전폭기 수석",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/jeonpokgi-suseok.v4.m4a",
+      "duration": 108.67,
+      "path": "audio/66-guide.mp3"
     },
     {
       "number": "68",
@@ -120,17 +168,25 @@
       "source": "https://grand-pasca-8d267f.netlify.app/audio/seonghwaseok.v4.m4a",
       "duration": 40.12,
       "path": "audio/104-guide.mp3"
+    },
+    {
+      "number": "105",
+      "title": "성령길 수석",
+      "guide": "길 수석",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/gil-suseok.v4.m4a",
+      "duration": 78.94,
+      "path": "audio/105-guide.mp3"
+    },
+    {
+      "number": "106",
+      "title": "대둔산 수석",
+      "guide": "대둔산 산수경석",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/daedunsan-sansugyeongseok.v4.m4a",
+      "duration": 91.17,
+      "path": "audio/106-guide.mp3"
     }
   ],
   "unmatchedGuides": [
-    "두꺼비돌",
-    "호랑이 바위",
-    "큰바위얼굴",
-    "코끼리바위",
-    "대둔산 산수경석",
-    "항공모함 수석",
-    "전폭기 수석",
-    "길 수석",
     "오직 주 하나님 바위",
     "100톤 산수화 조각돌",
     "163톤 바위",
@@ -140,10 +196,6 @@
     "이글석"
   ],
   "unmatchedStones": [
-    {
-      "number": "2",
-      "title": "큰바위얼굴 바위"
-    },
     {
       "number": "3",
       "title": "여호와이레솔"
@@ -155,10 +207,6 @@
     {
       "number": "6",
       "title": "기도표적 솔"
-    },
-    {
-      "number": "7",
-      "title": "코끼리돌 (구)두꺼비돌"
     },
     {
       "number": "8",
@@ -175,10 +223,6 @@
     {
       "number": "12",
       "title": "하나님 상징 독수리 바위"
-    },
-    {
-      "number": "13",
-      "title": "호랑이돌"
     },
     {
       "number": "14",
@@ -265,8 +309,8 @@
       "title": "예수님얼굴바위"
     },
     {
-      "number": "33",
-      "title": "기도바위 (성령바위)"
+      "number": "34",
+      "title": "성령바위"
     },
     {
       "number": "35",
@@ -303,10 +347,6 @@
     {
       "number": "43",
       "title": "월명정 소나무"
-    },
-    {
-      "number": "45",
-      "title": "두꺼비형상석"
     },
     {
       "number": "46",
@@ -383,14 +423,6 @@
     {
       "number": "64",
       "title": "드론 형상 수석"
-    },
-    {
-      "number": "65",
-      "title": "항공모함 형상 수석"
-    },
-    {
-      "number": "66",
-      "title": "현대식 전투기 형상 수석"
     },
     {
       "number": "67",
@@ -519,14 +551,6 @@
     {
       "number": "100",
       "title": "하나님 성령님 성자의 손 상징 형상"
-    },
-    {
-      "number": "105",
-      "title": "성령길 수석"
-    },
-    {
-      "number": "106",
-      "title": "대둔산 수석"
     },
     {
       "number": "107",
