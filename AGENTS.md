@@ -81,10 +81,12 @@ ChatGPT Work가 `work-upload/<편번호>.json` 작업표를 main에 올리면
 사용자 요청으로 만든 숨은 화면이다. 설정·탭에는 링크가 없고 주소로만 연다.
 원고를 붙여 넣으면 화면이 GitHub API 로 `work-upload/<번호>.json` 을 main 에 올리고, 위 자동 게시가 이어서 돈다.
 
-- 토큰은 GitHub 세부 토큰(sayeon 저장소만, Contents 읽기·쓰기, Actions 읽기)이며 그 기기 `localStorage.sayeonGhToken` 에만 둔다. 코드·문서·저장소에는 넣지 않는다.
+- 토큰은 GitHub 세부 토큰(sayeon·malsseum 저장소, Contents 읽기·쓰기, Actions 읽기)이며 그 기기 `localStorage.sayeonGhToken` 에만 둔다. 코드·문서·저장소에는 넣지 않는다.
 - 이미 있는 편의 교체(`replace`)는 이 화면에서 지원하지 않는다.
 - 제목 줄(`2026년 성령 사연|말씀 <번호>`)은 `process_work_upload.py` 와 화면이 같은 규칙으로 뺀다. 한쪽을 고치면 다른 쪽도 맞춘다.
-- 말씀(`malsseum`)은 아직 이 화면에 없다(HWP·mp3 처리가 달라 2단계로 미뤄 둠).
+- '말씀' 탭(2026-10-09): 한글(.hwp)과 mp3 를 `malsseum` 저장소 `mal-upload/<묶음>/` 에 올린다(녹음은 6MB 조각). 처리는 그 저장소의
+  `mal-upload.yml`·`tools/process_mal_upload.py` 가 한다(자세한 것은 malsseum `AGENTS.md`). 그래서 토큰은 sayeon·malsseum 둘 다 골라야 한다.
+  `?dry=1` 로 열면 시험 실행(자료에 넣지 않음)이다.
 
 ## 월명동 가이드 녹음 (2026-10-09)
 

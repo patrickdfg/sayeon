@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- 성령말씀 원고를 앱에서 붙여 넣어 work-upload 작업표로 올리는 숨은 화면 -->
+<!-- 성령말씀 글, 말씀(한글 파일+녹음)을 앱에서 올려 GitHub 자동 게시로 넘기는 숨은 화면 -->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#1b2018">
-<title>성령말씀 올리기</title>
+<title>올리기</title>
 <style>
 :root { --bg:#f6f4ee; --card:#fff; --ink:#222; --sub:#6b6b60; --line:#d9d5c8; --accent:#2f5d3a; --accent-ink:#fff; --bad:#b3261e; --ok:#2f6b3a; }
 @media (prefers-color-scheme: dark) {
@@ -23,6 +23,8 @@ h1 { font-size:1.25rem; margin:4px 0 4px; }
 .card h2 { font-size:1rem; margin:0 0 8px; }
 label { display:block; font-size:.9rem; color:var(--sub); margin:10px 0 4px; }
 input, textarea { width:100%; font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px; }
+input[type=file] { padding:8px; }
+input[type=checkbox] { width:auto; margin-right:8px; }
 textarea { min-height:260px; resize:vertical; line-height:1.6; }
 .row { display:flex; gap:8px; }
 .row > * { flex:1; }
@@ -30,10 +32,16 @@ textarea { min-height:260px; resize:vertical; line-height:1.6; }
 button { font:inherit; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; padding:10px 14px; cursor:pointer; }
 button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600; width:100%; padding:13px; }
 button:disabled { opacity:.45; cursor:default; }
+.tabs { display:flex; gap:6px; margin:14px 0 0; }
+.tabs button { flex:1; padding:11px 8px; font-weight:600; }
+.tabs button[aria-selected="true"] { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
 .note { font-size:.85rem; color:var(--sub); margin:6px 0 0; }
 .stat { font-size:.9rem; margin:8px 0 0; }
 .msg { font-size:.92rem; margin:10px 0 0; white-space:pre-wrap; }
 .msg.bad { color:var(--bad); } .msg.ok { color:var(--ok); }
+.chk { display:flex; align-items:flex-start; font-size:.9rem; color:var(--ink); margin:12px 0 0; }
+.bar { height:6px; background:var(--line); border-radius:3px; margin-top:10px; overflow:hidden; }
+.bar > i { display:block; height:100%; width:0; background:var(--accent); transition:width .2s; }
 ol.steps { margin:6px 0 0 18px; padding:0; font-size:.88rem; color:var(--sub); }
 .hidden { display:none; }
 </style>
@@ -41,11 +49,11 @@ ol.steps { margin:6px 0 0 18px; padding:0; font-size:.88rem; color:var(--sub); }
 <body>
 <main>
 <a class="back" href="../">← 성령말씀으로</a>
-<h1>성령말씀 올리기</h1>
-<p class="note">원고를 붙여 넣고 올리면 음성·시간표·게시까지 자동으로 이어집니다(약 3분).</p>
+<h1>올리기</h1>
+<p class="note">올리면 음성·시간표·게시까지 자동으로 이어집니다.</p>
 
 <section class="card" id="tokenCard">
-  <h2>1. 올리기 열쇠(토큰)</h2>
+  <h2>올리기 열쇠(토큰)</h2>
   <p id="tokenState" class="note">이 기기에 저장된 열쇠가 없습니다.</p>
   <div id="tokenForm">
     <label for="token">GitHub 토큰</label>
@@ -55,7 +63,7 @@ ol.steps { margin:6px 0 0 18px; padding:0; font-size:.88rem; color:var(--sub); }
     </div>
     <ol class="steps">
       <li>GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token</li>
-      <li>Repository access: Only select repositories → sayeon 하나만</li>
+      <li>Repository access: Only select repositories → <b>sayeon</b> 과 <b>malsseum</b> 둘 다</li>
       <li>Permissions: Contents = Read and write, Actions = Read-only</li>
       <li>만료일을 정하고(예: 90일) 만든 토큰을 위에 붙여 넣기</li>
     </ol>
@@ -64,49 +72,76 @@ ol.steps { margin:6px 0 0 18px; padding:0; font-size:.88rem; color:var(--sub); }
   <p id="tokenMsg" class="msg" role="status"></p>
 </section>
 
-<section class="card">
-  <h2>2. 원고</h2>
-  <div id="unlockRow" class="hidden">
-    <label for="pass">원고 암호 (다음 번호 자동 확인용, 건너뛰어도 됩니다)</label>
-    <div class="row"><input id="pass" type="password" autocomplete="off" inputmode="numeric"><button id="unlock" class="fit" type="button">열기</button></div>
+<div class="tabs" role="tablist">
+  <button id="tabSayeon" type="button" role="tab" aria-selected="true">성령말씀 글</button>
+  <button id="tabMal" type="button" role="tab" aria-selected="false">말씀(한글+녹음)</button>
+</div>
+
+<!-- ===== 성령말씀 글 ===== -->
+<section id="panelSayeon">
+  <div class="card">
+    <h2>원고</h2>
+    <div id="unlockRow" class="hidden">
+      <label for="pass">원고 암호 (다음 번호 자동 확인용, 건너뛰어도 됩니다)</label>
+      <div class="row"><input id="pass" type="password" autocomplete="off" inputmode="numeric"><button id="unlock" class="fit" type="button">열기</button></div>
+    </div>
+    <div class="row">
+      <div><label for="no">편 번호</label><input id="no" inputmode="numeric" pattern="[0-9]*" placeholder="예: 178"></div>
+      <div style="flex:2"><label for="title">제목</label><input id="title" placeholder="성령 말씀 178"></div>
+    </div>
+    <label for="text">원고 붙여 넣기 (빈 줄이 문단 경계)</label>
+    <textarea id="text" placeholder="2026년 성령 말씀 178&#10;&#10;첫 문단 첫 줄&#10;첫 문단 둘째 줄&#10;&#10;둘째 문단"></textarea>
+    <p id="stat" class="stat"></p>
+    <p class="note">맨 윗줄이 “2026년 성령 말씀 번호”(또는 성령 사연) 모양이면 제목 줄로 보고 본문에서 뺍니다.</p>
   </div>
-  <div class="row">
-    <div><label for="no">편 번호</label><input id="no" inputmode="numeric" pattern="[0-9]*" placeholder="예: 178"></div>
-    <div style="flex:2"><label for="title">제목</label><input id="title" placeholder="성령 말씀 178"></div>
-  </div>
-  <label for="text">원고 붙여 넣기 (빈 줄이 문단 경계)</label>
-  <textarea id="text" placeholder="2026년 성령 말씀 178&#10;&#10;첫 문단 첫 줄&#10;첫 문단 둘째 줄&#10;&#10;둘째 문단"></textarea>
-  <p id="stat" class="stat"></p>
-  <p class="note">맨 윗줄이 “2026년 성령 말씀 번호”(또는 성령 사연) 모양이면 제목 줄로 보고 본문에서 뺍니다.</p>
+  <button id="send" class="primary" type="button" disabled>올리기</button>
+  <p id="sendMsg" class="msg" role="status" aria-live="polite"></p>
 </section>
 
-<button id="send" class="primary" type="button" disabled>올리기</button>
-<p id="sendMsg" class="msg" role="status" aria-live="polite"></p>
+<!-- ===== 말씀(한글 파일 + 녹음) ===== -->
+<section id="panelMal" class="hidden">
+  <div class="card">
+    <h2>말씀 원고와 녹음</h2>
+    <label for="hwp">한글 원고 (.hwp)</label>
+    <input id="hwp" type="file" accept=".hwp">
+    <label for="mp3">녹음 (.mp3)</label>
+    <input id="mp3" type="file" accept=".mp3,audio/mpeg">
+    <p id="malStat" class="stat"></p>
+    <label class="chk"><input id="join" type="checkbox"><span>엔터로 줄마다 끊어 쓴 원고라 문장이 갈라졌으면 이어 붙이기<br><span class="note">잘 모르겠으면 끄세요. 문장이 안 끝났거나 “라는/라고”로 이어지는 곳만 앞 단락에 붙입니다.</span></span></label>
+    <p class="note">날짜·제목은 원고 맨 위의 &lt;2026년 월 일 …&gt; 에서 읽고, 번호는 다음 번호로 자동으로 정합니다. 같은 날 말씀이 이미 있으면 올리지 않고 멈춥니다. 녹음 시간표는 받아쓰기로 만들어서 몇 분 걸립니다. 한글(.hwpx)은 안 되고 .hwp 만 됩니다.</p>
+  </div>
+  <button id="malSend" class="primary" type="button" disabled>올리기</button>
+  <div class="bar hidden" id="malBar"><i id="malBarFill"></i></div>
+  <p id="malMsg" class="msg" role="status" aria-live="polite"></p>
+</section>
 </main>
 
 <script src="../crypt.js"></script>
 <script>
 (function () {
-  var OWNER = 'patrickdfg', REPO = 'sayeon', BRANCH = 'main';
-  var API = 'https://api.github.com/repos/' + OWNER + '/' + REPO;
+  var OWNER = 'patrickdfg', BRANCH = 'main';
+  var REPOS = { sayeon: 'sayeon', mal: 'malsseum' };
   var TOKEN_KEY = 'sayeonGhToken';
+  var DRY = /[?&]dry=1/.test(location.search);       // 시험용: 말씀을 자료에 넣지 않고 검사만 한다
   var $ = function (id) { return document.getElementById(id); };
-  var known = [];            // 이미 올라간 편 번호들
+  var access = { sayeon: false, mal: false };
+  var known = [];            // 이미 올라간 성령말씀 편 번호들
   var titleTouched = false;
-  var busy = false;
+  var busy = false, malBusy = false;
 
   function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
   function setToken(v) { try { if (v) localStorage.setItem(TOKEN_KEY, v); else localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
   function say(id, text, kind) { var el = $(id); el.textContent = text || ''; el.className = 'msg' + (kind ? ' ' + kind : ''); }
+  function pause(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-  function gh(path, opts) {
+  function gh(repo, path, opts) {
     opts = opts || {};
     opts.headers = Object.assign({
       'Accept': 'application/vnd.github+json',
       'Authorization': 'Bearer ' + getToken(),
       'X-GitHub-Api-Version': '2022-11-28'
     }, opts.headers || {});
-    return fetch(API + path, opts);
+    return fetch('https://api.github.com/repos/' + OWNER + '/' + REPOS[repo] + path, opts);
   }
 
   /* ---------- 열쇠 ---------- */
@@ -114,20 +149,27 @@ ol.steps { margin:6px 0 0 18px; padding:0; font-size:.88rem; color:var(--sub); }
     $('tokenForm').classList.toggle('hidden', ok);
     $('tokenDone').classList.toggle('hidden', !ok);
     $('tokenState').textContent = text;
-    refresh();
+    refresh(); malRefresh();
+  }
+  function checkRepo(repo) {
+    return gh(repo, '').then(function (r) {
+      if (r.status === 401) throw new Error('열쇠가 맞지 않거나 만료됐습니다. 새로 만들어 붙여 넣어 주세요.');
+      if (r.status === 404) return false;
+      if (!r.ok) throw new Error('확인하지 못했습니다 (' + r.status + ')');
+      return r.json().then(function (d) { return !!(d.permissions && d.permissions.push); });
+    });
   }
   function checkToken() {
+    access = { sayeon: false, mal: false };
     if (!getToken()) { showTokenState(false, '이 기기에 저장된 열쇠가 없습니다.'); return Promise.resolve(false); }
     say('tokenMsg', '열쇠를 확인하는 중…');
-    return gh('').then(function (r) {
-      if (r.status === 401) throw new Error('열쇠가 맞지 않거나 만료됐습니다. 새로 만들어 붙여 넣어 주세요.');
-      if (r.status === 404) throw new Error('이 열쇠로는 sayeon 저장소를 볼 수 없습니다. 저장소 선택을 확인하세요.');
-      if (!r.ok) throw new Error('확인하지 못했습니다 (' + r.status + ')');
-      return r.json();
-    }).then(function (repo) {
-      if (!repo.permissions || !repo.permissions.push) throw new Error('이 열쇠에는 쓰기 권한(Contents: Read and write)이 없습니다.');
+    return Promise.all([checkRepo('sayeon'), checkRepo('mal')]).then(function (r) {
+      access = { sayeon: r[0], mal: r[1] };
       say('tokenMsg', '');
-      showTokenState(true, '열쇠가 저장되어 있고 쓰기 권한이 확인됐습니다.');
+      var lines = ['성령말씀(sayeon): ' + (r[0] ? '쓰기 가능' : '권한 없음'), '말씀(malsseum): ' + (r[1] ? '쓰기 가능' : '권한 없음')];
+      if (!r[0] && !r[1]) throw new Error('이 열쇠로는 두 저장소에 쓸 수 없습니다. 저장소 선택과 Contents 쓰기 권한을 확인하세요.');
+      showTokenState(true, lines.join('  ·  '));
+      if (!r[0] || !r[1]) say('tokenMsg', '권한이 없는 쪽은 올릴 수 없습니다. 두 저장소를 모두 고른 새 열쇠가 필요합니다.', 'bad');
       return true;
     }).catch(function (e) {
       say('tokenMsg', e.message, 'bad');
@@ -146,7 +188,94 @@ ol.steps { margin:6px 0 0 18px; padding:0; font-size:.88rem; color:var(--sub); }
     showTokenState(false, '이 기기에 저장된 열쇠가 없습니다.');
   };
 
-  /* ---------- 다음 번호 ---------- */
+  /* ---------- 탭 ---------- */
+  function selectTab(which) {
+    var mal = which === 'mal';
+    $('tabSayeon').setAttribute('aria-selected', String(!mal));
+    $('tabMal').setAttribute('aria-selected', String(mal));
+    $('panelSayeon').classList.toggle('hidden', mal);
+    $('panelMal').classList.toggle('hidden', !mal);
+  }
+  $('tabSayeon').onclick = function () { selectTab('sayeon'); };
+  $('tabMal').onclick = function () { selectTab('mal'); };
+
+  /* ---------- 공통: 파일 올리기, 작업 지켜보기 ---------- */
+  function b64Text(str) {
+    var bytes = new TextEncoder().encode(str), bin = '', i;
+    for (i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+  function b64Blob(blob) {
+    return new Promise(function (resolve, reject) {
+      var fr = new FileReader();
+      fr.onload = function () { resolve(String(fr.result).split(',')[1] || ''); };
+      fr.onerror = function () { reject(new Error('파일을 읽지 못했습니다.')); };
+      fr.readAsDataURL(blob);
+    });
+  }
+  /* 파일 하나를 새 경로로 올린다. 일시적인 실패(409·5xx·끊김)는 몇 번 다시 해 본다. */
+  function putFile(repo, path, contentB64, message) {
+    var body = JSON.stringify({ message: message, branch: BRANCH, content: contentB64 });
+    var tries = 0;
+    function attempt() {
+      tries++;
+      return gh(repo, '/contents/' + path, { method: 'PUT', body: body }).then(function (r) {
+        if (r.status === 401) throw new Error('열쇠가 맞지 않거나 만료됐습니다.');
+        if (r.status === 403 || r.status === 404) throw new Error('이 열쇠로는 올릴 수 없습니다 (' + r.status + '). 쓰기 권한과 저장소 선택을 확인하세요.');
+        if (r.status === 422) throw new Error('같은 이름의 파일이 이미 있습니다: ' + path);
+        if (r.status === 409 || r.status >= 500) {
+          if (tries < 4) return pause(1500 * tries).then(attempt);
+          throw new Error('올리지 못했습니다 (' + r.status + ')');
+        }
+        if (!r.ok) throw new Error('올리지 못했습니다 (' + r.status + ')');
+        return r.json();
+      }, function () {
+        if (tries < 4) return pause(1500 * tries).then(attempt);
+        throw new Error('네트워크가 끊겨 올리지 못했습니다.');
+      });
+    }
+    return attempt();
+  }
+
+  /* 올린 일(워크플로)이 끝날 때까지 지켜본다. 실패하면 어느 단계에서 멈췄는지 알려 준다. */
+  function failedStep(repo, runId) {
+    return gh(repo, '/actions/runs/' + runId + '/jobs').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      var name = '';
+      ((d && d.jobs) || []).forEach(function (job) {
+        (job.steps || []).forEach(function (s) { if (!name && s.conclusion === 'failure') name = s.name; });
+      });
+      return name;
+    }).catch(function () { return ''; });
+  }
+  function watch(repo, workflow, sha, msgId, o) {
+    var tries = 0;
+    function step() {
+      tries++;
+      return gh(repo, '/actions/workflows/' + workflow + '/runs?head_sha=' + sha + '&per_page=3').then(function (r) {
+        if (!r.ok) throw new Error('진행 상황을 읽지 못했습니다 (' + r.status + '). 열쇠에 Actions 읽기 권한이 있는지 확인하세요.');
+        return r.json();
+      }).then(function (d) {
+        var run = (d.workflow_runs || [])[0];
+        if (!run) {
+          if (tries > 24) throw new Error('자동 게시가 시작되지 않았습니다. GitHub Actions 탭에서 확인해 주세요.');
+          say(msgId, '올렸습니다. 자동 게시가 시작되기를 기다리는 중…'); return pause(5000).then(step);
+        }
+        if (run.status !== 'completed') {
+          if (tries > o.maxTries) throw new Error('너무 오래 걸립니다. GitHub Actions 탭에서 확인해 주세요.');
+          say(msgId, o.running + ' (' + (run.status === 'queued' ? '대기' : '실행 중') + ')'); return pause(o.every).then(step);
+        }
+        if (run.conclusion !== 'success') {
+          return failedStep(repo, run.id).then(function (name) {
+            throw new Error('자동 게시가 실패했습니다' + (name ? ' — 멈춘 단계: ' + name : '') + '.\n' + (o.failHelp || '') + '\n' + run.html_url);
+          });
+        }
+        say(msgId, o.done, 'ok');
+      });
+    }
+    return step();
+  }
+
+  /* ---------- 성령말씀 글 ---------- */
   function loadKnown() {
     return SaCrypt.json('sayeon.json').then(function (list) {
       known = list.map(function (x) { return x.no; });
@@ -169,7 +298,6 @@ ol.steps { margin:6px 0 0 18px; padding:0; font-size:.88rem; color:var(--sub); }
     }).catch(function (e) { say('sendMsg', e.message, 'bad'); });
   };
 
-  /* ---------- 원고 ---------- */
   function parse(text, no) {
     var lines = String(text).replace(/\r\n?/g, '\n').split('\n').map(function (s) { return s.replace(/ /g, ' ').replace(/\s+$/, ''); });
     while (lines.length && !lines[0].trim()) lines.shift();
@@ -189,6 +317,7 @@ ol.steps { margin:6px 0 0 18px; padding:0; font-size:.88rem; color:var(--sub); }
   function problem() {
     var no = Number($('no').value);
     if (!getToken()) return '열쇠가 없습니다.';
+    if (!access.sayeon) return '이 열쇠로는 성령말씀(sayeon) 저장소에 쓸 수 없습니다.';
     if (!$('no').value || !Number.isInteger(no) || no < 1) return '편 번호를 숫자로 넣어 주세요.';
     if (known.indexOf(no) >= 0) return no + '편은 이미 있습니다. 교체는 이 화면에서 하지 않습니다.';
     if (!$('title').value.trim()) return '제목을 넣어 주세요.';
@@ -211,38 +340,6 @@ ol.steps { margin:6px 0 0 18px; padding:0; font-size:.88rem; color:var(--sub); }
   $('title').oninput = function () { titleTouched = true; typed(); };
   $('text').oninput = typed;
 
-  /* ---------- 올리기 ---------- */
-  function b64(str) {
-    var bytes = new TextEncoder().encode(str), bin = '', i;
-    for (i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-    return btoa(bin);
-  }
-  function pause(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
-
-  function watch(sha) {
-    var tries = 0;
-    function step() {
-      tries++;
-      return gh('/actions/workflows/work-upload.yml/runs?head_sha=' + sha + '&per_page=3').then(function (r) {
-        if (!r.ok) throw new Error('진행 상황을 읽지 못했습니다 (' + r.status + '). 열쇠에 Actions 읽기 권한이 있는지 확인하세요.');
-        return r.json();
-      }).then(function (d) {
-        var run = (d.workflow_runs || [])[0];
-        if (!run) {
-          if (tries > 20) throw new Error('자동 게시가 시작되지 않았습니다. GitHub Actions 탭에서 확인해 주세요.');
-          say('sendMsg', '올렸습니다. 자동 게시가 시작되기를 기다리는 중…'); return pause(5000).then(step);
-        }
-        if (run.status !== 'completed') {
-          if (tries > 120) throw new Error('10분이 지나도 끝나지 않았습니다. GitHub Actions 탭에서 확인해 주세요.');
-          say('sendMsg', '음성·시간표를 만드는 중… (' + (run.status === 'queued' ? '대기' : '실행') + ')'); return pause(5000).then(step);
-        }
-        if (run.conclusion !== 'success') throw new Error('자동 게시가 실패했습니다 (' + run.conclusion + '). GitHub Actions에서 실패한 줄을 확인해 주세요.');
-        say('sendMsg', '게시가 끝났습니다. 배포 반영까지 1~2분 더 걸릴 수 있습니다.\n앱에서 새로고침하면 보입니다.', 'ok');
-      });
-    }
-    return step();
-  }
-
   $('send').onclick = function () {
     var why = problem();
     if (why) { say('sendMsg', why, 'bad'); return; }
@@ -251,20 +348,107 @@ ol.steps { margin:6px 0 0 18px; padding:0; font-size:.88rem; color:var(--sub); }
     busy = true; refresh(); say('sendMsg', '올리는 중…');
     var job = { category: 'sayeon', year: 2026, no: no, title: $('title').value.trim(),
                 content: $('text').value.replace(/\r\n?/g, '\n').replace(/\s+$/, '') };
-    var body = { message: '성령말씀 ' + no + ' 작업표 추가 (앱에서 올림)', branch: BRANCH,
-                 content: b64(JSON.stringify(job, null, 1) + '\n') };
-    gh('/contents/work-upload/' + no + '.json', { method: 'PUT', body: JSON.stringify(body) }).then(function (r) {
-      if (r.status === 401) throw new Error('열쇠가 맞지 않거나 만료됐습니다.');
-      if (r.status === 403 || r.status === 404) throw new Error('이 열쇠로는 올릴 수 없습니다 (' + r.status + '). 쓰기 권한과 저장소 선택을 확인하세요.');
-      if (r.status === 409 || r.status === 422) throw new Error('같은 번호의 작업표가 이미 올라가 있습니다. 처리 중이거나 막 끝난 것일 수 있습니다.');
-      if (!r.ok) throw new Error('올리지 못했습니다 (' + r.status + ')');
-      return r.json();
-    }).then(function (res) {
+    putFile('sayeon', 'work-upload/' + no + '.json', b64Text(JSON.stringify(job, null, 1) + '\n'),
+            '성령말씀 ' + no + ' 작업표 추가 (앱에서 올림)').then(function (res) {
       known.push(no);
-      return watch(res.commit.sha);
+      return watch('sayeon', 'work-upload.yml', res.commit.sha, 'sendMsg', {
+        maxTries: 120, every: 5000, running: '음성·시간표를 만드는 중…',
+        done: '게시가 끝났습니다. 배포 반영까지 1~2분 더 걸릴 수 있습니다.\n앱에서 새로고침하면 보입니다.'
+      });
     }).catch(function (e) {
       say('sendMsg', e.message, 'bad');
     }).then(function () { busy = false; refresh(); });
+  };
+
+  /* ---------- 말씀(한글 + 녹음) ---------- */
+  var PART = 6 * 1024 * 1024;             // 녹음은 6MB 조각으로 나눠 올린다
+  function mb(n) { return (n / 1048576).toFixed(1) + 'MB'; }
+  function malProblem() {
+    var h = $('hwp').files[0], a = $('mp3').files[0];
+    if (!getToken()) return '열쇠가 없습니다.';
+    if (!access.mal) return '이 열쇠로는 말씀(malsseum) 저장소에 쓸 수 없습니다.';
+    if (!h) return '한글 원고(.hwp)를 골라 주세요.';
+    if (/\.hwpx$/i.test(h.name)) return '.hwpx 는 안 됩니다. 한글에서 “다른 이름으로 저장”으로 .hwp 로 저장해 주세요.';
+    if (!/\.hwp$/i.test(h.name)) return '한글 원고는 .hwp 파일이어야 합니다.';
+    if (h.size > 8 * 1024 * 1024) return '원고 파일이 너무 큽니다(8MB 초과).';
+    if (!a) return '녹음(.mp3)을 골라 주세요.';
+    if (!/\.mp3$/i.test(a.name) && a.type !== 'audio/mpeg') return '녹음은 .mp3 파일이어야 합니다. 다른 형식이면 mp3 로 바꿔 주세요.';
+    if (a.size > 95 * 1024 * 1024) return '녹음이 너무 큽니다(95MB 초과). 줄여서 다시 골라 주세요.';
+    return '';
+  }
+  function malRefresh() {
+    var h = $('hwp').files[0], a = $('mp3').files[0];
+    $('malStat').textContent = (h || a) ? ((h ? '원고 ' + mb(h.size) : '') + (h && a ? '  ·  ' : '') + (a ? '녹음 ' + mb(a.size) + ' → ' + Math.ceil(a.size / PART) + '조각' : '')) : '';
+    $('malSend').disabled = malBusy || !!malProblem();
+  }
+  function malTyped() {
+    malRefresh();
+    var why = malProblem();
+    var started = $('hwp').files[0] || $('mp3').files[0];
+    say('malMsg', started && why && why !== '열쇠가 없습니다.' ? why : '', why ? 'bad' : '');
+  }
+  $('hwp').onchange = malTyped;
+  $('mp3').onchange = malTyped;
+  function bar(frac) {
+    $('malBar').classList.toggle('hidden', frac < 0);
+    $('malBarFill').style.width = Math.max(0, Math.min(1, frac)) * 100 + '%';
+  }
+  function sha256Hex(buf) {
+    return crypto.subtle.digest('SHA-256', buf).then(function (d) {
+      return Array.prototype.map.call(new Uint8Array(d), function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+    });
+  }
+  function stamp() {
+    var d = new Date(), p = function (n) { return ('0' + n).slice(-2); };
+    return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+  }
+
+  $('malSend').onclick = function () {
+    var why = malProblem();
+    if (why) { say('malMsg', why, 'bad'); return; }
+    var h = $('hwp').files[0], a = $('mp3').files[0];
+    var partCount = Math.ceil(a.size / PART);
+    if (!confirm('원고 ' + h.name + ' 와 녹음 ' + mb(a.size) + ' 를 올립니다. 올리면 바로 게시됩니다.' + (DRY ? '\n(시험 실행: 자료에 넣지 않고 검사만 합니다)' : '') + '\n계속할까요?')) return;
+    malBusy = true; malRefresh(); bar(0); say('malMsg', '준비하는 중…');
+    var dir = 'mal-upload/' + stamp();
+    var job = { hwp: 'script.hwp', parts: [], join: $('join').checked, replace: false, no: null, dry_run: DRY };
+    var total = partCount + 2, doneCount = 0;
+    function tick(text) { doneCount++; bar(doneCount / total); say('malMsg', text); }
+
+    Promise.all([a.arrayBuffer().then(sha256Hex), h.arrayBuffer()]).then(function (r) {
+      job.sha256 = r[0]; job.size = a.size;
+      say('malMsg', '원고를 올리는 중…');
+      return b64Blob(h);
+    }).then(function (hb) {
+      return putFile('mal', dir + '/script.hwp', hb, '말씀 원고 올림 (앱)');
+    }).then(function () {
+      tick('원고를 올렸습니다. 녹음을 올리는 중…');
+      var chain = Promise.resolve();
+      for (var i = 0; i < partCount; i++) {
+        (function (i) {
+          var name = 'audio.mp3.part' + ('00' + i).slice(-3);
+          job.parts.push(name);
+          chain = chain.then(function () {
+            return b64Blob(a.slice(i * PART, Math.min(a.size, (i + 1) * PART)));
+          }).then(function (pb) {
+            return putFile('mal', dir + '/' + name, pb, '말씀 녹음 조각 ' + (i + 1) + '/' + partCount + ' (앱)');
+          }).then(function () { tick('녹음을 올리는 중… ' + (i + 1) + '/' + partCount); });
+        })(i);
+      }
+      return chain;
+    }).then(function () {
+      say('malMsg', '작업표를 올리는 중…');
+      return putFile('mal', dir + '/job.json', b64Text(JSON.stringify(job, null, 1) + '\n'), '말씀 작업표 (앱)');
+    }).then(function (res) {
+      tick('올렸습니다. 자동 게시를 기다리는 중…');
+      return watch('mal', 'mal-upload.yml', res.commit.sha, 'malMsg', {
+        maxTries: 720, every: 10000, running: '원고를 넣고 녹음 시간표를 만드는 중… (몇 분 걸립니다)',
+        failHelp: '같은 날 말씀이 이미 있거나, 파일이 맞지 않거나, 녹음이 그 말씀이 아닐 수 있습니다. 저장소에는 아무것도 게시되지 않았거나 일부만 들어갔을 수 있으니 말씀 화면을 확인해 주세요.',
+        done: DRY ? '시험 실행이 끝났습니다(자료에는 넣지 않았습니다).' : '게시가 끝났습니다. 배포 반영까지 1~2분 더 걸릴 수 있습니다.\n말씀 화면에서 새로고침하면 보입니다.'
+      });
+    }).catch(function (e) {
+      say('malMsg', e.message, 'bad');
+    }).then(function () { malBusy = false; bar(-1); malRefresh(); });
   };
 
   checkToken();
