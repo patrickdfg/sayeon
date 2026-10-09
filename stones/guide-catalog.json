@@ -3,7 +3,10 @@
     "name": "두꺼비돌",
     "alias": "",
     "audio": "audio/dukkeobi-dol.v4.m4a",
-    "duration": 169.9
+    "duration": 169.9,
+    "appTitles": [
+      "두꺼비형상석"
+    ]
   },
   {
     "name": "33톤 바위",
@@ -15,7 +18,10 @@
     "name": "호랑이 바위",
     "alias": "",
     "audio": "audio/horangi-dol.v4.m4a",
-    "duration": 114.6
+    "duration": 114.6,
+    "appTitles": [
+      "호랑이돌"
+    ]
   },
   {
     "name": "성자바위",
@@ -25,27 +31,39 @@
   },
   {
     "name": "기도바위",
-    "alias": "성령바위",
+    "alias": "",
     "audio": "audio/gido-bawi.v4.m4a",
-    "duration": 118.4
+    "duration": 118.4,
+    "appTitles": [
+      "기도바위 (성령바위)"
+    ]
   },
   {
     "name": "큰바위얼굴",
     "alias": "",
     "audio": "audio/keunbawi-eolgul.v4.m4a",
-    "duration": 178.8
+    "duration": 178.8,
+    "appTitles": [
+      "큰바위얼굴 바위"
+    ]
   },
   {
     "name": "코끼리바위",
     "alias": "",
     "audio": "audio/kokkiri-bawi.v4.m4a",
-    "duration": 101.0
+    "duration": 101,
+    "appTitles": [
+      "코끼리돌 (구)두꺼비돌"
+    ]
   },
   {
     "name": "대둔산 산수경석",
     "alias": "",
     "audio": "audio/daedunsan-sansugyeongseok.v4.m4a",
-    "duration": 91.1
+    "duration": 91.1,
+    "appTitles": [
+      "대둔산 수석"
+    ]
   },
   {
     "name": "밥상바위",
@@ -57,13 +75,19 @@
     "name": "항공모함 수석",
     "alias": "",
     "audio": "audio/hanggongmoham-suseok.v4.m4a",
-    "duration": 119.0
+    "duration": 119,
+    "appTitles": [
+      "항공모함 형상 수석"
+    ]
   },
   {
     "name": "전폭기 수석",
     "alias": "",
     "audio": "audio/jeonpokgi-suseok.v4.m4a",
-    "duration": 108.6
+    "duration": 108.6,
+    "appTitles": [
+      "현대식 전투기 형상 수석"
+    ]
   },
   {
     "name": "산수경석",
@@ -99,7 +123,10 @@
     "name": "길 수석",
     "alias": "",
     "audio": "audio/gil-suseok.v4.m4a",
-    "duration": 78.9
+    "duration": 78.9,
+    "appTitles": [
+      "성령길 수석"
+    ]
   },
   {
     "name": "오직 주 하나님 바위",
@@ -153,13 +180,13 @@
     "name": "생명석",
     "alias": "",
     "audio": "audio/saengmyeongseok.v4.m4a",
-    "duration": 205.0
+    "duration": 205
   },
   {
     "name": "이글석",
     "alias": "",
     "audio": "audio/igeulseok.v4.m4a",
-    "duration": 153.0
+    "duration": 153
   },
   {
     "name": "코뿔소 바위",

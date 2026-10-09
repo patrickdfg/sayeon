@@ -7,7 +7,7 @@ def normalized(name):
 def select_matches(stones, catalog):
     names={}
     for guide in catalog:
-        for name in [guide["name"], guide.get("alias", "")]:
+        for name in [guide["name"], guide.get("alias", ""), *guide.get("appTitles", [])]:
             if name: names.setdefault(normalized(name), []).append(guide)
     matches=[];unmatched=[]
     for stone in stones:
@@ -60,6 +60,9 @@ def main():
     match=re.search(r"^const GUIDE_AUDIO = (\{.*\});$",text,re.M)
     if not match:raise ValueError("Guide map missing")
     audio=json.loads(match[1])
+    prior=ROOT/"stones"/"guide-import-report.json"
+    if prior.exists():
+        for item in json.loads(prior.read_text()).get("imported",[]):audio.pop(item["number"],None)
     for item in imported:audio[item["number"]]=item["path"]
     text=text[:match.start()]+"const GUIDE_AUDIO = "+json.dumps(audio,ensure_ascii=False,separators=(",",":"))+";"+text[match.end():]
     html.write_text(text)
