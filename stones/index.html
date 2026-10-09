@@ -1490,7 +1490,7 @@ function beginReadCurrent(){
 
 // ===== 가이드 녹음 (기본 듣기와 따로, 제목 줄 아래 한 줄) =====
 // 돌 번호 → 파일. 가이드 녹음은 `audio/<번호>-guide.mp3` 로 올리고 여기에 적는다. 적은 돌에만 줄이 나온다.
-const GUIDE_AUDIO = {};
+const GUIDE_AUDIO = {"1":"audio/1-guide.mp3","4":"audio/4-guide.mp3","9":"audio/9-guide.mp3","17":"audio/17-guide.mp3","18":"audio/18-guide.mp3","23":"audio/23-guide.mp3","30":"audio/30-guide.mp3","34":"audio/34-guide.mp3","44":"audio/44-guide.mp3","68":"audio/68-guide.mp3","72":"audio/72-guide.mp3","101":"audio/101-guide.mp3","102":"audio/102-guide.mp3","103":"audio/103-guide.mp3","104":"audio/104-guide.mp3"};
 const guidePlayer = new Audio();
 guidePlayer.preload = 'none';
 let guideDragging = false;

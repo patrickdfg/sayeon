@@ -1,0 +1,536 @@
+{
+  "source": "https://grand-pasca-8d267f.netlify.app/",
+  "imported": [
+    {
+      "number": "1",
+      "title": "성자바위",
+      "guide": "성자바위",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/seongja-bawi.v4.m4a",
+      "duration": 176.61,
+      "path": "audio/1-guide.mp3"
+    },
+    {
+      "number": "4",
+      "title": "산수경석",
+      "guide": "산수경석",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/sansugyeongseok.v4.m4a",
+      "duration": 163.6,
+      "path": "audio/4-guide.mp3"
+    },
+    {
+      "number": "9",
+      "title": "독수리형상괴석",
+      "guide": "독수리 형상 괴석",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/doksuri-goeseok.v4.m4a",
+      "duration": 105.74,
+      "path": "audio/9-guide.mp3"
+    },
+    {
+      "number": "17",
+      "title": "낙타바위",
+      "guide": "낙타바위",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/nakta-bawi.v4.m4a",
+      "duration": 177.87,
+      "path": "audio/17-guide.mp3"
+    },
+    {
+      "number": "18",
+      "title": "코뿔소바위",
+      "guide": "코뿔소 바위",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/koppulso-bawi.v4.m4a",
+      "duration": 103.55,
+      "path": "audio/18-guide.mp3"
+    },
+    {
+      "number": "23",
+      "title": "33톤 바위",
+      "guide": "33톤 바위",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/33ton-bawi.v4.m4a",
+      "duration": 102.35,
+      "path": "audio/23-guide.mp3"
+    },
+    {
+      "number": "30",
+      "title": "밥상바위",
+      "guide": "밥상바위",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/bapsang-bawi.v4.m4a",
+      "duration": 157.34,
+      "path": "audio/30-guide.mp3"
+    },
+    {
+      "number": "34",
+      "title": "성령바위",
+      "guide": "기도바위",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/gido-bawi.v4.m4a",
+      "duration": 118.41,
+      "path": "audio/34-guide.mp3"
+    },
+    {
+      "number": "44",
+      "title": "초가집돌",
+      "guide": "초가집돌",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/chogajip-dol.v4.m4a",
+      "duration": 153.47,
+      "path": "audio/44-guide.mp3"
+    },
+    {
+      "number": "68",
+      "title": "생명석",
+      "guide": "생명석",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/saengmyeongseok.v4.m4a",
+      "duration": 205.06,
+      "path": "audio/68-guide.mp3"
+    },
+    {
+      "number": "72",
+      "title": "월명석",
+      "guide": "월명석",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/wolmyeongseok.v4.m4a",
+      "duration": 326.66,
+      "path": "audio/72-guide.mp3"
+    },
+    {
+      "number": "101",
+      "title": "월명석",
+      "guide": "월명석",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/wolmyeongseok.v4.m4a",
+      "duration": 326.66,
+      "path": "audio/101-guide.mp3"
+    },
+    {
+      "number": "102",
+      "title": "생명석",
+      "guide": "생명석",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/saengmyeongseok.v4.m4a",
+      "duration": 205.06,
+      "path": "audio/102-guide.mp3"
+    },
+    {
+      "number": "103",
+      "title": "생명창조석",
+      "guide": "생명창조석",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/saengmyeong-changjoseok.v4.m4a",
+      "duration": 104.15,
+      "path": "audio/103-guide.mp3"
+    },
+    {
+      "number": "104",
+      "title": "성화석",
+      "guide": "성화석",
+      "source": "https://grand-pasca-8d267f.netlify.app/audio/seonghwaseok.v4.m4a",
+      "duration": 40.12,
+      "path": "audio/104-guide.mp3"
+    }
+  ],
+  "unmatchedGuides": [
+    "두꺼비돌",
+    "호랑이 바위",
+    "큰바위얼굴",
+    "코끼리바위",
+    "대둔산 산수경석",
+    "항공모함 수석",
+    "전폭기 수석",
+    "길 수석",
+    "오직 주 하나님 바위",
+    "100톤 산수화 조각돌",
+    "163톤 바위",
+    "압록강에서 온 수석",
+    "구연구곡",
+    "천지암",
+    "이글석"
+  ],
+  "unmatchedStones": [
+    {
+      "number": "2",
+      "title": "큰바위얼굴 바위"
+    },
+    {
+      "number": "3",
+      "title": "여호와이레솔"
+    },
+    {
+      "number": "5",
+      "title": "성령길"
+    },
+    {
+      "number": "6",
+      "title": "기도표적 솔"
+    },
+    {
+      "number": "7",
+      "title": "코끼리돌 (구)두꺼비돌"
+    },
+    {
+      "number": "8",
+      "title": "깨닫다솔"
+    },
+    {
+      "number": "10",
+      "title": "사위일체솔 (구상솔)"
+    },
+    {
+      "number": "11",
+      "title": "바오밥나무를 닮은 소나무"
+    },
+    {
+      "number": "12",
+      "title": "하나님 상징 독수리 바위"
+    },
+    {
+      "number": "13",
+      "title": "호랑이돌"
+    },
+    {
+      "number": "14",
+      "title": "야심작 머릿돌"
+    },
+    {
+      "number": "15",
+      "title": "야심작 사랑솔"
+    },
+    {
+      "number": "16",
+      "title": "부활돌"
+    },
+    {
+      "number": "19",
+      "title": "여호와이레돌"
+    },
+    {
+      "number": "20",
+      "title": "신부솔"
+    },
+    {
+      "number": "21",
+      "title": "뿌리 희귀종 작품 나무"
+    },
+    {
+      "number": "21-1",
+      "title": "작품왕 소나무"
+    },
+    {
+      "number": "21-2",
+      "title": "뿌리왕 서어나무"
+    },
+    {
+      "number": "21-3",
+      "title": "뿌리왕 팽나무"
+    },
+    {
+      "number": "21-4",
+      "title": "성령길 뿌리가 희귀한 나무 6주"
+    },
+    {
+      "number": "21-5",
+      "title": "별봉정 뿌리솔 1~3"
+    },
+    {
+      "number": "21-6",
+      "title": "동그래산 응달 잡목나무"
+    },
+    {
+      "number": "22",
+      "title": "상징솔"
+    },
+    {
+      "number": "24",
+      "title": "생명을 사랑하라 바위"
+    },
+    {
+      "number": "25",
+      "title": "왕의 의자 솔"
+    },
+    {
+      "number": "26",
+      "title": "돌 세우는 원리 깨닫게 한 바위"
+    },
+    {
+      "number": "27",
+      "title": "60톤 오석"
+    },
+    {
+      "number": "28",
+      "title": "하나님바위"
+    },
+    {
+      "number": "29",
+      "title": "광개토대왕바위"
+    },
+    {
+      "number": "31",
+      "title": "목백일홍"
+    },
+    {
+      "number": "32",
+      "title": "예수님얼굴바위"
+    },
+    {
+      "number": "33",
+      "title": "기도바위 (성령바위)"
+    },
+    {
+      "number": "35",
+      "title": "성령솔 (성령사연솔)"
+    },
+    {
+      "number": "36",
+      "title": "독수리날개분재솔"
+    },
+    {
+      "number": "37",
+      "title": "면사포 쓴 신부 형상석"
+    },
+    {
+      "number": "38",
+      "title": "가는골 감나무"
+    },
+    {
+      "number": "39",
+      "title": "기도형상석"
+    },
+    {
+      "number": "40",
+      "title": "자유의 솔"
+    },
+    {
+      "number": "41",
+      "title": "자연성전 현판석"
+    },
+    {
+      "number": "42",
+      "title": "두 뿔 형상의 돌"
+    },
+    {
+      "number": "43",
+      "title": "월명정 소나무"
+    },
+    {
+      "number": "45",
+      "title": "두꺼비형상석"
+    },
+    {
+      "number": "46",
+      "title": "소쩍새바위"
+    },
+    {
+      "number": "47",
+      "title": "벗은발돌"
+    },
+    {
+      "number": "48",
+      "title": "쑥떡바위 (수반돌)"
+    },
+    {
+      "number": "49",
+      "title": "철갑왕솔"
+    },
+    {
+      "number": "50",
+      "title": "까치느티나무"
+    },
+    {
+      "number": "51",
+      "title": "큰바위얼굴바위 옆 소나무"
+    },
+    {
+      "number": "52",
+      "title": "앞산 쪽 운동장 입구 소나무"
+    },
+    {
+      "number": "53",
+      "title": "아름드리 소나무"
+    },
+    {
+      "number": "54",
+      "title": "예수님바위(성령바위)"
+    },
+    {
+      "number": "55",
+      "title": "Y자솔"
+    },
+    {
+      "number": "56",
+      "title": "예수님 만난 소나무"
+    },
+    {
+      "number": "57",
+      "title": "금계바위"
+    },
+    {
+      "number": "58",
+      "title": "다복솔"
+    },
+    {
+      "number": "59",
+      "title": "제1폭포 옆 소나무"
+    },
+    {
+      "number": "60",
+      "title": "고래바위"
+    },
+    {
+      "number": "61",
+      "title": "용바위"
+    },
+    {
+      "number": "62",
+      "title": "김유신 형상 수석"
+    },
+    {
+      "number": "63",
+      "title": "B2 전폭기 형상 수석"
+    },
+    {
+      "number": "64",
+      "title": "드론 형상 수석"
+    },
+    {
+      "number": "65",
+      "title": "항공모함 형상 수석"
+    },
+    {
+      "number": "66",
+      "title": "현대식 전투기 형상 수석"
+    },
+    {
+      "number": "67",
+      "title": "미사일 폭탄 형상 수석"
+    },
+    {
+      "number": "69",
+      "title": "자화상 수석"
+    },
+    {
+      "number": "70",
+      "title": "하나님 돌"
+    },
+    {
+      "number": "71",
+      "title": "말바위"
+    },
+    {
+      "number": "73",
+      "title": "성자길"
+    },
+    {
+      "number": "74",
+      "title": "러시아 화강암 (월명석의 세례요한 정원석)"
+    },
+    {
+      "number": "75",
+      "title": "분화구 형상 지형"
+    },
+    {
+      "number": "76",
+      "title": "꽃 형상 지형"
+    },
+    {
+      "number": "77",
+      "title": "우승컵 형상 지형"
+    },
+    {
+      "number": "78",
+      "title": "월드컵 대경기장 형상 지형"
+    },
+    {
+      "number": "79",
+      "title": "용 형상 지형"
+    },
+    {
+      "number": "80",
+      "title": "독수리 형상 지형"
+    },
+    {
+      "number": "81",
+      "title": "금계포란 지형"
+    },
+    {
+      "number": "82",
+      "title": "별 형상 지형"
+    },
+    {
+      "number": "83",
+      "title": "반월 터 지형"
+    },
+    {
+      "number": "84",
+      "title": "낙타가 별을 보고 가는 형상 지형"
+    },
+    {
+      "number": "85",
+      "title": "옆으로 누운 여자 형상 지형"
+    },
+    {
+      "number": "86",
+      "title": "엎어져 운동장을 안은 여자 형상 지형"
+    },
+    {
+      "number": "87",
+      "title": "S라인 여자 형상 지형"
+    },
+    {
+      "number": "88",
+      "title": "고양이 자세의 여자 형상 지형"
+    },
+    {
+      "number": "89",
+      "title": "한쪽 다리 접고 하늘 보는 여자 형상 지형"
+    },
+    {
+      "number": "90",
+      "title": "선악과 형상 지형"
+    },
+    {
+      "number": "91",
+      "title": "자궁 형상 지형"
+    },
+    {
+      "number": "92",
+      "title": "남자 형상 지형"
+    },
+    {
+      "number": "93",
+      "title": "기뻐 뛰는 사람 형상 지형"
+    },
+    {
+      "number": "94",
+      "title": "M-W 형상 지형"
+    },
+    {
+      "number": "95",
+      "title": "316 형상 지형"
+    },
+    {
+      "number": "96",
+      "title": "좌청룡 우백호 지형"
+    },
+    {
+      "number": "97",
+      "title": "자미원 명당 지형"
+    },
+    {
+      "number": "98",
+      "title": "백보좌 형상 지형 1"
+    },
+    {
+      "number": "99",
+      "title": "백보좌 형상 지형 2"
+    },
+    {
+      "number": "100",
+      "title": "하나님 성령님 성자의 손 상징 형상"
+    },
+    {
+      "number": "105",
+      "title": "성령길 수석"
+    },
+    {
+      "number": "106",
+      "title": "대둔산 수석"
+    },
+    {
+      "number": "107",
+      "title": "성자길"
+    }
+  ]
+}
