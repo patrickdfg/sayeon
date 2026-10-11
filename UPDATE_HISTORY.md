@@ -1,3 +1,11 @@
+## 2026-10-11 문의 기능 전체 삭제
+- 사용자 요청. 화면: `contact.html`·`contact.mjs`·`contact.css`·`contact-push.mjs`·`contact-store.mjs`(문의 화면·문의함·알림), `support-badge.mjs`(하단 팝업), `support-sw.js`(문의 알림 서비스 워커)를 지웠다.
+- 서버 코드: `supabase/support-chat.sql`·`support-badge.sql`·`support-push.sql`, Edge Function `supabase/functions/support-notify/` 를 지웠다. 옛 코드는 git 기록(이 커밋 이전)에 남아 있다.
+- 시험: 문의 시험 4종(`support-*.test.mjs`)과 접근 시험 SQL 3개를 지우고, 챗봇 로그인 시험 1개(문의 주소로 돌아오는 것)와 그 처리 한 줄을 `ai-lab.mjs` 에서 뺐다. 나머지 챗봇 시험 8종은 모두 통과한다.
+- 문서: `docs/SUPPORT_CHAT.md` 삭제. 이 파일의 이전 기록(월명동 하단 문의 링크 제거, 하단 팝업 제거)은 아래 항목에 남는다.
+- **서버(Supabase)에 이미 만들어 둔 표·함수·매분 도는 작업·Edge Function 은 이 저장소 변경만으로 사라지지 않는다.** 지우려면 `supabase/support-remove.sql` 을 SQL Editor 에서 한 번 실행하고, 대시보드에서 Edge Function `support-notify` 와 그 Secret 을 지운다. 실행하기 전까지는 서버에 받은 문의 기록이 남아 있다(화면은 없다).
+- 검증: 변경한 `ai-lab.mjs` 문법 검사 통과, 남은 시험 전부 통과, 코드 안에 `contact`·`support_` 참조가 더 없음을 검색으로 확인했다. 서버 정리 스크립트는 실행해 보지 못했다.
+
 ## 2026-10-11 관리자용 '신규 문의 N건 · 문의함' 하단 팝업 제거
 - 사용자 요청: 화면 아래에 뜨는 관리자용 문의 팝업을 없앤다. 성령사연·월명동·말씀·저장칸 네 화면(말씀은 두 저장소 사본 동일)에서 `support-badge.mjs` 를 불러오던 줄을 지웠고, 문의 화면(`contact.mjs`)에서 같은 팝업을 띄우던 호출도 지웠다.
 - `support-badge.mjs` 파일과 관리자 문의함·문의 화면·알림 코드는 그대로 남겼다(팝업만 안 뜬다). 관리자는 문의 화면 주소(`/sayeon/contact.html`)로 들어가 문의함을 본다.

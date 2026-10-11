@@ -390,7 +390,6 @@ function lockChat(){
 }
 let membership=null,membershipSequence=0,memberSequence=0,memberOffset=0;
 function showGoogleUser(user){
- if(user){try{if(localStorage.getItem('sayeon-support-login-return')==='1'){localStorage.removeItem('sayeon-support-login-return');location.replace('./contact.html');return;}}catch{}}
 
  if(googleUser?.id!==user?.id)lockChat();
  googleUser=user;const signed=!!user;

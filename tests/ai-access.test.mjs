@@ -97,10 +97,6 @@ test('이전 Groq·3.8 대화는 본문을 보존하고 다음 질문은 3.5, �
  }
 });
 
-test('문의 관리자 로그인은 고정 문의 주소로 돌아오고 일반 AI 로그인은 그대로 둠',()=>{
- const s=setup(),routes=[];s.context.location.replace=url=>routes.push(url);s.context.localStorage.getItem=()=> '1';s.context.localStorage.removeItem=()=>{};
- vm.runInContext("showGoogleUser({id:'fixture',email:'fixture@example.test'})",s.context);assert.deepEqual(routes,['./contact.html']);
-});
 
 
 test('저장된 원문 보기 옆 버튼은 전체 원문만 줄바꿈 그대로 복사·공유한다',async()=>{
