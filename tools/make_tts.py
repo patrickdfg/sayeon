@@ -210,7 +210,13 @@ async def main(args):
             continue
         out = os.path.join(REPO, 'audio', '%d.mp3' % no)
         text, starts = build_text(e)
-        boundaries = await synthesize(text, out)
+        try:
+            boundaries = await synthesize(text, out)
+        except Exception:
+            # 음성 서버가 거절하면 만들다 만 빈 파일이 남는다. 연결 전이므로 지우고 오류는 그대로 올린다.
+            if os.path.exists(out):
+                os.remove(out)
+            raise
         save_sync(no, paragraph_times(starts, boundaries), 'audio/%d.mp3' % no)
         print('  %d 편: 문단 %d, 글자 %d → %s (%s bytes)'
               % (no, len(e.get('paragraphs', [])), len(text),

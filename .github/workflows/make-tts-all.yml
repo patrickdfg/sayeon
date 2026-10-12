@@ -51,6 +51,8 @@ jobs:
 
       - name: 몇 편 만들지 정하기
         id: plan
+        env:
+          EVENT: ${{ github.event_name }}
         run: |
           COUNT="${{ github.event.inputs.count }}"
           if [ -z "$COUNT" ] && [ -f work-upload/tts/request.json ]; then
@@ -64,10 +66,15 @@ jobs:
           data = crypt.read_json(os.path.join(crypt.REPO, 'sayeon.json'))
           left = [e['no'] for e in data if not e.get('audio')]
           print('음성 없는 편 %d 개: %s' % (len(left), left))
-          todo = [e['no'] for e in data if not e.get('tts')]
+          # 손으로 돌릴 때는 예전처럼 tts 가 없는 편 전부(--all). 매일 자동으로 도는 것은
+          # 육성(audio)도 현수(tts)도 없는 편만 만든다 — 육성이 있는 옛 편에 현수 음성을 덧붙이지 않도록.
+          todo_all = [e['no'] for e in data if not e.get('tts')]
+          fresh = [e['no'] for e in data if not e.get('tts') and not e.get('audio')]
+          todo = fresh if os.environ.get('EVENT') == 'schedule' else todo_all
           print('현수 음성을 만들 편 %d 개: %s' % (len(todo), todo))
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
               out.write('todo=%d\n' % len(todo))
+              out.write('numbers=%s\n' % ' '.join(str(n) for n in fresh))
           PY
 
       - name: 현수 목소리로 음성 만들기
@@ -76,7 +83,12 @@ jobs:
         continue-on-error: true
         run: |
           for try in 1 2 3; do
-            if python tools/make_tts.py --all --limit ${{ steps.plan.outputs.count }}; then
+            if [ "${{ github.event_name }}" = "schedule" ]; then
+              ARGS="${{ steps.plan.outputs.numbers }}"
+            else
+              ARGS="--all --limit ${{ steps.plan.outputs.count }}"
+            fi
+            if python tools/make_tts.py $ARGS; then
               exit 0
             fi
             echo "::warning::중간에 멈췄습니다. 만든 편은 건너뛰고 다시 시도합니다 ($try/3)"
