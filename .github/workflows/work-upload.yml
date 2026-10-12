@@ -36,6 +36,7 @@ jobs:
         run: python -m pip install --disable-pip-version-check edge-tts==7.2.8 imageio-ffmpeg==0.6.0 mutagen==1.47.0 cryptography==46.0.3
 
       - name: 원고·음성·문단 동기화 생성
+        id: process
         run: python tools/process_work_upload.py
 
       - name: 결과 검사
@@ -75,3 +76,11 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check pywebpush==2.5.0
           python tools/send_push.py
+
+      # 음성 서버가 막혀 현수 음성을 못 만든 경우: 글은 이미 게시했고, 실행만 실패로 표시해 앱이 알리게 한다.
+      # 음성은 Actions 의 '성령사연 남은 편 음성 만들기' 를 돌리면 남은 편부터 이어서 만든다.
+      - name: 음성이 만들어졌는지 확인
+        if: steps.process.outputs.tts_failed == '1'
+        run: |
+          echo "::error::글은 게시했지만 현수 음성을 만들지 못했습니다(음성 서버 거절). 나중에 '성령사연 남은 편 음성 만들기'를 돌려 주세요."
+          exit 1

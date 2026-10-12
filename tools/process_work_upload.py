@@ -18,6 +18,14 @@ INBOX = os.path.join(REPO, 'work-upload')
 SAYEON = os.path.join(REPO, 'sayeon.json')   # 실제 파일은 sayeon.json.enc (잠겨 있다)
 
 
+def set_output(key, value):
+    """깃허브 일꾼의 단계 출력(GITHUB_OUTPUT)에 값을 적는다. 로컬에서는 아무 일도 안 한다."""
+    target = os.environ.get('GITHUB_OUTPUT')
+    if target:
+        with io.open(target, 'a', encoding='utf-8') as out:
+            out.write('%s=%s\n' % (key, value))
+
+
 def clean_line(value):
     return html.unescape(str(value)).replace('\u00a0', ' ').rstrip()
 
@@ -109,7 +117,15 @@ async def process(path):
         print('검사 완료: %s (게시하지 않음)' % os.path.basename(path))
         return
     install_entry(entry, replace)
-    await make_tts.main([str(entry['no'])])
+    try:
+        await make_tts.main([str(entry['no'])])
+    except Exception as error:
+        # 음성 서버(마이크로소프트)가 막혀도 글은 올린다. 음성은 '성령사연 남은 편 음성 만들기'로 나중에 이어서 만든다.
+        print('::warning::현수 음성을 만들지 못했습니다(%s: %s)' % (type(error).__name__, str(error)[:120]))
+        partial = os.path.join(REPO, 'audio', '%d.mp3' % entry['no'])
+        if os.path.exists(partial):
+            os.remove(partial)          # 만들다 만 빈 파일은 남기지 않는다
+        set_output('tts_failed', '1')
     os.remove(path)
     print('완료: 성령 사연 %d (%d문단)' %
           (entry['no'], len(entry['paragraphs'])))
