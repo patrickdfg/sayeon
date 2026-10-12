@@ -47,7 +47,7 @@ jobs:
           python-version: '3.12'
 
       - name: 현수 TTS 설치
-        run: python -m pip install --disable-pip-version-check edge-tts==7.2.8 imageio-ffmpeg==0.6.0 mutagen==1.47.0 cryptography==46.0.3
+        run: python -m pip install --disable-pip-version-check "edge-tts>=7.2.8,<8" imageio-ffmpeg==0.6.0 mutagen==1.47.0 cryptography==46.0.3
 
       - name: 몇 편 만들지 정하기
         id: plan
