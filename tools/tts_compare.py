@@ -19,10 +19,25 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('engine', choices=['melo', 'azure'])
     parser.add_argument('--output', default='tts-samples')
+    parser.add_argument('--story', type=int, help='2026 story number (Melo only)')
     args = parser.parse_args()
+    paragraphs = PARAGRAPHS
+    if args.story is not None:
+        if args.engine != 'melo':
+            parser.error('--story supports Melo only')
+        import crypt
+        data = crypt.read_json(str(Path(__file__).resolve().parent.parent / 'sayeon.json'))
+        entry = next(e for e in data if int(e['no']) == args.story)
+        paragraphs = [entry['title']]
+        for paragraph in entry['paragraphs']:
+            lines = paragraph.get('p', [paragraph.get('h', '')]) if isinstance(paragraph, dict) else paragraph
+            text = ' '.join(line.strip() for line in lines if line.strip())
+            if text:
+                paragraphs.append(text)
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
-    (out / 'sample-text.txt').write_text('\n\n'.join(PARAGRAPHS), encoding='utf-8')
+    if args.story is None:
+        (out / 'sample-text.txt').write_text('\n\n'.join(paragraphs), encoding='utf-8')
     started = time.monotonic()
     if args.engine == 'melo':
         import numpy as np
@@ -33,13 +48,16 @@ def main():
         model = TTS(language='KR', device='cpu')
         sr = model.hps.data.sampling_rate
         parts, times, position = [], [], 0
-        for paragraph in PARAGRAPHS:
+        for paragraph in paragraphs:
             times.append(round(position / sr, 3))
-            audio = model.tts_to_file(paragraph, model.hps.data.spk2id['KR'], speed=1.0, quiet=True)
+            # Melo prints input sentences internally; keep protected manuscripts out of logs.
+            import contextlib
+            with open(os.devnull, 'w') as sink, contextlib.redirect_stdout(sink):
+                audio = model.tts_to_file(paragraph, model.hps.data.spk2id['KR'], speed=1.0, quiet=True)
             parts.append(audio)
             parts.append(np.zeros(int(sr * 0.5), dtype=np.float32))
             position += len(audio) + len(parts[-1])
-        wav = out / 'melo-korean.wav'
+        wav = out / (f'melo-sayeon-{args.story}.wav' if args.story else 'melo-korean.wav')
         sf.write(wav, np.concatenate(parts), sr)
         (out / 'melo-paragraph-times.json').write_text(json.dumps(times), encoding='utf-8')
     else:
@@ -50,7 +68,7 @@ def main():
         if not region.replace('-', '').isalnum():
             raise SystemExit('Invalid Azure region')
         # One short request only. No loops/retries that could consume extra quota.
-        body = '<break time="500ms"/>'.join(escape(p) for p in PARAGRAPHS)
+        body = '<break time="500ms"/>'.join(escape(p) for p in paragraphs)
         ssml = '<speak version="1.0" xml:lang="ko-KR"><voice name="ko-KR-HyunsuMultilingualNeural"><prosody rate="0%">' + body + '</prosody></voice></speak>'
         req = urllib.request.Request(
             f'https://{region}.tts.speech.microsoft.com/cognitiveservices/v1',
@@ -68,7 +86,7 @@ def main():
     seconds = float(json.loads(probe)['format']['duration'])
     if seconds < 10 or wav.stat().st_size < 10000:
         raise RuntimeError('Audio is unexpectedly short or empty')
-    info = {'engine': args.engine, 'duration_seconds': seconds, 'generation_seconds': round(time.monotonic()-started, 2), 'characters': sum(map(len, PARAGRAPHS))}
+    info = {'engine': args.engine, 'duration_seconds': seconds, 'generation_seconds': round(time.monotonic()-started, 2), 'characters': sum(map(len, paragraphs))}
     (out / (args.engine + '-report.json')).write_text(json.dumps(info, indent=2), encoding='utf-8')
     print(json.dumps(info))
 
