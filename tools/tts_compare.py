@@ -53,7 +53,7 @@ def main():
             # Melo prints input sentences internally; keep protected manuscripts out of logs.
             import contextlib
             with open(os.devnull, 'w') as sink, contextlib.redirect_stdout(sink):
-                audio = model.tts_to_file(paragraph, model.hps.data.spk2id['KR'], speed=1.0, quiet=True)
+                audio = model.tts_to_file(paragraph.translate(str.maketrans({'<': ' ', '>': ' '})), model.hps.data.spk2id['KR'], speed=1.0, quiet=True)
             parts.append(audio)
             parts.append(np.zeros(int(sr * 0.5), dtype=np.float32))
             position += len(audio) + len(parts[-1])
