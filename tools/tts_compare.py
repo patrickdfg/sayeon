@@ -19,12 +19,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('engine', choices=['melo', 'azure'])
     parser.add_argument('--output', default='tts-samples')
-    parser.add_argument('--story', type=int, help='2026 story number (Melo only)')
+    parser.add_argument('--story', type=int, help='2026 story number')
     args = parser.parse_args()
     paragraphs = PARAGRAPHS
     if args.story is not None:
-        if args.engine != 'melo':
-            parser.error('--story supports Melo only')
         import crypt
         data = crypt.read_json(str(Path(__file__).resolve().parent.parent / 'sayeon.json'))
         entry = next(e for e in data if int(e['no']) == args.story)
@@ -78,7 +76,7 @@ def main():
                 'X-Microsoft-OutputFormat': 'riff-24khz-16bit-mono-pcm',
                 'User-Agent': 'sayeon-tts-comparison',
             })
-        wav = out / 'azure-hyunsu.wav'
+        wav = out / (f'azure-hyunsu-{args.story}.wav' if args.story else 'azure-hyunsu.wav')
         with urllib.request.urlopen(req, timeout=120) as response:
             wav.write_bytes(response.read())
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(wav), '-ac', '1', '-b:a', '128k', str(wav.with_suffix('.mp3'))], check=True)

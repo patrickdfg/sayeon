@@ -13,7 +13,7 @@ on:
         options: [melo, azure, both]
         default: melo
       story:
-        description: 성령사연 번호 (Melo 전용, 비우면 비교 예문)
+        description: 성령사연 번호 (비우면 비교 예문)
         type: string
         default: ""
 permissions:
@@ -62,11 +62,19 @@ jobs:
         with:
           python-version: '3.10'
       - run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+      - run: python -m pip install cryptography
       - name: Azure 현수 샘플 생성
         env:
           AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
           AZURE_SPEECH_REGION: ${{ secrets.AZURE_SPEECH_REGION }}
-        run: python tools/tts_compare.py azure
+          SAYEON_PASS: ${{ secrets.SAYEON_PASS }}
+          STORY: ${{ inputs.story }}
+        run: |
+          if [ -n "$STORY" ]; then
+            python tools/tts_compare.py azure --story "$STORY"
+          else
+            python tools/tts_compare.py azure
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: azure-hyunsu-sample
