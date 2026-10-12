@@ -1,0 +1,62 @@
+name: 한국어 TTS 비교 시험
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/tts_compare.py'
+      - '.github/workflows/tts-compare.yml'
+  workflow_dispatch:
+    inputs:
+      engine:
+        description: 시험할 음성 (Azure는 무료 F0 연결 후 선택)
+        type: choice
+        options: [melo, azure, both]
+        default: melo
+permissions:
+  contents: read
+jobs:
+  melo:
+    if: github.event_name == 'push' || inputs.engine == 'melo' || inputs.engine == 'both'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: CPU용 MeloTTS 설치
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg libsndfile1
+          python -m pip install 'numpy<2' 'setuptools<81'
+          python -m pip install torch==2.2.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install 'git+https://github.com/myshell-ai/MeloTTS.git@209145371cff8fc3bd60d7be902ea69cbdb7965a'
+          python -m unidic download
+          python -m nltk.downloader averaged_perceptron_tagger averaged_perceptron_tagger_eng cmudict punkt punkt_tab
+      - name: 한국어 샘플 생성
+        run: python tools/tts_compare.py melo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: melo-korean-sample
+          path: tts-samples/
+          retention-days: 14
+  azure:
+    if: github.event_name == 'workflow_dispatch' && (inputs.engine == 'azure' || inputs.engine == 'both')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+      - name: Azure 현수 샘플 생성
+        env:
+          AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
+          AZURE_SPEECH_REGION: ${{ secrets.AZURE_SPEECH_REGION }}
+        run: python tools/tts_compare.py azure
+      - uses: actions/upload-artifact@v4
+        with:
+          name: azure-hyunsu-sample
+          path: tts-samples/
+          retention-days: 14
