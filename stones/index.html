@@ -16,7 +16,7 @@
 <script src="/sayeon/analytics.js"></script>
 <script src="/sayeon/crypt.js"></script>
 <script src="/sayeon/app-tts.js?v=1"></script>
-<script src="/sayeon/settings.js?v=10"></script>
+<script src="/sayeon/settings.js?v=11"></script>
 <script>
 /* 화면이 그려지기 전에 상태바 색을 정한다.
    브라우저가 이 색을 보고 상태바 글자(시계·배터리) 색을 정한다. */
@@ -1471,7 +1471,7 @@ function beginReadCurrent(){
   const recordedPath = RECORDED_AUDIO[String(DATA[current].num)];
   if(recordedPath){
     recordedPlayer.src = recordedPath;
-    recordedPlayer.playbackRate = readRate;
+    recordedPlayer.playbackRate = 1;   // 녹음은 원래 속도 — 읽기 속도는 기기 목소리에만 쓴다
     recordedPlayer.currentTime = 0;
     recordedPlayer.play().catch(() => stopReading());
     return;
@@ -2101,7 +2101,7 @@ function applyCfg(c){
 
   readRate = c.rate;
   readAutoMode = c.autoMode;
-  if(recordedPlayer) recordedPlayer.playbackRate = c.rate;
+  if(recordedPlayer) recordedPlayer.playbackRate = 1;
   syncThemeColor();
 }
 
