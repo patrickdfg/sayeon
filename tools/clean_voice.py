@@ -118,12 +118,15 @@ def main(argv):
         return 0
     ensure_bin()
     log = json.load(open(LOG, encoding='utf-8')) if os.path.exists(LOG) else {}
+    before = dict(log)
     ok = True
     for rel in files:
         if not os.path.exists(os.path.join(REPO, rel)):
             print(f'::warning::{rel}: 파일이 없어 건너뜀')
             continue
         ok = clean(rel, log) and ok
+    if log == before:
+        return 0 if ok else 1
     with open(LOG, 'w', encoding='utf-8') as f:
         json.dump(dict(sorted(log.items())), f, ensure_ascii=False, indent=1)
         f.write('\n')
