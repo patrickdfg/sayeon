@@ -887,7 +887,7 @@ var synth = window.speechSynthesis;
 var queue = [], qi = 0, speaking = false, playbackHadError = false;
 // 플레이어 시트 상태 — 일시정지 지점, 이어 시작할 자리, 문단 읽기 세대(멈춘 발화의 늦은 알림을 무시한다)
 var sheetOpen = false, sheetHold = false, resumeAt = null, pendingStart = 0, startQi = 0, speakGen = 0;
-var sleepTimer = null, sleepEnd = 0, sleepTick = null, psFor = null;
+var sleepTimer = null, sleepEnd = 0, sleepTick = null, psFor = null, psPi = -2, psPiFor = null;
 
 // 읽어주기 기능이 없는 브라우저는 음성 파일이 있는 편만 켠다 — updateSpeakBtn 이 편마다 정한다
 
@@ -948,6 +948,7 @@ document.addEventListener("visibilitychange", function () {
 });
 
 function highlight(pi) {
+  psPi = pi; psPiFor = SAYEON[idx];   // 플레이어를 나중에 열어도 지금 문단을 보여 주려고 기억해 둔다
   if (sheetOpen) psShowPara(pi);
   var ps = document.querySelectorAll(".para");
   for (var i = 0; i < ps.length; i++) {
@@ -1030,7 +1031,7 @@ function updateSpeakBtn() {
   var human = isHumanAudio(s);   // 컴퓨터 목소리(현수)는 육성이 아니다
   var btn = $("speak");
   btn.className = "speakbtn" + (human ? " human" : "") + (speaking ? " on" : "");
-  btn.textContent = speaking ? "■ 정지" : ((human ? "🎙️" : "🤖") + " 듣기");
+  btn.textContent = speaking ? "🎧 플레이어" : ((human ? "🎙️" : "🤖") + " 듣기");
   // 기기 목소리가 없는 브라우저(앱 안 브라우저 등)도 올린 음성 파일은 틀 수 있다
   var noSpeech = !synth && !audioFor(s);
   btn.disabled = noSpeech;
@@ -1215,9 +1216,9 @@ function stopSpeak(keepSheet) {
   if (silentAnchorS) silentAnchorS.pause();
   queue = []; qi = 0;
   updateSpeakBtn();
-  if (hold && sheetOpen) { showSeek(); } else { hideSeek(); closeSheetUi(); }
+  if (hold) { if (sheetOpen) showSeek(); } else { hideSeek(); closeSheetUi(); }
   updateMediaSession(false);
-  if (hold && sheetOpen) return;   // 일시정지 중에는 읽던 문단 표시를 남긴다
+  if (hold) return;   // 일시정지 중에는 읽던 문단 표시를 남긴다
   var ps = document.querySelectorAll(".para");
   for (var i = 0; i < ps.length; i++) { ps[i].className = "para"; }
 }
@@ -1326,13 +1327,24 @@ function openSheet() {
   document.body.classList.add("ps-open");
   psClosePop();
   updatePlayerUI();
+  if (speaking && psPiFor === SAYEON[idx]) psShowPara(psPi);
 }
-function closeSheetUi() {
+// ✕: 창만 닫는다. 듣던 것은 계속 나온다.
+function hideSheet() {
   if (!sheetOpen) return;
   sheetOpen = false;
   psFor = null;
+  $("psheet").className = "psheet";
+  document.body.classList.remove("ps-open");
+  psClosePop();
+}
+// 완전히 끝났을 때(멈춤·편 바뀜): 창을 닫고 이어 듣기 자리와 타이머도 지운다
+function closeSheetUi() {
   resumeAt = null;
   setSleep(0);
+  if (!sheetOpen) return;
+  sheetOpen = false;
+  psFor = null;
   $("psheet").className = "psheet";
   document.body.classList.remove("ps-open");
   psClosePop();
@@ -1403,7 +1415,7 @@ function setSleep(min) {
   }
   updatePlayerUI();
 }
-$("psClose").onclick = function () { stopSpeak(); };
+$("psClose").onclick = hideSheet;
 $("psPlay").onclick = function () { psClosePop(); if (speaking) { pausePlay(); } else { startSpeak(true); } };
 $("psPrev").onclick = function () { psClosePop(); psStep(-1); };
 $("psNext").onclick = function () { psClosePop(); psStep(1); };
@@ -1769,7 +1781,8 @@ document.addEventListener("selectionchange", function () {
 /* ===== 이벤트 ===== */
 $("prev").onclick = function () { go(-1); };
 $("next").onclick = function () { go(1); };
-$("speak").onclick = function () { if (speaking) { stopSpeak(); } else { if (availableSources(SAYEON[idx]).length) openSheet(); startSpeak(true); } };
+// 멈춰 있을 때 누르면 바로 듣고, 듣는 중에 누르면 플레이어를 연다
+$("speak").onclick = function () { if (speaking) { openSheet(); } else { startSpeak(true); } };
 $("readCountBtn").onclick = function () {
   recordReadCompletion();
 };
