@@ -1,0 +1,86 @@
+# 성령사연 육성 녹음이 올라오면 잡음·공간 울림을 AI(DeepFilterNet)로 줄이고 음량을 맞춰 제자리에 바꿔 넣는다.
+name: 성령사연 육성 잡음 제거
+
+# audio/<번호>.m4a 를 새로 넣거나 바꿔서 main 에 올리면 그 파일만 저절로 돈다.
+# 손으로 돌릴 때는 파일을 적는다(예: "169 170" 또는 "audio/169.m4a").
+# 한 번 보정한 파일은 audio/clean.json 에 적혀 있어 다시 하지 않는다.
+# 길이·시간이 바뀌지 않으므로 audio/sync.json 은 그대로 쓴다.
+
+on:
+  push:
+    branches: [main]
+    paths: ['audio/*.m4a']
+  workflow_dispatch:
+    inputs:
+      files:
+        description: '보정할 편 번호나 파일 (띄어 쓰기로 여러 개, 예: 169 170)'
+        required: true
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: voice-clean-main
+  cancel-in-progress: false
+
+jobs:
+  clean:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 도구 설치
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+          python -m pip install --disable-pip-version-check numpy
+
+      - name: 잡음 제거
+        env:
+          FILES: ${{ inputs.files }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            args=""
+            for f in $FILES; do
+              case "$f" in *.*) args="$args $f" ;; *) args="$args audio/$f.m4a" ;; esac
+            done
+            python tools/clean_voice.py $args
+          else
+            python tools/clean_voice.py --changed "$BEFORE" "${{ github.sha }}"
+          fi
+
+      - name: 결과를 main 에 저장
+        id: save
+        run: |
+          git config user.name "sayeon-publisher[bot]"
+          git config user.email "sayeon-publisher[bot]@users.noreply.github.com"
+          git add audio/*.m4a audio/clean.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "바뀐 녹음이 없습니다."
+            exit 0
+          fi
+          test -z "$(find audio -type f -size +99M -print -quit)"
+          git commit -m "성령사연 육성 잡음 제거"
+          git pull --rebase origin main
+          git push origin main
+          echo "pushed=1" >> "$GITHUB_OUTPUT"
+
+      - name: GitHub Pages 다시 배포
+        if: steps.save.outputs.pushed == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail-with-body --retry 3 -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/builds"
