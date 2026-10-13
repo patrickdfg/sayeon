@@ -138,8 +138,10 @@
   .seektime { font-size: 12px; opacity: .65; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
   /* ===== 듣기 플레이어 (아래에서 올라오는 시트) ===== */
-  .psheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: none; }
-  .psheet.on { display: block; }
+  .psheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; transform: translateY(105%); visibility: hidden;
+    transition: transform .25s ease, visibility 0s linear .25s; }
+  .psheet.on { transform: none; visibility: visible; transition: transform .25s ease, visibility 0s; }
+  .ps-grip { width: 38px; height: 4px; border-radius: 2px; background: currentColor; opacity: .3; margin: 0 auto 6px; }
   body.ps-open { padding-bottom: 400px; }
   body.ps-open .sa-ask { display: none; }   /* 알림 묻기 팝업이 플레이어를 가리지 않게 */
   .ps-in {
@@ -492,9 +494,10 @@
 
 <div class="psheet" id="psheet" role="dialog" aria-label="듣기 플레이어">
   <div class="ps-in">
+    <div class="ps-grip"></div>
     <div class="ps-top">
       <div class="ps-title" id="psTitle"></div>
-      <button type="button" class="ps-x" id="psClose" aria-label="닫기 (재생을 멈춥니다)">✕</button>
+      <button type="button" class="ps-x" id="psClose" aria-label="내리기 (소리는 계속 나옵니다)"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M5 9l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
     <div class="ps-text" id="psText"></div>
     <div class="ps-pos" id="psPos"></div>
@@ -1031,7 +1034,7 @@ function updateSpeakBtn() {
   var human = isHumanAudio(s);   // 컴퓨터 목소리(현수)는 육성이 아니다
   var btn = $("speak");
   btn.className = "speakbtn" + (human ? " human" : "") + (speaking ? " on" : "");
-  btn.textContent = speaking ? "🎧 플레이어" : ((human ? "🎙️" : "🤖") + " 듣기");
+  btn.textContent = speaking ? "■ 정지" : ((human ? "🎙️" : "🤖") + " 듣기");
   // 기기 목소리가 없는 브라우저(앱 안 브라우저 등)도 올린 음성 파일은 틀 수 있다
   var noSpeech = !synth && !audioFor(s);
   btn.disabled = noSpeech;
@@ -1416,6 +1419,17 @@ function setSleep(min) {
   updatePlayerUI();
 }
 $("psClose").onclick = hideSheet;
+// 위쪽(손잡이·제목·글)을 아래로 밀면 내려서 숨긴다
+(function () {
+  var y0 = null, box = $("psheet");
+  box.addEventListener("touchstart", function (e) {
+    y0 = (e.target.closest && e.target.closest(".ps-grip, .ps-top, .ps-text, .ps-pos")) ? e.touches[0].clientY : null;
+  }, { passive: true });
+  box.addEventListener("touchend", function (e) {
+    if (y0 !== null && e.changedTouches[0].clientY - y0 > 50) hideSheet();
+    y0 = null;
+  }, { passive: true });
+})();
 $("psPlay").onclick = function () { psClosePop(); if (speaking) { pausePlay(); } else { startSpeak(true); } };
 $("psPrev").onclick = function () { psClosePop(); psStep(-1); };
 $("psNext").onclick = function () { psClosePop(); psStep(1); };
@@ -1781,8 +1795,17 @@ document.addEventListener("selectionchange", function () {
 /* ===== 이벤트 ===== */
 $("prev").onclick = function () { go(-1); };
 $("next").onclick = function () { go(1); };
-// 멈춰 있을 때 누르면 바로 듣고, 듣는 중에 누르면 플레이어를 연다
-$("speak").onclick = function () { if (speaking) { openSheet(); } else { startSpeak(true); } };
+// 듣기 단추는 창을 열지 않는다. 멈춰 있으면 듣고, 듣는 중이면 멈춘다.
+$("speak").onclick = function () { if (speaking) { stopSpeak(); } else { startSpeak(true); } };
+
+// 듣는 중에 화면(글)을 톡 누르면 플레이어가 올라온다. 칠한 글자·단추·링크를 누르거나 글자를 고르는 중이면 제외한다.
+$("wrap").addEventListener("click", function (e) {
+  if (!speaking || sheetOpen) return;
+  if (e.target.closest && e.target.closest("mark.hl, a, button, input, select, textarea, label")) return;
+  var sel = window.getSelection && window.getSelection();
+  if (sel && String(sel).length) return;
+  if (availableSources(SAYEON[idx]).length) openSheet();
+});
 $("readCountBtn").onclick = function () {
   recordReadCompletion();
 };
