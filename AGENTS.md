@@ -403,6 +403,18 @@ python make_tts.py 159             # 한 편 (여러 편은 번호를 나열, �
 - `settings.js` 를 고치면 세 페이지의 `?v=` 를 올리고 말씀 저장소 사본도 맞춘다. `app-tts.js` 를 고치면 `app-tts.js?v=` 도 올린다.
 - 시험: `node --test tests/app-tts.test.mjs`. 앱 연결을 흉내 낸 것이라, 실제 폰 동작은 설치해서 확인한다.
 
+## 듣기 플레이어 시트 (성령말씀, 2026-10-13)
+
+`index.html`(성령사연·성령말씀 한 파일)에서 듣기를 누르면 아래에서 플레이어(`#psheet`)가 올라온다. 문단 글·재생 막대·이전/다음 편·뒤로/앞으로·재생·읽기 속도·기기 목소리·타이머와, 그 편에 있는 음성만 고르는 단추(🎙️ 육성본 / 🤖 녹음본 / 📱 TTS)가 있다.
+월명동(`stones/`)과 말씀(`malsseum/`)에는 아직 없다.
+
+- 시트 코드는 `index.html` 의 `/* ===== 듣기 플레이어 시트 =====` 한 곳에 있다. 재생 막대(`#seekWrap`)는 시트 안으로 옮겼고 id 는 그대로다.
+- `sourceKey(s)`: 지금 편이 어느 음성으로 나오는지(`human`/`tts`/`device`). `availableSources(s)`: 있는 것만. 고르면 `SaSettings` 의 `audioFirst` 로 저장된다.
+- **일시정지는 `pausePlay()` → `stopSpeak(true)`**: 시트를 열어 둔 채 멈추고 `resumeAt` 에 자리를 적는다. `startSpeak(true)` 가 이어 듣는다. 그냥 `stopSpeak()` 는 시트를 닫는다.
+- 기기 목소리 문단 읽기에는 세대 표 `speakGen` 이 있다. 멈추거나 건너뛴 발화가 뒤늦게 알려 와도 무시한다. 읽는 흐름을 바꿀 때는 `speakGen++` 후 `synth.cancel(); speakNext()` 를 쓴다.
+- 속도는 녹음본·TTS 에만 적용되고 육성본은 항상 100% 다(`fileRate`).
+- 시트를 고칠 때는 로컬 사본(시험용 암호로 다시 잠근 자료와 짧은 wav)에서 헤드리스 크롬으로 칩·일시정지·건너뛰기·속도·목소리·타이머를 확인한다. 미디어 탐색에는 Range 요청을 받는 서버가 필요하다(`python -m http.server` 는 안 된다).
+
 ## 말씀 화자별 인용 색상 — 필수 유지 규칙 (2026-10-04)
 말씀 등록·가져오기·교체 또는 화면 변경 전에 [docs/SPEAKER_COLORS.md](docs/SPEAKER_COLORS.md)를 읽는다.
 하나님(금색)·성령님(초록)·성자(분홍)·선생님(보라)·예수님(파랑)의 인용 색과 범례를 유지한다.
