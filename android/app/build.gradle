@@ -1,0 +1,49 @@
+// 앱 모듈 설정 — 서명 정보는 환경변수로만 받고 저장소에는 두지 않는다.
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'io.github.patrickdfg.sayeon'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'io.github.patrickdfg.sayeon'
+        minSdk 24
+        targetSdk 34
+        // 빌드마다 올라가야 폰이 덮어 설치를 받아 준다
+        versionCode((System.getenv('GITHUB_RUN_NUMBER') ?: '1') as int)
+        versionName '1.0'
+    }
+
+    def keystorePath = System.getenv('KEYSTORE_FILE')
+    signingConfigs {
+        release {
+            if (keystorePath) {
+                storeFile file(keystorePath)
+                storePassword System.getenv('KEY_PASS')
+                keyAlias 'sayeon'
+                keyPassword System.getenv('KEY_PASS')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (keystorePath) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}

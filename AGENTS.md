@@ -362,6 +362,28 @@ python make_tts.py 159             # 한 편 (여러 편은 번호를 나열, �
   HWP 5.0 은 OLE 복합 문서라 `olefile` 로 `BodyText/SectionN` 을 풀어
   읽으면 된다(문단 텍스트는 태그 67, UTF-16LE).
 
+## 안드로이드 앱 (APK, 2026-10-13)
+
+사용자 요청. 크롬은 폰의 **기본 음성 엔진** 목소리만 내줘서(삼성 폰이면 한국어 1개) 구글 목소리를 고를 수 없다.
+그래서 사이트를 그대로 띄우는 앱(껍데기)을 만들고, 앱 안에서만 폰에 깔린 **모든 엔진**의 한국어 목소리를 내준다.
+웹(PWA)과 앱은 **둘 다** 쓴다. 코드는 사이트 하나이고, 앱은 선택이다.
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `android/` | 앱 프로젝트(Java, 라이브러리 없음). 주소 `https://patrickdfg.github.io/sayeon/` 를 WebView 로 연다 |
+| `android/.../TtsBridge.java` | 폰의 음성 엔진을 모두 열어 한국어 목소리 목록을 만들고, 읽기·멈추기를 한다. 사이트에는 `SayeonApp` 으로 보인다 |
+| `app-tts.js` | **앱 안에서만** `speechSynthesis`·`SpeechSynthesisUtterance` 를 가짜로 바꿔 끼운다. 세 페이지·`settings.js` 는 앱인지 몰라도 된다 |
+| `.github/workflows/android-build.yml` | `android/` 를 고치면 APK 를 만든다 |
+| `android/sayeon.keystore.enc` | 서명 열쇠(암호로 잠근 것). 풀 암호는 저장소 비밀값 `ANDROID_KEY_PASS` |
+
+- **업데이트**: 글·소리·기능은 사이트에 올리면 앱에도 바로 반영된다(앱이 사이트를 그대로 연다). 앱을 다시 깔 일은 `android/` 를 바꿀 때뿐이다.
+- **받는 곳**: `https://patrickdfg.github.io/sayeon/app/sayeon.apk`. `ANDROID_KEY_PASS` 가 있을 때만 서명해서 이 자리에 올린다. 없으면 시험용 APK 를 Actions 결과물로만 남기고 배포하지 않는다.
+- **서명 열쇠를 잃지 말 것**. 열쇠가 바뀌면 이미 깐 앱 위에 덮어 설치가 안 된다(지우고 다시 깔아야 한다). `sayeon.keystore.enc` 는 저장소에 있고 암호 `ANDROID_KEY_PASS` 는 따로 적어 둔다.
+- **앱 안에서는 새 사연 알림(웹 푸시)이 안 된다**. WebView 는 푸시를 못 받는다. 설정 화면이 그렇게 안내하고, 알림은 크롬으로 설치한 앱에서 받는다.
+- 목소리 이름은 `엔진 + 이름표`(예: `Google ISM`)다. 성별은 이름만으로 알 수 없어 적지 않는다. 기기 안에 든 것이 앞, `(네트워크)` 가 뒤. 기본값은 구글 것을 먼저 쓴다(`settings.js` `pickVoice`).
+- `settings.js` 를 고치면 세 페이지의 `?v=` 를 올리고 말씀 저장소 사본도 맞춘다. `app-tts.js` 를 고치면 `app-tts.js?v=` 도 올린다.
+- 시험: `node --test tests/app-tts.test.mjs`. 앱 연결을 흉내 낸 것이라, 실제 폰 동작은 설치해서 확인한다.
+
 ## 말씀 화자별 인용 색상 — 필수 유지 규칙 (2026-10-04)
 말씀 등록·가져오기·교체 또는 화면 변경 전에 [docs/SPEAKER_COLORS.md](docs/SPEAKER_COLORS.md)를 읽는다.
 하나님(금색)·성령님(초록)·성자(분홍)·선생님(보라)·예수님(파랑)의 인용 색과 범례를 유지한다.

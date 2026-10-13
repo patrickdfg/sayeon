@@ -1,0 +1,17 @@
+// 안드로이드 앱 프로젝트 설정 — 의존 라이브러리 없이 플러그인만 받는다.
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = 'sayeon-app'
+include ':app'
