@@ -7,9 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       story:
-        description: 성령사연 번호
+        description: 성령사연 번호 (여러 편은 공백으로 — 예 178 179)
         type: string
         required: true
+      replace:
+        description: 이미 Melo 음성이 있는 편을 다시 만들어 바꾸기
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -48,7 +52,11 @@ jobs:
       - name: 음성 만들기와 연결
         env:
           STORY: ${{ inputs.story }}
-        run: python tools/publish_melo.py "$STORY"
+          REPLACE: ${{ inputs.replace }}
+        run: |
+          case "$STORY" in *[!0-9\ ]*|"") echo "::error::편 번호는 숫자와 공백만 넣어 주세요."; exit 1;; esac
+          if [ "$REPLACE" = "true" ]; then FLAG="--replace"; else FLAG=""; fi
+          python tools/publish_melo.py $FLAG $STORY
 
       - name: 결과 검사
         env:
@@ -58,16 +66,16 @@ jobs:
           import json, os, sys
           sys.path.insert(0, 'tools')
           import crypt
-          no = int(os.environ['STORY'])
           data = crypt.read_json('sayeon.json')
-          entry = next(e for e in data if e['no'] == no)
-          assert entry.get('tts') == 'audio/%d-melo.mp3' % no, entry.get('tts')
           sync = json.load(open('audio/sync.json', encoding='utf-8'))
-          times = sync['%d-melo.mp3' % no]
-          paragraphs = [p for p in entry['paragraphs'] if p]
-          assert len(times) == len(paragraphs), (len(times), len(paragraphs))
-          assert times == sorted(times)
-          print('확인 OK — 문단 %d, 연결 %s' % (len(times), entry['tts']))
+          for no in [int(n) for n in os.environ['STORY'].split()]:
+              entry = next(e for e in data if e['no'] == no)
+              tts = entry.get('tts')
+              assert tts and os.path.getsize(tts) > 10000, (no, tts)
+              times = sync[os.path.basename(tts)]
+              assert len(times) == len(entry['paragraphs']), (no, len(times), len(entry['paragraphs']))
+              assert times == sorted(times)
+              print('확인 OK — %d편 문단 %d, 연결 %s' % (no, len(times), tts))
           PY
 
       - name: 결과를 main 에 저장
@@ -76,7 +84,7 @@ jobs:
         run: |
           git config user.name "sayeon-publisher[bot]"
           git config user.email "sayeon-publisher[bot]@users.noreply.github.com"
-          git add "audio/${STORY}-melo.mp3" audio/sync.json sayeon.json.enc
+          git add -A audio sayeon.json.enc
           git commit -m "성령사연 ${STORY}편 Melo 음성 게시"
           git pull --rebase origin main
           git push origin main
