@@ -1,0 +1,92 @@
+name: 성령사연 Melo 음성 게시
+
+# 현수(Edge) 음성 서버가 막혔을 때, 한 편을 MeloTTS(여자 목소리)로 읽어 바로 게시한다.
+# 이미 컴퓨터 음성(tts)이 있는 편은 건드리지 않는다. 설명은 tools/publish_melo.py 머리말.
+
+on:
+  workflow_dispatch:
+    inputs:
+      story:
+        description: 성령사연 번호
+        type: string
+        required: true
+
+permissions:
+  contents: write
+  pages: write
+
+env:
+  SAYEON_PASS: ${{ secrets.SAYEON_PASS }}
+
+concurrency:
+  group: work-upload-main
+  cancel-in-progress: false
+
+jobs:
+  melo:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: MeloTTS 설치
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg libsndfile1
+          python -m pip install 'numpy<2' 'setuptools<81' cryptography edge-tts imageio-ffmpeg==0.6.0 mutagen==1.47.0
+          python -m pip install torch==2.2.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install 'git+https://github.com/myshell-ai/MeloTTS.git@209145371cff8fc3bd60d7be902ea69cbdb7965a'
+          python -m unidic download
+          python -m nltk.downloader averaged_perceptron_tagger averaged_perceptron_tagger_eng cmudict punkt punkt_tab
+
+      - name: 음성 만들기와 연결
+        env:
+          STORY: ${{ inputs.story }}
+        run: python tools/publish_melo.py "$STORY"
+
+      - name: 결과 검사
+        env:
+          STORY: ${{ inputs.story }}
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          sys.path.insert(0, 'tools')
+          import crypt
+          no = int(os.environ['STORY'])
+          data = crypt.read_json('sayeon.json')
+          entry = next(e for e in data if e['no'] == no)
+          assert entry.get('tts') == 'audio/%d-melo.mp3' % no, entry.get('tts')
+          sync = json.load(open('audio/sync.json', encoding='utf-8'))
+          times = sync['%d-melo.mp3' % no]
+          paragraphs = [p for p in entry['paragraphs'] if p]
+          assert len(times) == len(paragraphs), (len(times), len(paragraphs))
+          assert times == sorted(times)
+          print('확인 OK — 문단 %d, 연결 %s' % (len(times), entry['tts']))
+          PY
+
+      - name: 결과를 main 에 저장
+        env:
+          STORY: ${{ inputs.story }}
+        run: |
+          git config user.name "sayeon-publisher[bot]"
+          git config user.email "sayeon-publisher[bot]@users.noreply.github.com"
+          git add "audio/${STORY}-melo.mp3" audio/sync.json sayeon.json.enc
+          git commit -m "성령사연 ${STORY}편 Melo 음성 게시"
+          git pull --rebase origin main
+          git push origin main
+
+      - name: GitHub Pages 다시 배포
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail-with-body --retry 3 -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/builds"
