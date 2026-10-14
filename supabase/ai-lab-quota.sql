@@ -109,8 +109,8 @@ begin
  select coalesce(sum(attempts) filter(where provider='gemini'),0),coalesce(sum(attempts) filter(where provider='groq'),0)
  into v_gemini,v_groq from public.ai_lab_provider_usage where usage_date=v_day and user_id=v_uid;
  v_provider_used:=case p_provider when 'gemini' then v_gemini when 'groq' then v_groq else 0 end;
- if v_used>=60 or (p_provider is not null and v_provider_used>=30) then v_reason:='daily';
- elsif p_reserve and v_last is not null and v_last>now()-interval '10 seconds' then v_reason:='rate'; end if;
+ -- 2026-10-14 사용자 결정: 하루 호출 한도는 두지 않는다. 연달아 보내는 것을 막는 10초 간격만 둔다.
+ if p_reserve and v_last is not null and v_last>now()-interval '10 seconds' then v_reason:='rate'; end if;
  if p_reserve and v_reason='' then
   insert into public.ai_lab_daily_usage(usage_date,user_id,attempts,last_at) values(v_day,v_uid,1,now())
   on conflict(usage_date,user_id) do update set attempts=ai_lab_daily_usage.attempts+1,last_at=now();
@@ -119,10 +119,10 @@ begin
   v_used:=v_used+1;v_total:=v_total+1;
   if p_provider='gemini' then v_gemini:=v_gemini+1;else v_groq:=v_groq+1;end if;
  end if;
- v_common:=greatest(0,60-v_used);
+ v_common:=999999;   -- '제한 없음' 표시용 큰 수(예전 서버 코드가 정수를 기대한다)
  v_providers:=jsonb_build_object(
-  'gemini',jsonb_build_object('used',v_gemini,'limit',30,'remaining',greatest(0,least(30-v_gemini,v_common))),
-  'groq',jsonb_build_object('used',v_groq,'limit',30,'remaining',greatest(0,least(30-v_groq,v_common))));
+  'gemini',jsonb_build_object('used',v_gemini,'limit',null,'remaining',null),
+  'groq',jsonb_build_object('used',v_groq,'limit',null,'remaining',null));
  return jsonb_build_object('allowed',v_reason='','reason',v_reason,'used',v_used,'remaining',v_common,'day',v_day,
   'globalRemaining',null,'globalLimit',null,'unassignedUsed',greatest(0,v_used-v_gemini-v_groq),'providers',v_providers);
 end; $$;

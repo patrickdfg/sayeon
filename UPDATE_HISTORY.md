@@ -1,3 +1,9 @@
+## 2026-10-14 AI 챗봇·고민 상담의 하루 호출 한도 없앰
+- 사용자 결정: 하루 호출 한도는 제한 없이. 서버 SQL `ai_lab_model_quota` 에서 개인별 하루 30회(업체)·60회(합계) 한도를 뺐다. **연달아 보내는 것을 막는 10초 간격은 그대로 둔다**(질문 한 번에 AI 를 두 번 쓰는 고민 상담도 그 간격만 기다린다). 호출 수는 계속 센다(`ai_lab_daily_usage`·`ai_lab_provider_usage`). 업체별 `limit`·`remaining` 은 비워 화면의 '내 앱 호출 한도' 줄은 저절로 사라진다. 합계 `remaining` 은 예전 서버 코드가 정수를 기대해 999999 로 둔다.
+- **Supabase SQL Editor 에서 `supabase/ai-lab-quota-nolimit.sql` 하나만 실행해야 반영된다**(서버 `index.ts` 는 바꾸지 않았다). `ai-lab-quota.sql` 의 같은 함수도 같은 내용으로 고쳐 두어 전체를 다시 실행해도 한도가 되살아나지 않는다. 안내 문구(`ai-lab.html`·`counsel.html`)도 바꿨다.
+- 검증: 임시 PostgreSQL 16 에 Supabase 흉내(auth 함수·역할)를 만들어 실행 — 70번 예약에 거절 0번, 바로 이어 보내면 `rate`(10초 간격)로 거절, 사용 횟수는 70으로 계속 기록. 서버 시험 115개 통과. 실제 Supabase 에는 아직 적용하지 않았다.
+- 주의: 한도가 없어도 Google 무료 키의 자체 한도(분당·일일)는 남아 있어 넘으면 Gemini 가 429 를 돌려준다. 무료 키에 결제를 연결하지 말 것.
+
 ## 2026-10-14 고민 상담: AI 가 고민의 뜻을 분석해 말씀을 찾는다
 - 사용자 요청(AI 로 고민 뜻 분석 → AI 로 찾기). 고민 상담 화면이 질문 하나에 AI 를 **두 번** 쓴다. (1) 서버 새 행동 `keywords` — 고민 글만 보내 요약·주제·말씀에서 찾을 낱말 8~16개를 받는다(고민 글에 없는 낱말·그 마음에 필요한 가르침의 말 포함, 말씀 원문은 안 보낸다). (2) 그 낱말로 올린 말씀에서 문단을 골라 기존 `generate` 로 위로와 조언을 쓴다. 화면에 'AI 가 이해한 고민'을 한 줄 보여 주고, 그 핵심을 답 요청에도 붙인다.
 - 변경 파일: `admin/ai-core.mjs`(`analyzeWorry`·`analyzeViaServer`·`validateKeywords`), `supabase/functions/admin-ai/handler.mjs`(`keywords` 행동: 승인·무료 확인·모델·길이·허용 필드 검사, 하루 한도 예약, 주키→보조키 전환은 `generate` 와 같은 규칙), `tools/build_admin_ai.py` 로 `index.ts` 다시 만듦, `counsel.mjs`/`counsel.html`.
