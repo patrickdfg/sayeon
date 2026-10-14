@@ -19,7 +19,7 @@ export const THEMES=[
  {re:/미래|진로|결정|선택|방향|갈림길|이직|이사/,words:['방향 인도 결정','순종 하나님 뜻 인도']},
  {re:/자기|관리|습관|계획|시간|정리|미루/,words:['자기 관리 운영','부지런 습관 열심']}
 ];
-const WORRY_MAX=320,PER_SEARCH=6,EVIDENCE_MAX=6,CHARS_MAX=8000,PER_DOC=2;
+const PER_SEARCH=6,EVIDENCE_MAX=6,CHARS_MAX=8000,PER_DOC=2;
 // 고민 분석과 답 생성은 서버가 호출 간격 10초를 요구한다(하루 한도 규칙). 분석을 마친 뒤 이만큼 채우고 보낸다.
 export const GAP_MS=()=>Number.isFinite(globalThis.__counselGapMs)?globalThis.__counselGapMs:10300;
 
@@ -56,10 +56,30 @@ export function findEvidence(all,worry,analysis=null,scope='all',search=retrieve
  }
  return out;
 }
-/** 서버가 만드는 답의 모양(overview 소제목)을 위로와 조언으로 정해 주는 요청문. 600글자 이내. */
-export function counselQuestion(worry,analysis=null){
- const w=clean(worry).slice(0,WORRY_MAX),gist=analysis?.summary?' (핵심: '+clean(analysis.summary).slice(0,70)+')':'';
- return '[고민 상담] '+w+gist+' — 이 고민을 가진 사람에게 제공된 말씀만 근거로 먼저 위로하고 이어서 조언하세요. overview 소제목은 "위로"와 "조언" 두 개로 하고 말씀에 있는 뜻만 따뜻한 합니다체로 쓰세요. 말씀에 없는 조언·진단·약속은 하지 마세요.';
+/* ===== 고민 답의 지침 =====
+ * 서버 코드를 건드리지 않고 고칠 수 있게, 지침은 counsel-guide.txt 한 파일에 둔다(글만 고쳐 올리면 된다).
+ * 서버는 질문을 600글자까지만 받으므로 [고민 상담] 머리말 + 고민 + 핵심 요약 + 지침이 600글자 안에 들어가야 한다.
+ * 그래서 지침은 330글자까지만 쓰고, 남는 글자 수만큼만 고민 글을 넣는다(길면 뒤가 잘린다). */
+export const GUIDE_MAX=330,QUESTION_MAX=600,WORRY_MIN=120;
+export const DEFAULT_GUIDE='이 고민을 가진 사람에게 제공된 말씀만 근거로 위로와 조언을 쓰세요. overview 소제목은 "위로"와 "조언" 두 개입니다. 위로는 먼저 그 마음을 헤아리는 한 문장으로 시작하고, 말씀의 낱말을 이어 붙이지 말고 고민에 맞게 쉬운 합니다체로 풀어 쓰되 뜻은 바꾸지 마세요. 원문에서만 쓰는 특별한 용어는 원문에 설명이 있을 때만 쓰고, 뜻이 불분명하면 빼세요. 조언은 서로 다른 실천 2~3가지로 쓰세요. 말씀에 없는 조언·진단·약속은 하지 마세요.';
+let guideCache=null;
+/** counsel-guide.txt 를 읽는다. 못 읽거나 비었으면 기본 지침을 쓴다. 화면을 연 동안 한 번만 읽는다. */
+export async function loadCounselGuide(fetcher=globalThis.fetch){
+ if(guideCache!==null)return guideCache;
+ let text='';
+ try{
+  const r=await fetcher('./counsel-guide.txt?v='+Date.now(),{cache:'no-store'});
+  if(r&&r.ok)text=clean(await r.text());
+ }catch{}
+ return guideCache=(text.length>=20?text:DEFAULT_GUIDE).slice(0,GUIDE_MAX);
+}
+export function resetCounselGuide(){guideCache=null;}
+/** 서버가 만드는 답의 모양을 위로·조언으로 정해 주는 요청문. 항상 600글자 이내. */
+export function counselQuestion(worry,analysis=null,guide=DEFAULT_GUIDE){
+ const g=clean(guide).slice(0,GUIDE_MAX)||DEFAULT_GUIDE,gist=analysis?.summary?' (핵심: '+clean(analysis.summary).slice(0,70)+')':'';
+ const head='[고민 상담] ',tail=' — '+g,room=Math.max(WORRY_MIN,QUESTION_MAX-head.length-gist.length-tail.length);
+ const w=clean(worry).slice(0,room);
+ return (head+w+gist+tail).slice(0,QUESTION_MAX);
 }
 export const CRISIS=/자살|죽고\s*싶|죽어\s*버리|목숨을?\s*끊|스스로\s*(?:생|목숨)|살기\s*싫|살고\s*싶지|자해|극단적\s*선택/;
 

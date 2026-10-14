@@ -1,6 +1,6 @@
 // 고민 상담 화면의 동작 — 올린 말씀 안에서만 찾아 위로와 조언을 하고, 원문은 숨긴 단추 뒤에 둔다.
 import {SOURCES,toChunks,generateViaServer,analyzeViaServer,requestServer,sourceCaption} from './admin/ai-core.mjs?v=22';
-import {findEvidence,counselQuestion,CRISIS,GAP_MS,sleep} from './ai-counsel-core.mjs?v=1';
+import {findEvidence,counselQuestion,loadCounselGuide,CRISIS,GAP_MS,sleep} from './ai-counsel-core.mjs?v=2';
 import {MEMBER_LABELS,membershipStatus} from './ai-members.mjs?v=1';
 
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
@@ -98,7 +98,7 @@ async function ask(){
   }
   if(mine!==epoch)return;
   status('말씀 '+found.length+'곳을 읽고 답을 쓰고 있습니다…');
-  const result=await generateViaServer(config,token,'gemini-lite',counselQuestion(worry,analysis),found,true,fetch,controller.signal);
+  const result=await generateViaServer(config,token,'gemini-lite',counselQuestion(worry,analysis,await loadCounselGuide()),found,true,fetch,controller.signal);
   if(mine!==epoch)return;
   showAnswer(result,found,analysis);status(analysis?'완료 · AI가 뜻으로 찾은 말씀만 근거로 했고 원문 인용을 확인했습니다.':'완료 · 낱말로 찾은 말씀만 근거로 했고 원문 인용을 확인했습니다. (AI 고민 분석은 쓰지 못했습니다)');
  }catch(e){

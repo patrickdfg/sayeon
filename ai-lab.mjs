@@ -1,7 +1,7 @@
 import {createVoiceInput} from './ai-voice.mjs?v=1';
 import {saveOverview} from './ai-export.mjs?v=2';
 import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,analyzeViaServer,requestServer,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage,normalizeScope} from './admin/ai-core.mjs?v=22';
-import {findEvidence,counselQuestion,CRISIS,CRISIS_TEXT,GAP_MS,sleep} from './ai-counsel-core.mjs?v=1';
+import {findEvidence,counselQuestion,loadCounselGuide,CRISIS,CRISIS_TEXT,GAP_MS,sleep} from './ai-counsel-core.mjs?v=2';
 import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore,resolveChatQuestion} from './ai-chat.mjs?v=7';
 import {MEMBER_LABELS,membershipStatus,createMemberStore} from './ai-members.mjs?v=1';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
@@ -391,9 +391,10 @@ async function sendQuestion(previewOnly=false){
    }
   }
   const counsel=analysis?.kind==='worry';
+  const guide=counsel?await loadCounselGuide():null;
   const instruction=mode==='whole'&&intent?wholeRequest(title,intent):null;
   const combined=instruction?instruction+' 사용자 요청: '+q:'';
-  const question=counsel?counselQuestion(q,analysis):instruction?(combined.length<=600?combined:q):followUp?followUpQuestion(q,outline):q;
+  const question=counsel?counselQuestion(q,analysis,guide):instruction?(combined.length<=600?combined:q):followUp?followUpQuestion(q,outline):q;
   let result;
   status(mode==='whole'?title+' · 원고 한 편 전체를 읽는 중…':model.label+' 답변 생성 중…');
   try{result=await generateViaServer(config,token,modelId,question,evidenceFound,true,fetch,controller.signal,mode==='whole');}
