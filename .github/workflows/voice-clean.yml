@@ -4,6 +4,8 @@ name: 성령사연 육성 잡음 제거
 # audio/<번호>.m4a 를 새로 넣거나 바꿔서 main 에 올리면 그 파일만 저절로 돈다.
 # 손으로 돌릴 때는 파일을 적는다(예: "169 170" 또는 "audio/169.m4a").
 # 한 번 보정한 파일은 audio/clean.json 에 적혀 있어 다시 하지 않는다.
+# 커밋 글에 [소리크기] 가 있으면 돌지 않는다 — match_volume.py 로 음량만 맞춘 올림이라
+# 잡음 제거까지 할 일이 아니기 때문이다(옛 육성은 저절로 보정하지 않는다는 규칙).
 # 길이·시간이 바뀌지 않으므로 audio/sync.json 은 그대로 쓴다.
 
 on:
@@ -26,7 +28,7 @@ concurrency:
 
 jobs:
   clean:
-    if: github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[소리크기]')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:

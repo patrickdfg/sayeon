@@ -27,10 +27,11 @@ DF_URL = ('https://github.com/Rikorose/DeepFilterNet/releases/download/v0.5.6/'
           'deep-filter-0.5.6-x86_64-unknown-linux-musl')
 DF_BIN = os.environ.get('DEEP_FILTER') or os.path.join(REPO, '.seg_cache', 'deep-filter')
 
-# 잡음 제거 뒤 다듬기: 저음 웅웅거림 제거, 울림 대역(300Hz) 약간 깎기, 발음(3kHz) 약간 올리기, 음량 -16 LUFS
+# 잡음 제거 뒤 다듬기: 저음 웅웅거림 제거, 울림 대역(300Hz) 약간 깎기, 발음(3kHz) 약간 올리기,
+# 음량은 현수 음성과 같은 -18.4 LUFS (match_volume.py 와 같은 값 — 다르면 둘이 서로 되돌린다)
 POST = ('highpass=f=80,equalizer=f=300:t=q:w=1:g=-3,equalizer=f=3000:t=q:w=1:g=2,'
         'acompressor=threshold=-22dB:ratio=3:attack=10:release=200:makeup=2,'
-        'loudnorm=I=-16:TP=-1.5:LRA=9')
+        'loudnorm=I=-18.4:TP=-1.5:LRA=9')
 
 
 def sha(path):

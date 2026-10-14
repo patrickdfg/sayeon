@@ -126,6 +126,7 @@ async def process(path):
         if os.path.exists(partial):
             os.remove(partial)          # 만들다 만 빈 파일은 남기지 않는다
         set_output('tts_failed', '1')
+        set_output('tts_failed_no', str(entry['no']))
     os.remove(path)
     print('완료: 성령 사연 %d (%d문단)' %
           (entry['no'], len(entry['paragraphs'])))
