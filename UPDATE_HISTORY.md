@@ -1,3 +1,11 @@
+## 2026-10-14 보안 점검 반영 — 기기에 암호를 두지 않고 열쇠만 두기, 하이라이트·링크 검증
+- 점검에서 나온 것 중 코드로 고칠 수 있는 것을 고쳤다.
+- `crypt.js` — 예전에는 한 번 연 암호를 `localStorage('sayeonPass')` 에 **글자 그대로** 두었다. 같은 `patrickdfg.github.io` 아래 다른 프로젝트 페이지가 읽을 수 있었다. 이제 풀린 열쇠(꺼낼 수 없는 `CryptoKey`)만 IndexedDB(`sayeonKey`)에 둔다. 두 저장소의 소금이 같아 칸은 하나(`main`)다. 예전 기기에 남은 암호는 첫 `resume()` 때 한 번 열어 보고 열쇠로 옮긴 뒤 지운다. 암호를 바꾸면 낡은 열쇠가 `check.enc` 에서 풀리지 않아 버려지고 다시 묻는다. 한계: 열쇠로도 원고는 풀리므로 같은 도메인의 다른 페이지가 열쇠를 써서 푸는 것까지는 못 막는다(암호를 알아내지 못할 뿐).
+- 하이라이트 — `index.html`·`malsseum/index.html`·`stones/index.html` 의 `getHighlights` 가 기기에 저장된 값을 `cleanHighlights` 로 걸러(색은 "1"~"3", 위치는 정수, 모양이 틀리면 버림) 속성에 붙는 값이 숫자·1~3 만 되게 했다. `saved/index.html` 은 색을 1~3 으로 제한했다.
+- 링크 — 말씀 보기의 영상 링크는 `http(s)://` 일 때만 보이고 `rel="noopener noreferrer"` 를 쓴다.
+- 확인 — 브라우저(헤드리스)에서 맞는 암호·틀린 암호·열쇠 이어 열기·예전 암호 옮기기·잊기·바뀐 암호 거절을 모두 시험했고 네 페이지 모두 오류 없이 열렸다. 모양이 틀린 하이라이트(`color:'1" onmouseover=...'` 등)는 걸러졌다.
+- **남은 일** — 암호가 아직 `7125` 이고 공개 git 기록에 남아 있다(새 암호 → 다시 잠금 → 기록 정리 → 저장소 비밀값 `SAYEON_PASS` 교체는 사용자 결정 대기). 음성 파일은 암호화하지 않았다.
+
 ## 2026-10-14 검색 로봇 차단(noindex) 태그를 남은 페이지에도 넣음
 - 보안 점검 중 `ai-lab`·`counsel` 에만 있고 나머지 페이지에는 없는 것을 확인했다.
 - `<meta name="robots" content="noindex,nofollow,noarchive">` 를 `index.html`, `install.html`, `saved/`, `stones/`, `malsseum/index.html` (말씀 저장소 `index.html` 과 같게)에 넣었다. 화면 동작은 그대로다.

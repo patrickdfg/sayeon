@@ -128,7 +128,7 @@ function escapeHtml(s) {
   });
 }
 function renderSnippet(text, color) {
-  return '<mark class="hl hl-' + color + '">' + escapeHtml(text) + '</mark>';
+  return '<mark class="hl hl-' + (/^[123]$/.test(String(color)) ? color : "1") + '">' + escapeHtml(text) + '</mark>';
 }
 
 /* 세 사이트가 각기 다른 이름으로 하이라이트를 저장해 둔다 — 여기서 한데 모은다.

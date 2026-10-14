@@ -351,6 +351,8 @@ python make_tts.py 159             # 한 편 (여러 편은 번호를 나열, �
   - 브라우저는 `crypt.js`, 도구는 `tools/crypt.py` 로 푼다. 방식은 같다
     (PBKDF2-SHA256 20만 번 → AES-GCM, 소금과 반복수는 `crypt.json`).
   - **암호는 어디에도 적혀 있지 않다.** 맞는지는 `check.enc` 가 풀리는지로 가린다.
+  - **기기에는 암호가 아니라 열쇠만 둔다.** `crypt.js` 가 IndexedDB(`sayeonKey`)에 꺼낼 수 없는 `CryptoKey` 를 두고 `resume()` 때 `check.enc` 로 확인한다(예전 `localStorage.sayeonPass` 는 옮긴 뒤 지운다). 암호를 다시 `localStorage` 에 두지 말 것.
+  - **기기에 저장된 하이라이트는 `cleanHighlights` 를 거쳐서만 쓴다.** 속성에 그대로 붙으므로 새 화면을 만들 때도 같은 규칙을 지킨다.
   - **도구를 돌릴 때는 환경변수 `SAYEON_PASS` 에 암호를 넣어야 한다.**
     깃허브 일꾼은 저장소 비밀값(Settings → Secrets → Actions → `SAYEON_PASS`)에서 받는다.
     이것이 없으면 원고를 못 열어 자동 게시가 멈춘다.
