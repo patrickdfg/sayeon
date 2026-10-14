@@ -1,6 +1,6 @@
 // 고민 상담 화면의 동작 — 올린 말씀 안에서만 찾아 위로와 조언을 하고, 원문은 숨긴 단추 뒤에 둔다.
 import {SOURCES,toChunks,generateViaServer,analyzeViaServer,requestServer,sourceCaption} from './admin/ai-core.mjs?v=22';
-import {findEvidence,counselQuestion,loadCounselGuide,CRISIS,GAP_MS,sleep} from './ai-counsel-core.mjs?v=2';
+import {findEvidence,counselQuestion,loadCounselGuide,CRISIS,GAP_MS,sleep} from './ai-counsel-core.mjs?v=3';
 import {MEMBER_LABELS,membershipStatus} from './ai-members.mjs?v=1';
 
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
@@ -34,11 +34,10 @@ function showAnswer(result,found,analysis=null){
  const a=result.answer;
  if(analysis?.summary)out.append(node('p','고민을 이렇게 이해했습니다 — '+analysis.summary,'gist'));
  if(!a.supported||!a.overview?.length){out.append(node('p','이 고민에 맞는 말씀을 올려 둔 자료에서 찾지 못했습니다. 상황을 조금 더 구체적으로 적어 주세요.','muted'));$('toggleSources').classList.add('hidden');$('sources').classList.add('hidden');return;}
- a.overview.forEach(sec=>{
-  const s=node('section',null,'sec');s.append(node('h3',sec.title));
-  sec.points.forEach(p=>{const row=node('div',null,'pt');if(p.label)row.append(node('strong',p.label));row.append(node('p',p.text));s.append(row);});
-  out.append(s);
- });
+ // 소제목·항목명 없이 하나의 글로 이어서 보여 준다(상담하듯)
+ const letter=node('section',null,'letter');
+ a.overview.forEach(sec=>sec.points.forEach(p=>letter.append(node('p',p.text))));
+ out.append(letter);
  showSources(found,a);
  const btn=$('toggleSources');btn.classList.remove('hidden');btn.setAttribute('aria-expanded','false');text(btn,'📖 원문 보기');$('sources').classList.add('hidden');
 }

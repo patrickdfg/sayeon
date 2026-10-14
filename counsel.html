@@ -32,8 +32,7 @@ textarea{width:100%;min-height:130px;max-height:50vh;resize:vertical;border:1px 
 .crisis b{color:var(--danger)}
 #answer{margin-top:22px}
 .gist{font-size:13.5px;opacity:.75;border-left:3px solid var(--gold);padding-left:10px;margin:0 0 20px}
-.sec{margin:0 0 26px}.sec h3{font-size:15px;color:var(--green);margin:0 0 8px;letter-spacing:.02em}
-.pt p{margin:0 0 12px;word-break:keep-all;overflow-wrap:break-word}.pt strong{display:block;margin:0 0 3px;color:var(--gold);font-size:14px}
+.letter p{margin:0 0 16px;word-break:keep-all;overflow-wrap:break-word;line-height:1.95}
 #toggleSources{margin-top:4px}
 #sources{margin-top:12px}
 .src{border-top:1px solid var(--line);padding:10px 0}.src summary{cursor:pointer;font-size:14px;opacity:.9}
@@ -78,6 +77,6 @@ textarea{width:100%;min-height:130px;max-height:50vh;resize:vertical;border:1px 
  <p class="notice">이 답은 올려 둔 말씀에 있는 뜻을 근거로 한 위로와 조언이며, 의료·법률·긴급 상담을 대신하지 않습니다. 쓰신 고민과 답은 저장하지 않습니다. AI가 고민의 뜻을 헤아리는 데 한 번, 답을 쓰는 데 한 번, 질문 하나에 AI를 두 번 쓰고 10초쯤 걸립니다. 하루 이용 횟수 제한은 없고, 연달아 보내는 것만 10초 간격으로 막습니다.</p>
 </main>
 <script>document.getElementById('worry').addEventListener('input',function(e){document.getElementById('count').textContent=e.target.value.length+' / 320';});</script>
-<script type="module" src="./counsel.mjs?v=3"></script>
+<script type="module" src="./counsel.mjs?v=4"></script>
 </body>
 </html>

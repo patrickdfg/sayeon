@@ -73,7 +73,7 @@ test('요청문은 지침을 끝까지 담고 600글자를 넘지 않으며, 긴
 test('지침 글 파일은 330글자 이내이고 소제목·공감·용어·금지 내용을 담는다',()=>{
  const g=readFileSync(new URL('../counsel-guide.txt',import.meta.url),'utf8').trim();
  assert(g.length<=GUIDE_MAX,'지침 길이 '+g.length);assert.equal(g,DEFAULT_GUIDE,'기본 지침과 파일이 같다(파일을 못 읽을 때를 위한 사본)');
- for(const word of ['위로','조언','헤아리','쉬운','특별한 용어','말씀에 없는']) assert(g.includes(word),word);
+ for(const word of ['목사님','하나의 글','헤아리는','문어체','특별한 용어','말씀에 없는']) assert(g.includes(word),word);
 });
 test('지침 파일을 읽어 쓰고, 못 읽거나 비었으면 기본 지침, 한 번만 읽는다',async()=>{
  resetCounselGuide();let calls=0;

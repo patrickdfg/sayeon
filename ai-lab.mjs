@@ -1,7 +1,7 @@
 import {createVoiceInput} from './ai-voice.mjs?v=1';
 import {saveOverview} from './ai-export.mjs?v=2';
 import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,analyzeViaServer,requestServer,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage,normalizeScope} from './admin/ai-core.mjs?v=22';
-import {findEvidence,counselQuestion,loadCounselGuide,CRISIS,CRISIS_TEXT,GAP_MS,sleep} from './ai-counsel-core.mjs?v=2';
+import {findEvidence,counselQuestion,loadCounselGuide,CRISIS,CRISIS_TEXT,GAP_MS,sleep} from './ai-counsel-core.mjs?v=3';
 import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore,resolveChatQuestion} from './ai-chat.mjs?v=7';
 import {MEMBER_LABELS,membershipStatus,createMemberStore} from './ai-members.mjs?v=1';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
@@ -141,16 +141,13 @@ function showAnswer(result,target=$('answer'),questionText=$('question').value.t
 function showCounselAnswer(result,target){
  target.append(node('p',result.model+(result.usedBackup?' · 보조키로 처리':'')+' · 올린 말씀만 근거 · 원문 확인','answer-meta'));
  if(result.understood)target.append(node('p','고민을 이렇게 이해했습니다 — '+result.understood,'answer-context'));
- const overview=node('section',null,'overview');
- (result.answer.overview||[]).forEach(section=>{
-  const part=node('section',null,'answer-section');part.append(node('h3',section.title));
-  section.points.forEach(p=>{const para=node('p',null,'answer-paragraph');if(p.label)para.append(node('strong',p.label+' '));para.append(node('span',p.text));part.append(para);});
-  overview.append(part);
- });
- target.append(overview);
+ // 소제목·항목명 없이 하나의 글로 이어서 보여 준다(상담하듯)
+ const letter=node('section',null,'overview counsel-letter');
+ (result.answer.overview||[]).forEach(section=>section.points.forEach(p=>{const para=node('p',p.text,'answer-paragraph');letter.append(para);}));
+ target.append(letter);
  const actions=node('div',null,'answer-actions');
  const copy=node('button','복사','tool-button ui-copy');copy.type='button';copy.title='출처를 제외하고 답 복사';copy.setAttribute('aria-label',copy.title);
- copy.onclick=()=>copyOverview(result.answer.overview||[],copy);actions.append(copy);target.append(actions);
+ copy.onclick=()=>copyText((result.answer.overview||[]).flatMap(section=>section.points.map(p=>p.text)).join('\n\n'),copy,'상담 답을 복사했습니다.');actions.append(copy);target.append(actions);
 }
 function evidenceForQuestion(){
  const q=$('question').value.trim();if(q.length<2)throw new Error('질문을 두 글자 이상 입력해 주세요.');

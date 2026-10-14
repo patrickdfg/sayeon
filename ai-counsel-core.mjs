@@ -61,7 +61,7 @@ export function findEvidence(all,worry,analysis=null,scope='all',search=retrieve
  * 서버는 질문을 600글자까지만 받으므로 [고민 상담] 머리말 + 고민 + 핵심 요약 + 지침이 600글자 안에 들어가야 한다.
  * 그래서 지침은 330글자까지만 쓰고, 남는 글자 수만큼만 고민 글을 넣는다(길면 뒤가 잘린다). */
 export const GUIDE_MAX=330,QUESTION_MAX=600,WORRY_MIN=120;
-export const DEFAULT_GUIDE='이 고민을 가진 사람에게 제공된 말씀만 근거로 위로와 조언을 쓰세요. overview 소제목은 "위로"와 "조언" 두 개입니다. 위로는 먼저 그 마음을 헤아리는 한 문장으로 시작하고, 말씀의 낱말을 이어 붙이지 말고 고민에 맞게 쉬운 합니다체로 풀어 쓰되 뜻은 바꾸지 마세요. 원문에서만 쓰는 특별한 용어는 원문에 설명이 있을 때만 쓰고, 뜻이 불분명하면 빼세요. 조언은 서로 다른 실천 2~3가지로 쓰세요. 말씀에 없는 조언·진단·약속은 하지 마세요.';
+export const DEFAULT_GUIDE='제공된 말씀만 근거로, 목사님이 마주 앉아 상담하듯 하나의 글로 이어서 쓰세요. overview 소제목은 하나만 쓰고 points를 문단으로 이어 가며, 위로와 조언을 나누지 마세요. 첫 문장은 그 마음을 헤아리는 말로 시작하고, 따뜻한 문어체(~입니다, ~하십시오)로 고민에 맞게 풀어 쓰세요. 말씀의 낱말을 이어 붙이거나 뜻을 바꾸지 마세요. 원문에서만 쓰는 특별한 용어는 원문에 설명이 있을 때만 쓰고 불분명하면 빼세요. 말씀에 없는 조언·진단·약속은 하지 마세요.';
 let guideCache=null;
 /** counsel-guide.txt 를 읽는다. 못 읽거나 비었으면 기본 지침을 쓴다. 화면을 연 동안 한 번만 읽는다. */
 export async function loadCounselGuide(fetcher=globalThis.fetch){
