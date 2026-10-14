@@ -1,6 +1,7 @@
 import {createVoiceInput} from './ai-voice.mjs?v=1';
 import {saveOverview} from './ai-export.mjs?v=2';
-import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,requestServer,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage,normalizeScope} from './admin/ai-core.mjs?v=21';
+import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,analyzeViaServer,requestServer,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage,normalizeScope} from './admin/ai-core.mjs?v=22';
+import {findEvidence,counselQuestion,CRISIS,CRISIS_TEXT,GAP_MS,sleep} from './ai-counsel-core.mjs?v=1';
 import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore,resolveChatQuestion} from './ai-chat.mjs?v=7';
 import {MEMBER_LABELS,membershipStatus,createMemberStore} from './ai-members.mjs?v=1';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
@@ -81,6 +82,7 @@ function sourceActions(found){
 function showAnswer(result,target=$('answer'),questionText=$('question').value.trim()){
  target.replaceChildren();
  if(!result.answer.supported){text(target,'등록된 자료에서 답을 뒷받침할 근거를 찾지 못했습니다.');return;}
+ if(result.counsel){showCounselAnswer(result,target);return;}
  const docs=new Map(),sections=result.answer.overview||[];
  const remember=s=>{if(s.doc&&!docs.has(s.id))docs.set(s.id,s.doc);};
  const quoteBox=s=>{
@@ -88,6 +90,7 @@ function showAnswer(result,target=$('answer'),questionText=$('question').value.t
   const cite=node('cite');cite.append(link(s.doc));box.append(cite);return box;
  };
  const meta=node('p',result.model+(result.usedBackup?' · 보조키로 처리':'')+' · 원문 확인','answer-meta');target.append(meta);
+ if(result.understood)target.append(node('p','질문을 이렇게 이해했습니다 — '+result.understood,'answer-context'));
  if(result.wholeTitle)target.append(node('p',result.wholeTitle+(result.wholeIntent==='organize'?' · 전체 정리':result.wholeIntent==='summary'?' · 전체 요약':''),'answer-context'));
  const overview=node('section',null,'overview');
  sections.forEach((section,i)=>{
@@ -133,6 +136,21 @@ function showAnswer(result,target=$('answer'),questionText=$('question').value.t
   }
   actions.append(saveMenu);target.append(actions);
  }
+}
+// 고민에 대한 답: 위로·조언 본문만 보여 주고, 원문은 대화 아래의 '원문 보기' 단추 뒤에 둔다.
+function showCounselAnswer(result,target){
+ target.append(node('p',result.model+(result.usedBackup?' · 보조키로 처리':'')+' · 올린 말씀만 근거 · 원문 확인','answer-meta'));
+ if(result.understood)target.append(node('p','고민을 이렇게 이해했습니다 — '+result.understood,'answer-context'));
+ const overview=node('section',null,'overview');
+ (result.answer.overview||[]).forEach(section=>{
+  const part=node('section',null,'answer-section');part.append(node('h3',section.title));
+  section.points.forEach(p=>{const para=node('p',null,'answer-paragraph');if(p.label)para.append(node('strong',p.label+' '));para.append(node('span',p.text));part.append(para);});
+  overview.append(part);
+ });
+ target.append(overview);
+ const actions=node('div',null,'answer-actions');
+ const copy=node('button','복사','tool-button ui-copy');copy.type='button';copy.title='출처를 제외하고 답 복사';copy.setAttribute('aria-label',copy.title);
+ copy.onclick=()=>copyOverview(result.answer.overview||[],copy);actions.append(copy);target.append(actions);
 }
 function evidenceForQuestion(){
  const q=$('question').value.trim();if(q.length<2)throw new Error('질문을 두 글자 이상 입력해 주세요.');
@@ -338,22 +356,53 @@ async function sendQuestion(previewOnly=false){
   if(!await persistThread())throw new Error('질문을 저장하지 못해 답변 생성을 보류했습니다. 저장을 다시 시도해 주세요.');
   if(!authorized)return;if(controller.signal.aborted)throw new DOMException('Aborted','AbortError');
   $('question').value='';resizeQuestion();
-  if(previewOnly||modelId==='search'||!found.length){
+  if(CRISIS.test(q)){   // 생명이 걸린 말은 AI 답 대신 도움 연락처를 먼저 보여 준다
+   thread.messages.push(makeMessage('assistant',CRISIS_TEXT));text($('answer'),CRISIS_TEXT);drawConversation(true);await persistThread();status('안내');return;
+  }
+  // 일반 질문은 처음 찾은 근거가 없어도 AI 가 뜻을 파악해 다시 찾아 본다(고민은 말씀과 같은 낱말이 없는 일이 많다)
+  const analyzable=modelId!=='search'&&!previewOnly&&mode==='search'&&!followUp;
+  if(previewOnly||modelId==='search'||(!found.length&&!analyzable)){
    const content=!found.length?'등록된 자료에서 질문에 맞는 근거를 찾지 못했습니다. 날짜나 주제를 구체적으로 알려 주세요.':'관련 원문을 찾았습니다. 아래에서 원문과 출처를 확인해 주세요.';
    thread.messages.push(makeMessage('assistant',content,{evidence:found,title}));text($('answer'),content);drawConversation(true);await persistThread();status('원문 검색 · AI 호출 없음');return;
   }
   const model=MODELS[modelId];if(!model)throw new Error('모델을 선택해 주세요.');
+  // 날짜 지정·전체 정리·후속 질문이 아닌 일반 질문은 AI 가 먼저 질문의 뜻을 파악한다(고민인지 말씀 질문인지, 찾을 낱말).
+  let analysis=null,evidenceFound=found;
+  if(mode==='search'&&!followUp){
+   status('질문의 뜻을 파악하는 중…');
+   const started=Date.now();let reserved=true;
+   try{analysis=(await analyzeViaServer(config,token,modelId,q,fetch,controller.signal)).analysis;}
+   catch(e){
+    if(controller.signal.aborted||e.status===401||e.status===403||e.status===429)throw e;
+    reserved=e.status!==400;analysis=null;   // 서버가 아직 이 기능을 모르면(400) 호출이 없었다 — 예전 방식으로 계속한다
+   }
+   if(analysis){
+    const better=findEvidence(chunks,q,analysis,$('scope').value);
+    if(better.length){evidenceFound=better;showEvidence(better);}
+   }
+   if(reserved){   // 서버의 호출 간격(10초)을 채운 뒤 답을 쓴다
+    const left=GAP_MS()-(Date.now()-started);
+    if(left>0){status('말씀 '+evidenceFound.length+'곳을 찾았습니다. 잠시 뒤 답을 씁니다…');await sleep(left,controller.signal);}
+   }
+   if(!authorized)return;
+   if(!evidenceFound.length){
+    const content='등록된 자료에서 질문에 맞는 근거를 찾지 못했습니다. 날짜나 주제를 구체적으로 알려 주세요.';
+    thread.messages.push(makeMessage('assistant',content,{evidence:[],title}));text($('answer'),content);drawConversation(true);await persistThread();status('근거를 찾지 못했습니다.');return;
+   }
+  }
+  const counsel=analysis?.kind==='worry';
   const instruction=mode==='whole'&&intent?wholeRequest(title,intent):null;
   const combined=instruction?instruction+' 사용자 요청: '+q:'';
-  const question=instruction?(combined.length<=600?combined:q):followUp?followUpQuestion(q,outline):q;
+  const question=counsel?counselQuestion(q,analysis):instruction?(combined.length<=600?combined:q):followUp?followUpQuestion(q,outline):q;
   let result;
   status(mode==='whole'?title+' · 원고 한 편 전체를 읽는 중…':model.label+' 답변 생성 중…');
-  try{result=await generateViaServer(config,token,modelId,question,found,true,fetch,controller.signal,mode==='whole');}
+  try{result=await generateViaServer(config,token,modelId,question,evidenceFound,true,fetch,controller.signal,mode==='whole');}
   catch(e){if(!controller.signal.aborted&&authorized)await serverInfo();throw e;}
   if(mode==='whole'){checkWholeCoverage(result.answer,found,intent);result={...result,wholeTitle:title,wholeIntent:intent};}
+  if(analysis)result={...result,understood:analysis.summary,...(counsel?{counsel:true}:{})};
   showQuota(result.quota);
   if(!authorized)return;if(controller.signal.aborted)throw new DOMException('Aborted','AbortError');
-  showAnswer(result,$('answer'),q);thread.messages.push(makeMessage('assistant','',{result:packResult(result),evidence:found,title}));drawConversation(true);await persistThread();
+  showAnswer(result,$('answer'),q);thread.messages.push(makeMessage('assistant','',{result:packResult(result),evidence:evidenceFound,title}));drawConversation(true);await persistThread();
   status(mode==='whole'?'완료 · 원고 전체 한 편 · '+(result.attempts===2?2:1)+'회 사용 · 원문 인용 확인':'완료 · 원문 인용 확인');
  },120000);
 }

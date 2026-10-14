@@ -3,7 +3,7 @@ import {test} from 'node:test';import assert from 'node:assert/strict';
 import {createHandler} from '../supabase/functions/admin-ai/handler.mjs';
 import {analyzeViaServer,validateKeywords} from '../admin/ai-core.mjs';
 const config={supabaseUrl:'https://maoylwwnluyyfmwqfkfl.supabase.co',supabaseAnonKey:'public'};
-const analysis={summary:'직장 동료와 오해가 생겨 마음이 힘들다.',themes:['오해와 관계','낙심'],keywords:['오해','풀고','형제','용서','화평','낙심','실족','인내']};
+const analysis={kind:'worry',summary:'직장 동료와 오해가 생겨 마음이 힘들다.',themes:['오해와 관계','낙심'],keywords:['오해','풀고','형제','용서','화평','낙심','실족','인내']};
 function setup({quota=true,primary='fixture-primary',backup=null,primaryStatus=200,reason}={}){
  const events=[],calls=[];let reserved=0;
  const env=n=>({GEMINI_API_KEY:primary,GEMINI_API_KEY_BACKUP:backup})[n]??null;
@@ -46,7 +46,9 @@ test('고민 분석의 키 인증 오류는 보조키로 한 번만 전환한다
 });
 test('분석 결과는 낱말만 남기고 중복·너무 긴 것·모자란 응답은 거절한다',async()=>{
  const ok=validateKeywords(JSON.stringify({summary:' 요약 ',themes:['관계','관계'],keywords:['오해','오해','풀고','용서','가'.repeat(30),'화평']}));
- assert.deepEqual(ok.keywords,['오해','풀고','용서','화평']);assert.deepEqual(ok.themes,['관계']);
+ assert.equal(ok.kind,'question');   // kind 가 없거나 worry 가 아니면 question(기존 방식)으로 둔다
+ assert.deepEqual(ok.keywords,['오해','풀고','용서','화평']);
+ assert.equal(validateKeywords(JSON.stringify({kind:'worry',summary:'a',themes:[],keywords:['오해','용서','화평']})).kind,'worry');assert.deepEqual(ok.themes,['관계']);
  assert.throws(()=>validateKeywords(JSON.stringify({summary:'a',themes:[],keywords:['오해']})),/낱말/);
  assert.throws(()=>validateKeywords('not json'),/형식/);
 });

@@ -7,6 +7,7 @@ export function packResult(result) {
  const strip=statement=>({...statement,sources:statement.sources.map(({id,quote})=>({id,quote}))});
  return {model:result.model,usedBackup:!!result.usedBackup,attempts:result.attempts===2?2:1,
   ...(result.wholeTitle?{wholeTitle:result.wholeTitle,wholeIntent:result.wholeIntent}:{}),
+  ...(result.understood?{understood:String(result.understood).slice(0,120)}:{}),...(result.counsel?{counsel:true}:{}),
   answer:{supported:result.answer.supported,overview:result.answer.overview.map(s=>({title:s.title,points:s.points.map(strip)})),claims:result.answer.claims.map(strip)}};
 }
 export function unpackResult(message) {

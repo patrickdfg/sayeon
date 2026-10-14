@@ -388,6 +388,14 @@ Actions 의 **성령사연 Melo 음성 게시**(`melo-publish.yml`)에 편 번�
 - 이미 Melo 음성이 있는 편을 다시 만들려면 `replace` 를 켠다. 새 파일 이름(`-melo2`, `-melo3` …)으로 바뀌고 옛 파일은 지운다.
 - `tts` 가 연결되면 매일 도는 현수 자동 재시도는 그 편을 건너뛴다. 현수로 바꾸려면 `tts` 연결을 지우고 다시 만든다.
 
+## AI 챗봇의 고민·말씀 질문 통합 (2026-10-14)
+
+`ai-lab.mjs` `sendQuestion`: 일반 질문(날짜 지정·전체 정리·후속 질문이 아닌 것, '원문 검색만'이 아닌 것)은 서버 `keywords` 행동(`analyzeViaServer`)으로 AI 가 먼저 질문을 파악한다. `kind==='worry'` 면 `counselQuestion` 요청문(위로·조언)과 상담 모양 화면(`showCounselAnswer`), 아니면 질문 그대로. 찾기·요청문·위험한 말은 `ai-counsel-core.mjs` 에 있고 고민 상담 페이지와 같이 쓴다.
+- 서버가 `keywords` 를 모르거나 분석이 실패하면(400 등) 예전 방식으로 계속하고, 401·403·429 는 멈춘다. 분석과 답 생성 사이에 서버 호출 간격 10초(`GAP_MS`)를 채운다.
+- 위험한 말(`CRISIS`)은 AI 호출 전에 109·119·112 안내를 남긴다. 지우지 말 것.
+- 서버(`ai-core.mjs`·`handler.mjs`)를 고치면 `python tools/build_admin_ai.py` 후 Supabase 에 다시 배포한다.
+- 시험: `tests/ai-chat-counsel.test.mjs`(가짜 환경으로 챗봇 흐름), `tests/ai-counsel.test.mjs`(서버). 이 가짜 환경은 `ai-lab.mjs` 를 읽어 import 줄을 뺀 채 돌리므로, 새 import 를 더하면 시험 환경에도 같은 이름을 넣어 준다.
+
 ## 고민 상담 페이지 (2026-10-14)
 
 `/sayeon/counsel.html`(`counsel.mjs`). 고민을 쓰면 올린 말씀 안에서만 찾아 **위로와 조언**으로 답하고 원문은 '📖 원문 보기' 단추 뒤에 둔다. 설정 맨 아래 '고민 상담' 단추로 들어간다.
