@@ -172,6 +172,8 @@
     background: none; color: inherit; font-family: inherit;
   }
   button.ps-opt { cursor: pointer; }
+  .ps-opt svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
+  .ps-opt svg.flip { transform: scaleX(-1); }
   .ps-opt .ps-step { background: none; border: 0; color: var(--green); font-size: 20px; width: 30px; height: 30px; cursor: pointer; line-height: 1; }
   .ps-opt b { min-width: 3em; text-align: center; font-weight: 600; color: var(--green); }
   .ps-src { display: flex; gap: 8px; margin-top: 10px; }
@@ -518,6 +520,7 @@
         <button type="button" class="ps-step" id="psRatePlus" aria-label="빠르게">+</button></div>
       <button type="button" class="ps-opt" id="psVoice"></button>
       <button type="button" class="ps-opt" id="psTimer"></button>
+      <button type="button" class="ps-opt" id="psMode"></button>
     </div>
     <div class="ps-src" id="psSrc"></div>
     <div class="ps-pop" id="psPop"></div>
@@ -1233,6 +1236,18 @@ function stopSpeak(keepSheet) {
 var PS_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
 var PS_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
 var PS_NAMES = { human: "🎙️ 육성본", tts: "🤖 녹음본", device: "📱 TTS" };
+// 재생 방식 — 누를 때마다 차례로 바뀐다(음악 앱처럼). 설정의 '읽기'(autoMode)와 같은 값이다.
+var PS_LIST = '<path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v8l6-4z"/>';
+var PS_MODES = [
+  { k: "repeat", name: "반복듣기", svg: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z"/></svg>' },
+  { k: "off", name: "반복없음", svg: '<svg viewBox="0 0 24 24" aria-hidden="true" style="opacity:.55"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/><path d="M3.5 3.5l17 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' },
+  { k: "next", name: "연속재생", svg: '<svg viewBox="0 0 24 24" aria-hidden="true">' + PS_LIST + '</svg>' },
+  { k: "prev", name: "역순재생", svg: '<svg class="flip" viewBox="0 0 24 24" aria-hidden="true">' + PS_LIST + '</svg>' }
+];
+function psModeAt() {
+  for (var i = 0; i < PS_MODES.length; i++) { if (PS_MODES[i].k === cfg.autoMode) return i; }
+  return 1;
+}
 
 function sourceKey(s) {
   if (!audioFor(s)) return "device";
@@ -1320,6 +1335,9 @@ function updatePlayerUI() {
   $("psVoice").style.display = key === "device" ? "" : "none";
   $("psVoice").textContent = "🗣 " + (voiceName() || "목소리");
   $("psTimer").textContent = sleepLabel();
+  var md = PS_MODES[psModeAt()];
+  $("psMode").innerHTML = md.svg + "<span>" + md.name + "</span>";
+  $("psMode").setAttribute("aria-label", "재생 방식 " + md.name + " (누르면 바뀝니다)");
   var cap = key === "device" ? "문단" : "10초";
   $("psBackCap").textContent = cap;
   $("psFwdCap").textContent = cap;
@@ -1450,6 +1468,11 @@ $("psVoice").onclick = function () {
       updatePlayerUI();
     } };
   }));
+};
+$("psMode").onclick = function () {
+  psClosePop();
+  SaSettings.set({ autoMode: PS_MODES[(psModeAt() + 1) % PS_MODES.length].k });
+  updatePlayerUI();
 };
 $("psTimer").onclick = function () {
   var opts = [[0, "끄기"], [10, "10분"], [20, "20분"], [30, "30분"], [60, "60분"]];

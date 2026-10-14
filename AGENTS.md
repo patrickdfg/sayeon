@@ -421,6 +421,7 @@ Actions 의 **성령사연 Melo 음성 게시**(`melo-publish.yml`)에 편 번�
 - **일시정지는 `pausePlay()` → `stopSpeak(true)`**: 시트가 열려 있든 닫혀 있든 `resumeAt` 에 자리를 적고 멈춘다. `startSpeak(true)` 가 이어 듣는다. 그냥 `stopSpeak()`(편 바뀜·끝까지 들음)는 창을 닫고 `resumeAt`·타이머를 지운다(`closeSheetUi()`).
 - 기기 목소리 문단 읽기에는 세대 표 `speakGen` 이 있다. 멈추거나 건너뛴 발화가 뒤늦게 알려 와도 무시한다. 읽는 흐름을 바꿀 때는 `speakGen++` 후 `synth.cancel(); speakNext()` 를 쓴다.
 - 속도는 녹음본·TTS 에만 적용되고 육성본은 항상 100% 다(`fileRate`).
+- 타이머 옆 **재생 방식 단추**(`#psMode`)는 설정 '읽기'의 `autoMode` 를 반복듣기(`repeat`) → 반복없음(`off`) → 연속재생(`next`) → 역순재생(`prev`) 순서로 돌린다(`PS_MODES`).
 - 시트를 고칠 때는 로컬 사본(시험용 암호로 다시 잠근 자료와 짧은 wav)에서 헤드리스 크롬으로 칩·일시정지·건너뛰기·속도·목소리·타이머를 확인한다. 미디어 탐색에는 Range 요청을 받는 서버가 필요하다(`python -m http.server` 는 안 된다).
 
 ## 말씀 화자별 인용 색상 — 필수 유지 규칙 (2026-10-04)
