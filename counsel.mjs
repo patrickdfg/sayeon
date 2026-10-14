@@ -1,10 +1,11 @@
 // 고민 상담 화면의 동작 — 올린 말씀 안에서만 찾아 위로와 조언을 하고, 원문은 숨긴 단추 뒤에 둔다.
-import {SOURCES,toChunks,retrieve,generateViaServer,requestServer,sourceCaption,clean} from './admin/ai-core.mjs?v=21';
+import {SOURCES,toChunks,retrieve,generateViaServer,analyzeViaServer,requestServer,sourceCaption,clean} from './admin/ai-core.mjs?v=22';
 import {MEMBER_LABELS,membershipStatus} from './ai-members.mjs?v=1';
 
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
 let authClient=null,googleUser=null,token='',authorized=false,chunks=[],busy=false,epoch=0,controller=null;
 const text=(el,s)=>{el.textContent=s;};
+const sleep=(ms,signal)=>new Promise((resolve,reject)=>{const t=setTimeout(resolve,ms);signal?.addEventListener('abort',()=>{clearTimeout(t);reject(new DOMException('Aborted','AbortError'));},{once:true});});
 const node=(tag,s,cls)=>{const el=document.createElement(tag);if(s!=null)el.textContent=s;if(cls)el.className=cls;return el;};
 
 /* ===== 고민 → 말씀에서 찾을 낱말 =====
@@ -25,17 +26,26 @@ export const THEMES=[
  {re:/미래|진로|결정|선택|방향|갈림길|이직|이사/,words:['방향 인도 결정','순종 하나님 뜻 인도']},
  {re:/자기|관리|습관|계획|시간|정리|미루/,words:['자기 관리 운영','부지런 습관 열심']}
 ];
-const WORRY_MAX=360,PER_SEARCH=6,EVIDENCE_MAX=6,CHARS_MAX=8000,PER_DOC=2;
+const WORRY_MAX=320,PER_SEARCH=6,EVIDENCE_MAX=6,CHARS_MAX=8000,PER_DOC=2;
+// 고민 분석과 답 생성은 서버가 호출 간격 10초를 요구한다(하루 한도 규칙). 분석을 마친 뒤 이만큼 채우고 보낸다.
+const GAP_MS=()=>Number.isFinite(window.__counselGapMs)?window.__counselGapMs:10300;
 
-export function searchQueries(worry){
+/** 찾을 말 목록. AI 분석이 있으면 그 낱말을 3개씩 묶어 찾고, 없으면 자주 있는 고민 표(THEMES)로 대신한다. */
+export function searchQueries(worry,analysis=null){
  const q=clean(worry),out=[q];
+ if(analysis?.keywords?.length){
+  for(let i=0;i<analysis.keywords.length&&out.length<7;i+=3)out.push(analysis.keywords.slice(i,i+3).join(' '));
+  (analysis.themes||[]).slice(0,2).forEach(t=>out.push(t));
+  THEMES.forEach(t=>{if(t.re.test(q)&&out.length<10)out.push(t.words[0]);});   // AI 가 놓쳤을 때를 위한 보조
+  return out.slice(0,10);
+ }
  THEMES.forEach(t=>{if(t.re.test(q))out.push(...t.words);});
  return out.slice(0,6);
 }
 /** 여러 검색을 합쳐 점수가 높은 문단을 고른다. 한 편에서 둘까지, 전체 6개·8,000글자 안에서. */
-export function findEvidence(all,worry,search=retrieve){
+export function findEvidence(all,worry,analysis=null,search=retrieve){
  const score=new Map();
- searchQueries(worry).forEach((query,qi)=>{
+ searchQueries(worry,analysis).forEach((query,qi)=>{
   search(all,query,'all',PER_SEARCH).forEach((c,rank)=>{
    const prev=score.get(c.id)||{c,total:0};
    // 고민 글 그대로 찾은 것을 조금 더 쳐 준다
@@ -54,9 +64,9 @@ export function findEvidence(all,worry,search=retrieve){
  return out;
 }
 /** 서버가 만드는 답의 모양(overview 소제목)을 위로와 조언으로 정해 주는 요청문. 600글자 이내. */
-export function counselQuestion(worry){
- const w=clean(worry).slice(0,WORRY_MAX);
- return '[고민 상담] '+w+' — 이 고민을 가진 사람에게 제공된 말씀만 근거로 먼저 위로하고 이어서 조언하세요. overview 소제목은 "위로"와 "조언" 두 개로 하고 말씀에 있는 뜻만 따뜻한 합니다체로 쓰세요. 말씀에 없는 조언·진단·약속은 하지 마세요.';
+export function counselQuestion(worry,analysis=null){
+ const w=clean(worry).slice(0,WORRY_MAX),gist=analysis?.summary?' (핵심: '+clean(analysis.summary).slice(0,70)+')':'';
+ return '[고민 상담] '+w+gist+' — 이 고민을 가진 사람에게 제공된 말씀만 근거로 먼저 위로하고 이어서 조언하세요. overview 소제목은 "위로"와 "조언" 두 개로 하고 말씀에 있는 뜻만 따뜻한 합니다체로 쓰세요. 말씀에 없는 조언·진단·약속은 하지 마세요.';
 }
 export const CRISIS=/자살|죽고\s*싶|죽어\s*버리|목숨을?\s*끊|스스로\s*(?:생|목숨)|살기\s*싫|살고\s*싶지|자해|극단적\s*선택/;
 
@@ -76,9 +86,10 @@ function showSources(found,answer){
   box.append(d);
  });
 }
-function showAnswer(result,found){
+function showAnswer(result,found,analysis=null){
  const out=$('answer');out.replaceChildren();
  const a=result.answer;
+ if(analysis?.summary)out.append(node('p','고민을 이렇게 이해했습니다 — '+analysis.summary,'gist'));
  if(!a.supported||!a.overview?.length){out.append(node('p','이 고민에 맞는 말씀을 올려 둔 자료에서 찾지 못했습니다. 상황을 조금 더 구체적으로 적어 주세요.','muted'));$('toggleSources').classList.add('hidden');$('sources').classList.add('hidden');return;}
  a.overview.forEach(sec=>{
   const s=node('section',null,'sec');s.append(node('h3',sec.title));
@@ -124,12 +135,29 @@ async function ask(){
  const timer=setTimeout(()=>controller.abort(),120000);
  try{
   await check();
-  const found=findEvidence(chunks,worry);
-  if(!found.length){showAnswer({answer:{supported:false,overview:[],claims:[]}},[]);status('찾은 말씀이 없습니다.');return;}
-  status('말씀 '+found.length+'곳을 읽고 있습니다…');
-  const result=await generateViaServer(config,token,'gemini-lite',counselQuestion(worry),found,true,fetch,controller.signal);
+  // 1) AI 가 고민의 뜻을 헤아려 말씀에서 찾을 낱말을 만든다(말씀 원문은 보내지 않는다)
+  status('고민의 뜻을 헤아리고 있습니다…');
+  const started=Date.now();let analysis=null,reserved=true;
+  try{analysis=(await analyzeViaServer(config,token,'gemini-lite',worry,fetch,controller.signal)).analysis;}
+  catch(e){
+   if(controller.signal.aborted||e.status===401||e.status===403||e.status===429)throw e;
+   // 서버가 아직 이 기능을 모르면(400) 호출이 없었던 것이다. 그 밖의 실패는 호출이 있었을 수 있다.
+   reserved=e.status!==400;analysis=null;
+  }
   if(mine!==epoch)return;
-  showAnswer(result,found);status('완료 · 올린 말씀만 근거로 했고 원문 인용을 확인했습니다.');
+  // 2) 찾은 낱말로 올린 말씀에서 문단을 고른다
+  const found=findEvidence(chunks,worry,analysis);
+  if(!found.length){showAnswer({answer:{supported:false,overview:[],claims:[]}},[],analysis);status('찾은 말씀이 없습니다.');return;}
+  // 3) 서버의 호출 간격(10초)을 채운 뒤, 찾은 말씀만 근거로 위로와 조언을 쓴다
+  if(reserved){
+   const left=GAP_MS()-(Date.now()-started);
+   if(left>0){status(analysis?'말씀 '+found.length+'곳을 찾았습니다. 잠시 뒤 답을 씁니다…':'말씀 '+found.length+'곳을 찾았습니다…');await sleep(left,controller.signal);}
+  }
+  if(mine!==epoch)return;
+  status('말씀 '+found.length+'곳을 읽고 답을 쓰고 있습니다…');
+  const result=await generateViaServer(config,token,'gemini-lite',counselQuestion(worry,analysis),found,true,fetch,controller.signal);
+  if(mine!==epoch)return;
+  showAnswer(result,found,analysis);status(analysis?'완료 · AI가 뜻으로 찾은 말씀만 근거로 했고 원문 인용을 확인했습니다.':'완료 · 낱말로 찾은 말씀만 근거로 했고 원문 인용을 확인했습니다. (AI 고민 분석은 쓰지 못했습니다)');
  }catch(e){
   if(mine!==epoch)return;
   status(e.name==='AbortError'?'답변 생성을 중단했습니다.':e.message,true);

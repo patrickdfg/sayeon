@@ -392,7 +392,7 @@ Actions 의 **성령사연 Melo 음성 게시**(`melo-publish.yml`)에 편 번�
 
 `/sayeon/counsel.html`(`counsel.mjs`). 고민을 쓰면 올린 말씀 안에서만 찾아 **위로와 조언**으로 답하고 원문은 '📖 원문 보기' 단추 뒤에 둔다. 설정 맨 아래 '고민 상담' 단추로 들어간다.
 - **AI 챗봇(`ai-lab`)의 길을 그대로 쓴다**: 같은 Google 로그인·가입 승인·서버 함수·원문 인용 검사·하루 한도. 서버는 안 바꿨다. 질문 앞에 위로·조언 지시를 붙여(`counselQuestion`) 모양을 정한다. 서버에 전용 지침(mode)을 따로 두려면 `supabase/functions/admin-ai/index.ts` 를 고치고 Supabase 에 다시 배포해야 한다(사용자 몫).
-- 찾기는 `THEMES`(고민 말 → 말씀 쪽 낱말)로 여러 번 찾아 합친다(`findEvidence`). 고민 말이 겹치지 않으면 못 찾을 수 있으니 자주 나오는 고민을 `THEMES` 에 더한다.
+- **찾기는 AI 가 고민의 뜻을 분석해 낱말을 만든다**(서버 `keywords` 행동, `analyzeWorry`). 그 낱말로 올린 말씀에서 여러 번 찾아 합친다(`findEvidence`). 질문 하나에 AI 2회·10초 이상(서버 호출 간격 규칙). 서버가 `keywords` 를 모르거나(배포 전) 분석이 실패하면 `THEMES`(고민 말 → 말씀 쪽 낱말 표)로 대신한다. **`ai-core.mjs`·`handler.mjs` 를 고치면 `python tools/build_admin_ai.py` 로 `index.ts` 를 다시 만들고 Supabase 에 다시 배포해야 서버에 반영된다.**
 - 자살·자해 같은 말(`CRISIS`)은 AI 를 부르지 않고 109·119·112 안내를 먼저 보인다. 이 문구를 지우지 말 것.
 - 대화는 저장하지 않는다. 로그인은 `ai-lab.html`(Supabase 에 등록된 돌아오는 주소)로 돌아온다.
 - 시험: 로컬 사본(시험용 암호·가짜 로그인·가짜 서버)에서 헤드리스 크롬으로 확인한다. 실제 답의 품질은 승인된 계정으로 직접 봐야 한다.

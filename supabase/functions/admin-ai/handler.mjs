@@ -1,4 +1,4 @@
-import {requestsWholeManuscript,MODELS,generate,clean,MAX_WHOLE_CHARS} from '../../../admin/ai-core.mjs';
+import {requestsWholeManuscript,MODELS,generate,analyzeWorry,clean,MAX_WHOLE_CHARS} from '../../../admin/ai-core.mjs';
 const ORIGIN='https://patrickdfg.github.io';
 function delayForBackup(signal){return new Promise((resolve,reject)=>{
  const abort=()=>{clearTimeout(timer);signal.removeEventListener('abort',abort);reject(new DOMException('Aborted','AbortError'));};
@@ -47,6 +47,28 @@ export function createHandler({env,fetcher=fetch,waitForBackup=delayForBackup}){
     return reply({connected:active,keySource:'backup',reason:active?'ready':'model_unavailable',message:active?'Gemini 보조키 연결 확인 완료 · Flash-Lite 모델 사용 가능':'Gemini 보조키의 Flash-Lite 모델 지원을 확인하지 못했습니다.'});
    }
    if(body.action==='check-provider')return reply({error:'허용되지 않은 연결 확인입니다.'},400);
+   if(body.action==='keywords'){
+    // 고민 상담: 고민 글만 받아 말씀에서 찾을 낱말을 만든다. 말씀 원문은 받지도 보내지도 않는다.
+    if(Object.keys(body).some(k=>!['action','modelId','question','freeOnly'].includes(k)))return reply({error:'허용되지 않은 요청입니다.'},400);
+    if(body.freeOnly!==true)return reply({error:'결제가 연결되지 않은 무료 키인지 확인해 주세요.'},400);
+    const kmodel=typeof body.modelId==='string'&&Object.hasOwn(MODELS,body.modelId)?MODELS[body.modelId]:null;
+    if(!kmodel)return reply({error:'허용되지 않은 모델입니다.'},400);
+    if(typeof body.question!=='string'||body.question.trim().length<2||body.question.length>600)return reply({error:'고민은 2~600글자로 입력해 주세요.'},400);
+    const kprimary=env('GEMINI_API_KEY')?.trim()||'',kbackup=env('GEMINI_API_KEY_BACKUP')?.trim()||'';
+    const kkey=kprimary||kbackup;if(!kkey)return reply({error:'선택한 모델의 서버 키가 등록되지 않았습니다.'},503);
+    let kq=await rpc(true,kmodel.provider);const klimited=()=>reply({error:kq.reason==='rate'?'요청 간격은 10초 이상입니다. 잠시 후 다시 질문해 주세요.':'AI 챗봇의 하루 호출 한도에 도달했습니다.',quota:kq},429);
+    if(!kq.allowed)return klimited();
+    let kres,kSource=!kprimary?'backup':'primary',kAttempts=1;
+    try{kres=await analyzeWorry(body.modelId,kkey,body.question,fetcher,controller.signal);}
+    catch(e){
+     if(!kprimary||!kbackup||kbackup===kprimary||e.keyFailure!==true||controller.signal.aborted)throw e;
+     await waitForBackup(controller.signal);if(controller.signal.aborted)throw new DOMException('Aborted','AbortError');
+     kq=await rpc(true,kmodel.provider);if(!kq.allowed)return klimited();
+     kSource='backup';kAttempts=2;
+     kres=await analyzeWorry(body.modelId,kbackup,body.question,fetcher,controller.signal);
+    }
+    return reply({analysis:kres.analysis,model:kres.model,usage:kres.usage,quota:kq,keySource:kSource,attempts:kAttempts});
+   }
    if(body.action!=='generate'||Object.keys(body).some(k=>!['action','modelId','question','evidence','freeOnly','whole'].includes(k))||body.whole!==undefined&&body.whole!==true)return reply({error:'허용되지 않은 요청입니다.'},400);
    const whole=body.whole===true;
    if(!whole&&requestsWholeManuscript(body.question))return reply({error:'말씀 전체 정리 요청에는 지정한 원고 한 편 전체가 필요합니다. 문단 검색 결과로 대신 답하지 않았습니다.'},400);
