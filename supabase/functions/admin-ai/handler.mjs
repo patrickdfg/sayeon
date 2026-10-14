@@ -1,4 +1,4 @@
-import {requestsWholeManuscript,MODELS,generate,analyzeWorry,clean,MAX_WHOLE_CHARS} from '../../../admin/ai-core.mjs';
+import {requestsWholeManuscript,MODELS,generate,analyzeWorry,cleanHistory,clean,MAX_WHOLE_CHARS} from '../../../admin/ai-core.mjs';
 const ORIGIN='https://patrickdfg.github.io';
 function delayForBackup(signal){return new Promise((resolve,reject)=>{
  const abort=()=>{clearTimeout(timer);signal.removeEventListener('abort',abort);reject(new DOMException('Aborted','AbortError'));};
@@ -69,8 +69,9 @@ export function createHandler({env,fetcher=fetch,waitForBackup=delayForBackup}){
     }
     return reply({analysis:kres.analysis,model:kres.model,usage:kres.usage,quota:kq,keySource:kSource,attempts:kAttempts});
    }
-   if(body.action!=='generate'||Object.keys(body).some(k=>!['action','modelId','question','evidence','freeOnly','whole'].includes(k))||body.whole!==undefined&&body.whole!==true)return reply({error:'허용되지 않은 요청입니다.'},400);
+   if(body.action!=='generate'||Object.keys(body).some(k=>!['action','modelId','question','evidence','freeOnly','whole','history'].includes(k))||body.whole!==undefined&&body.whole!==true)return reply({error:'허용되지 않은 요청입니다.'},400);
    const whole=body.whole===true;
+   let history;try{history=cleanHistory(body.history);}catch(e){return reply({error:e.message},400);}
    if(!whole&&requestsWholeManuscript(body.question))return reply({error:'말씀 전체 정리 요청에는 지정한 원고 한 편 전체가 필요합니다. 문단 검색 결과로 대신 답하지 않았습니다.'},400);
    if(body.freeOnly!==true)return reply({error:'결제가 연결되지 않은 무료 키인지 확인해 주세요.'},400);
    const model=typeof body.modelId==='string'&&Object.hasOwn(MODELS,body.modelId)?MODELS[body.modelId]:null;
@@ -90,14 +91,14 @@ export function createHandler({env,fetcher=fetch,waitForBackup=delayForBackup}){
    let quota=await rpc(true,model.provider);const limited=()=>reply({error:quota.reason==='rate'?'요청 간격은 10초 이상입니다. 잠시 후 다시 질문해 주세요.':'AI 챗봇의 하루 호출 한도에 도달했습니다.',quota},429);
    if(!quota.allowed)return limited();
    let result,keySource=!primary?'backup':'primary',attempts=1;
-   try{result=await generate(body.modelId,key,clean(body.question),evidence,fetcher,controller.signal);}
+   try{result=await generate(body.modelId,key,clean(body.question),evidence,fetcher,controller.signal,history);}
    catch(e){
     if(!primary||!backup||backup===primary||e.keyFailure!==true||controller.signal.aborted)throw e;
     // Credential recovery only: no switching on quota, billing, content or service errors.
     await waitForBackup(controller.signal);if(controller.signal.aborted)throw new DOMException('Aborted','AbortError');
     quota=await rpc(true,model.provider);if(!quota.allowed)return limited();
     keySource='backup';attempts=2;
-    result=await generate(body.modelId,backup,clean(body.question),evidence,fetcher,controller.signal);
+    result=await generate(body.modelId,backup,clean(body.question),evidence,fetcher,controller.signal,history);
    }
    const strip=c=>({text:c.text,kind:c.kind,sources:c.sources.map(s=>({id:s.id,quote:s.quote}))});
    const answer={supported:result.answer.supported,overview:result.answer.overview.map(section=>({title:section.title,points:section.points.map(p=>({label:p.label,...strip(p)}))})),claims:result.answer.claims.map(strip)};

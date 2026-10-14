@@ -1,6 +1,6 @@
 // 고민 상담 화면의 동작 — 올린 말씀 안에서만 찾아 위로와 조언을 하고, 원문은 숨긴 단추 뒤에 둔다.
 import {SOURCES,toChunks,generateViaServer,analyzeViaServer,requestServer,sourceCaption} from './admin/ai-core.mjs?v=22';
-import {findEvidence,counselQuestion,loadCounselGuide,CRISIS,GAP_MS,sleep} from './ai-counsel-core.mjs?v=3';
+import {findEvidence,counselQuestion,loadCounselGuide,CRISIS,GAP_MS,sleep} from './ai-counsel-core.mjs?v=4';
 import {MEMBER_LABELS,membershipStatus} from './ai-members.mjs?v=1';
 
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};

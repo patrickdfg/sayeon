@@ -187,3 +187,29 @@ test('날짜 지정 전체 정리를 문단 검색 모드로 보내면 예약·�
  assert.equal(response.status,400);assert.match((await response.json()).error,/원고 한 편 전체/);
  assert(!s.calls.some(c=>c.url.endsWith('/ai_lab_model_quota')||c.url.includes('googleapis')));
 });
+
+// ===== 대화 기억(history): 앞 대화를 맥락으로만 보낸다 =====
+import {cleanHistory} from '../admin/ai-core.mjs';
+test('앞 대화는 업체 요청에 맥락(conversation)으로 들어가고 인용 근거로는 쓰이지 않는다',async()=>{
+ const s=setup(),history=[{role:'user',text:'고민이 있어요'},{role:'assistant',text:'많이 힘드셨겠습니다.'}];
+ const r=await s.handler(req({...payload,question:'더 길게 답해줘',history}));assert.equal(r.status,200);
+ const sent=JSON.parse(s.calls.find(c=>c.url.includes('generativelanguage')).o.body);
+ const user=JSON.parse(sent.contents[0].parts[0].text);
+ assert.deepEqual(user.conversation,history);assert(/인용하지 않는다/.test(user.conversationRule));assert(/conversation은 앞선 대화의 맥락/.test(sent.systemInstruction.parts[0].text));
+ assert(!user.evidence.some(d=>d.text.includes('많이 힘드셨겠습니다')),'앞 답은 근거 원문이 아니다');
+ const none=setup();await none.handler(req(payload));const plain=JSON.parse(JSON.parse(none.calls.find(c=>c.url.includes('generativelanguage')).o.body).contents[0].parts[0].text);
+ assert.equal(plain.conversation,undefined,'대화가 없으면 맥락 필드도 없다');
+});
+test('앞 대화의 형식·개수·길이가 틀리면 예약과 업체 호출 전에 거절한다',async()=>{
+ for(const history of ['text',{role:'user'},[{role:'system',text:'x'}],[{role:'user',text:''}],[{role:'user',text:'가',extra:1}],Array.from({length:9},()=>({role:'user',text:'가'})),[{role:'user',text:'가'.repeat(2001)}],Array.from({length:5},()=>({role:'assistant',text:'가'.repeat(1900)}))]){
+  const s=setup(),r=await s.handler(req({...payload,history}));assert.equal(r.status,400,JSON.stringify(history).slice(0,40));assert(!s.calls.some(c=>c.url.includes('generativelanguage')||c.url.endsWith('/ai_lab_model_quota')));
+ }
+});
+test('브라우저는 대화가 있을 때만 history 를 보내고 검사한다',async()=>{
+ const s=setup(),sent=[];const f=async(url,o)=>{sent.push(JSON.parse(o.body));return s.handler(new Request(url,{method:o.method,headers:o.headers,body:o.body}));};
+ await generateViaServer(config,'user-token','gemini-lite','인내를 알려줘',evidence,true,f);assert.equal(sent[0].history,undefined);
+ const history=[{role:'user',text:'질문'},{role:'assistant',text:'답'}];
+ await generateViaServer(config,'user-token','gemini-lite','더 길게',evidence,true,f,undefined,false,history);assert.deepEqual(sent[1].history,history);
+ await assert.rejects(generateViaServer(config,'user-token','gemini-lite','더 길게',evidence,true,f,undefined,false,[{role:'bot',text:'x'}]),/앞선 대화/);assert.equal(sent.length,2);
+ assert.deepEqual(cleanHistory(undefined),[]);assert.deepEqual(cleanHistory([{role:'user',text:' 가\r\n나 '}]),[{role:'user',text:'가\n나'}]);
+});

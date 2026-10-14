@@ -1,7 +1,7 @@
 import {createVoiceInput} from './ai-voice.mjs?v=1';
 import {saveOverview} from './ai-export.mjs?v=2';
 import {MODELS,SOURCES,toChunks,retrieve,generateViaServer,analyzeViaServer,requestServer,sourceCaption,resolveQuestion,wholeRequest,checkWholeCoverage,normalizeScope} from './admin/ai-core.mjs?v=22';
-import {findEvidence,counselQuestion,loadCounselGuide,CRISIS,CRISIS_TEXT,GAP_MS,sleep} from './ai-counsel-core.mjs?v=3';
+import {findEvidence,counselQuestion,counselFollowUp,loadCounselGuide,isContinuation,buildHistory,CRISIS,CRISIS_TEXT,GAP_MS,sleep} from './ai-counsel-core.mjs?v=4';
 import {newThread,makeMessage,packResult,unpackResult,pendingConversation,followUpEvidence,followUpQuestion,createChatStore,resolveChatQuestion} from './ai-chat.mjs?v=7';
 import {MEMBER_LABELS,membershipStatus,createMemberStore} from './ai-members.mjs?v=1';
 const $=id=>document.getElementById(id),config=window.SAYEON_ANALYTICS_CONFIG||{};
@@ -152,8 +152,18 @@ function showCounselAnswer(result,target){
 function evidenceForQuestion(){
  const q=$('question').value.trim();if(q.length<2)throw new Error('질문을 두 글자 이상 입력해 주세요.');
  if(!chunks.length){toggleSettings(true);throw new Error('자료·설정에서 기존 원고 암호를 입력해 주세요.');}
- const resolved=resolveChatQuestion(chunks,q,thread.scope===$('scope').value?thread.messages:[],$('scope').value);
- return {q,...resolved};
+ const messages=thread.scope===$('scope').value?thread.messages:[];
+ let resolved=resolveChatQuestion(chunks,q,messages,$('scope').value);
+ // 앞 답이 있는 대화: 이어 말하는 말('더 길게 답해줘' 등)은 새 검색이 아니라 앞 답의 근거로 이어 간다
+ const previous=lastAnswered(messages),history=buildHistory(messages);
+ if(!resolved.followUp&&previous&&isContinuation(q))resolved=previousAsFollowUp(previous);
+ return {q,...resolved,previous,history};
+}
+function lastAnswered(messages){return [...messages].reverse().find(m=>m.role==='assistant'&&m.evidence?.length&&m.result)||null;}
+function previousAsFollowUp(previous){
+ const whole=previous.evidence.length===1&&previous.evidence[0].whole;
+ return {found:previous.evidence,mode:whole?'whole':'paragraph',title:previous.title||previous.evidence[0].title,intent:null,followUp:true,
+  outline:previous.result?.answer?.overview?.map(section=>section.title+': '+section.points.map(p=>p.label).join(', '))||[]};
 }
 function setBusy(value){
  if(value)voiceInput.stop();
@@ -343,7 +353,7 @@ $('composer').onsubmit=event=>{event.preventDefault();return sendQuestion(false)
 async function sendQuestion(previewOnly=false){
  if(dirty){setSaveState('현재 대화를 먼저 저장해 주세요.',true);return;}
  return operation(async()=>{
-  const {q,found,mode,title,intent,followUp,outline}=evidenceForQuestion(),modelId=$('model').value;
+  const {q,found,mode,title,intent,followUp,outline,previous,history}=evidenceForQuestion(),modelId=$('model').value;
   showEvidence(found);text($('answer'),'');
   if(modelId!=='search'&&!previewOnly&&!$('freeOnly').checked)throw new Error('무료 등급 API 키 확인이 필요합니다.');
   if(thread.messages.length>=119)throw new Error('이 대화의 저장 용량에 도달했습니다. 새 대화를 시작해 주세요.');
@@ -364,16 +374,21 @@ async function sendQuestion(previewOnly=false){
   }
   const model=MODELS[modelId];if(!model)throw new Error('모델을 선택해 주세요.');
   // 날짜 지정·전체 정리·후속 질문이 아닌 일반 질문은 AI 가 먼저 질문의 뜻을 파악한다(고민인지 말씀 질문인지, 찾을 낱말).
-  let analysis=null,evidenceFound=found;
+  let analysis=null,evidenceFound=found,isFollow=followUp,followOutline=outline;
   if(mode==='search'&&!followUp){
    status('질문의 뜻을 파악하는 중…');
    const started=Date.now();let reserved=true;
-   try{analysis=(await analyzeViaServer(config,token,modelId,q,fetch,controller.signal)).analysis;}
+   // 앞 답이 있으면 그 요지를 같이 보내 '앞 대화에 이어지는 글인지'도 AI 가 가리게 한다(600글자 이내)
+   const prevQuestion=previous?thread.messages.slice(0,thread.messages.indexOf(previous)).reverse().find(m=>m.role==='user')?.content:'';   // 앞 답 바로 앞의 사용자 말(방금 보낸 말이 아니다)
+   const lead=previous?'이전 질문: '+String(prevQuestion||'').slice(0,100)+' / 이전 답: '+String(previous.result?.understood||history.at(-1)?.text||'').slice(0,120)+' / 지금 글: ':'';
+   try{analysis=(await analyzeViaServer(config,token,modelId,(lead+q).slice(0,600),fetch,controller.signal)).analysis;}
    catch(e){
     if(controller.signal.aborted||e.status===401||e.status===403||e.status===429)throw e;
     reserved=e.status!==400;analysis=null;   // 서버가 아직 이 기능을 모르면(400) 호출이 없었다 — 예전 방식으로 계속한다
    }
-   if(analysis){
+   if(analysis?.kind==='followup'&&previous){   // AI 가 앞 대화에 이어지는 글이라고 판단 — 앞 답의 근거로 이어 간다
+    const f=previousAsFollowUp(previous);isFollow=true;followOutline=f.outline;evidenceFound=f.found;showEvidence(evidenceFound);
+   }else if(analysis){
     const better=findEvidence(chunks,q,analysis,$('scope').value);
     if(better.length){evidenceFound=better;showEvidence(better);}
    }
@@ -387,17 +402,19 @@ async function sendQuestion(previewOnly=false){
     thread.messages.push(makeMessage('assistant',content,{evidence:[],title}));text($('answer'),content);drawConversation(true);await persistThread();status('근거를 찾지 못했습니다.');return;
    }
   }
-  const counsel=analysis?.kind==='worry';
-  const guide=counsel?await loadCounselGuide():null;
+  const prevCounsel=isFollow&&previous?.result?.counsel===true;
+  const counsel=analysis?.kind==='worry'&&!isFollow;
+  const guide=counsel||prevCounsel?await loadCounselGuide():null;
   const instruction=mode==='whole'&&intent?wholeRequest(title,intent):null;
   const combined=instruction?instruction+' 사용자 요청: '+q:'';
-  const question=counsel?counselQuestion(q,analysis,guide):instruction?(combined.length<=600?combined:q):followUp?followUpQuestion(q,outline):q;
+  const question=counsel?counselQuestion(q,analysis,guide):prevCounsel?counselFollowUp(q,guide):instruction?(combined.length<=600?combined:q):isFollow?followUpQuestion(q,followOutline):q;
   let result;
   status(mode==='whole'?title+' · 원고 한 편 전체를 읽는 중…':model.label+' 답변 생성 중…');
-  try{result=await generateViaServer(config,token,modelId,question,evidenceFound,true,fetch,controller.signal,mode==='whole');}
+  try{result=await generateViaServer(config,token,modelId,question,evidenceFound,true,fetch,controller.signal,mode==='whole',isFollow?history:[]);}
   catch(e){if(!controller.signal.aborted&&authorized)await serverInfo();throw e;}
   if(mode==='whole'){checkWholeCoverage(result.answer,found,intent);result={...result,wholeTitle:title,wholeIntent:intent};}
-  if(analysis)result={...result,understood:analysis.summary,...(counsel?{counsel:true}:{})};
+  if(analysis&&!isFollow)result={...result,understood:analysis.summary,...(counsel?{counsel:true}:{})};
+  if(prevCounsel)result={...result,counsel:true,...(previous.result?.understood?{understood:previous.result.understood}:{})};
   showQuota(result.quota);
   if(!authorized)return;if(controller.signal.aborted)throw new DOMException('Aborted','AbortError');
   showAnswer(result,$('answer'),q);thread.messages.push(makeMessage('assistant','',{result:packResult(result),evidence:evidenceFound,title}));drawConversation(true);await persistThread();

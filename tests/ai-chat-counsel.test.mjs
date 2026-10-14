@@ -79,3 +79,51 @@ test('날짜 말씀 전체·검색 전용 모델에서는 AI 분석을 하지 �
  const t=await boot();t.context.analyzeViaServer=async(...a)=>{t.analysis.push(a);return analysisOf('worry');};
  t.get('model').value='search';t.get('question').value='인내가 뭐예요';await t.get('ask').onclick();assert.equal(t.analysis.length,0);assert.equal(t.generated.length,0);
 });
+
+// ===== 연속 대화: 앞 답을 기억해 이어서 답한다 =====
+import {buildHistory,isContinuation,counselFollowUp,DEFAULT_GUIDE} from '../ai-counsel-core.mjs';
+async function afterWorryAnswer(){
+ const s=await boot();
+ s.context.analyzeViaServer=async(...a)=>{s.analysis.push(a);return analysisOf('worry');};
+ s.get('question').value='요즘 모든 게 버겁고 아무것도 하기 싫어요';await s.get('ask').onclick();
+ assert.equal(s.generated.length,1);s.analysis.length=0;return s;
+}
+test('상담 답 뒤 "더 길게 답해줘"는 새 검색 없이 같은 근거·상담 말투·앞 대화로 이어서 답한다',async()=>{
+ const s=await afterWorryAnswer(),first=s.generated[0];
+ s.get('question').value='더 길게 답해줘';await s.get('ask').onclick();
+ assert.equal(s.analysis.length,0,'이어 말하기는 AI 분석을 다시 하지 않는다');assert.equal(s.generated.length,2);
+ const [,,,question,evidence,,,,,history]=s.generated[1];
+ assert(question.startsWith('[고민 상담 이어서] 더 길게 답해줘'));assert(question.endsWith(DEFAULT_GUIDE.slice(-20))||question.includes('목사님'));assert(question.length<=600);
+ assert.deepEqual(evidence.map(d=>d.id),first[4].map(d=>d.id),'앞 답의 근거 그대로');
+ assert.equal(history[0].role,'user');assert(history[0].text.startsWith('요즘 모든 게'));assert.equal(history.at(-1).role,'assistant');assert(history.at(-1).text.includes('말씀에 있는 뜻을 풀어 전합니다'));
+ assert(!history.some(h=>h.text==='더 길게 답해줘'),'지금 보내는 말은 history 에 중복해 넣지 않는다');
+ const m=lastAssistant(s);assert.equal(m.result.counsel,true);assert.equal(m.result.understood,'핵심 요약입니다.');
+});
+test('정규식에 안 걸리는 이어 말하기도 AI 가 followup 으로 가리면 앞 근거·앞 대화로 이어 간다',async()=>{
+ const s=await afterWorryAnswer(),first=s.generated[0];
+ s.context.analyzeViaServer=async(...a)=>{s.analysis.push(a);return analysisOf('followup',['낙심']);};
+ s.get('question').value='그러니까 구체적으로 어떻게 하라는 건가요';await s.get('ask').onclick();
+ assert.equal(s.analysis.length,1);assert(/이전 질문: 요즘 모든 게/.test(s.analysis[0][3]),'앞 대화 요지를 분석에 같이 보낸다');assert(/지금 글: 그러니까 구체적으로/.test(s.analysis[0][3]));assert(s.analysis[0][3].length<=600);
+ const g=s.generated[1];assert.deepEqual(g[4].map(d=>d.id),first[4].map(d=>d.id));assert(g[3].startsWith('[고민 상담 이어서]'));assert(g[9].length>=2);
+});
+test('새 고민이면 앞 답이 있어도 새로 분석·검색하고 앞 대화는 섞지 않는다',async()=>{
+ const s=await afterWorryAnswer();
+ s.context.analyzeViaServer=async(...a)=>{s.analysis.push(a);return analysisOf('worry',['인내','견디']);};
+ s.get('question').value='이번에는 가족 문제로 마음이 무거워요';await s.get('ask').onclick();
+ assert.equal(s.analysis.length,1);const g=s.generated[1];assert(g[3].startsWith('[고민 상담] 이번에는 가족'));assert.equal((g[9]||[]).length,0,'새 질문에는 앞 대화를 보내지 않는다');
+});
+test('말씀 질문 답 뒤 이어 말하기는 정리체 요청에 앞 대화를 붙인다',async()=>{
+ const s=await boot();s.context.analyzeViaServer=async(...a)=>{s.analysis.push(a);return analysisOf('question',['인내','견디']);};
+ s.get('question').value='끝까지 해야 하는 이유가 뭐예요?';await s.get('ask').onclick();s.analysis.length=0;
+ s.get('question').value='좀 더 자세히 알려줘';await s.get('ask').onclick();
+ assert.equal(s.analysis.length,0);const g=s.generated[1];assert(!g[3].startsWith('[고민 상담'));assert(g[3].startsWith('좀 더 자세히 알려줘'));assert(g[9].length>=2);assert.equal(lastAssistant(s).result.counsel,undefined);
+});
+test('이어 말하기 판별과 대화 기록 만들기',()=>{
+ for(const q of ['더 길게 답해줘','좀 더 자세히','조금 더 쉽게 설명해줘','계속','이어서 써줘','다시 짧게','예를 들어 주세요','길게 답해줘']) assert(isContinuation(q),q);
+ for(const q of ['또 힘든 일이 있어요','오해를 어떻게 풀어요?','10월 4일 주일말씀 더 자세히','']) assert(!isContinuation(q),q);
+ const long='가'.repeat(1900);
+ const msgs=[{role:'user',content:'첫 질문'},{role:'assistant',content:'',result:{answer:{overview:[{title:'t',points:[{text:'답 하나'},{text:'답 둘'}]}]}}},{role:'assistant',content:'실패',failed:true},{role:'user',content:long},{role:'assistant',content:long},{role:'user',content:long},{role:'assistant',content:long}];
+ const h=buildHistory(msgs);assert(h.length<=6);assert.equal(h[0].role,'user');assert(h.reduce((n,x)=>n+x.text.length,0)<=8000);assert(!h.some(x=>x.text==='실패'));
+ assert.deepEqual(buildHistory(msgs.slice(0,3)),[{role:'user',text:'첫 질문'},{role:'assistant',text:'답 하나\n답 둘'}]);
+ assert.equal(counselFollowUp('더 길게 답해줘','지침').length<=600,true);assert.equal(counselFollowUp('더 길게','지침'),'[고민 상담 이어서] 더 길게 — 지침');
+});

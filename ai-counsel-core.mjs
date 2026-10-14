@@ -81,6 +81,30 @@ export function counselQuestion(worry,analysis=null,guide=DEFAULT_GUIDE){
  const w=clean(worry).slice(0,room);
  return (head+w+gist+tail).slice(0,QUESTION_MAX);
 }
+/* ===== 이어서 대화하기 (ChatGPT·Claude 같은 연속 대화) =====
+ * '더 길게 답해줘'처럼 앞 답을 다시 요청하는 말은 새 질문이 아니다. 앞 답의 근거와 대화를 이어서 쓴다. */
+export const CONTINUATION=/^(?:더|좀\s*더|조금\s*더|계속|이어서|다시|한\s*번\s*더|예를\s*들어|구체적으로|쉽게|짧게|길게|자세히|간단히)|(?:더|좀|조금)\s*(?:길게|자세히|짧게|쉽게|구체적으로|간단히)/;
+export function isContinuation(q){const v=clean(q);return v.length>0&&v.length<=40&&!/\d{1,2}\s*월\s*\d{1,2}\s*일/.test(v)&&CONTINUATION.test(v);}
+/** 이 대화의 앞부분을 서버에 맥락으로 보낼 모양으로 만든다(최근 6개, 합쳐 8,000글자 이하, 사용자 말로 시작). */
+export function buildHistory(messages){
+ const out=[];
+ for(const m of (messages||[]).slice(-8)){
+  if(m.role==='user'){if(m.content)out.push({role:'user',text:String(m.content).slice(0,1500)});continue;}
+  if(m.failed)continue;
+  let t='';
+  if(m.result?.answer?.overview?.length)t=m.result.answer.overview.map(s=>s.points.map(p=>p.text).join('\n')).join('\n\n');
+  else if(m.content)t=String(m.content);
+  t=t.trim();if(t)out.push({role:'assistant',text:t.slice(0,2000)});
+ }
+ while(out.reduce((n,x)=>n+x.text.length,0)>8000)out.shift();
+ while(out.length&&out[0].role!=='user')out.shift();
+ return out.slice(-6);
+}
+/** 상담 답에 이어 '더 길게' 같은 요청을 할 때 상담 말투를 이어 가는 요청문. 600글자 이내. */
+export function counselFollowUp(question,guide=DEFAULT_GUIDE){
+ const g=clean(guide).slice(0,GUIDE_MAX)||DEFAULT_GUIDE,head='[고민 상담 이어서] ',tail=' — '+g;
+ return (head+clean(question).slice(0,Math.max(40,QUESTION_MAX-head.length-tail.length))+tail).slice(0,QUESTION_MAX);
+}
 export const CRISIS=/자살|죽고\s*싶|죽어\s*버리|목숨을?\s*끊|스스로\s*(?:생|목숨)|살기\s*싫|살고\s*싶지|자해|극단적\s*선택/;
 
 export const CRISIS_TEXT='혼자 견디지 마세요. 지금 많이 힘드시다면 자살예방 상담전화 109(24시간, 무료)에 바로 전화해 주세요. 위험한 상황이면 119나 112에 연락해 주세요. 곁에 있는 사람에게도 지금 마음을 알려 주세요.';

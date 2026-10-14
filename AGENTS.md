@@ -392,6 +392,7 @@ Actions 의 **성령사연 Melo 음성 게시**(`melo-publish.yml`)에 편 번�
 
 `ai-lab.mjs` `sendQuestion`: 일반 질문(날짜 지정·전체 정리·후속 질문이 아닌 것, '원문 검색만'이 아닌 것)은 서버 `keywords` 행동(`analyzeViaServer`)으로 AI 가 먼저 질문을 파악한다. `kind==='worry'` 면 `counselQuestion` 요청문(위로·조언)과 상담 모양 화면(`showCounselAnswer`), 아니면 질문 그대로. 찾기·요청문·위험한 말은 `ai-counsel-core.mjs` 에 있고 고민 상담 페이지와 같이 쓴다.
 - 서버가 `keywords` 를 모르거나 분석이 실패하면(400 등) 예전 방식으로 계속하고, 401·403·429 는 멈춘다. 분석과 답 생성 사이에 서버 호출 간격 10초(`GAP_MS`)를 채운다.
+- **대화를 이어 간다**: 이어 말하는 말(`isContinuation`)이나 AI 가 `followup` 으로 가린 글은 앞 답의 근거 그대로, 앞 대화(`history`, 서버에 맥락으로만 전달)와 함께 답한다. 앞 답이 상담이면 `counselFollowUp`. 새 질문에는 앞 대화를 섞지 않는다. `history` 규칙은 `admin/ai-core.mjs` 의 `cleanHistory`(서버·브라우저 공통).
 - 위험한 말(`CRISIS`)은 AI 호출 전에 109·119·112 안내를 남긴다. 지우지 말 것.
 - **고민 답은 소제목 없이 하나의 글로 보인다**(서버 모양은 그대로, 화면이 소제목·항목명을 숨긴다). 말투는 지침 파일로 정한다.
 - **고민 답의 지침은 `counsel-guide.txt`**(330글자 이내, 서버 배포 필요 없음). 질문이 600글자 제한이라 지침이 길면 고민 글이 잘린다. 고쳤으면 시험 `tests/ai-counsel.test.mjs`(파일과 `DEFAULT_GUIDE` 가 같아야 통과)도 함께 맞춘다.
