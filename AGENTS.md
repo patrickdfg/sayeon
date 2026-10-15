@@ -475,7 +475,7 @@ Actions 의 **성령사연 Melo 음성 게시**(`melo-publish.yml`)에 편 번�
 ## 듣기 플레이어 시트 (성령말씀, 2026-10-13)
 
 `index.html`(성령사연·성령말씀 한 파일)에서 듣는 중에 글을 톡 누르면 아래에서 플레이어(`#psheet`)가 올라온다(듣기 단추는 창을 열지 않는다). 문단 글·재생 막대·이전/다음 편·뒤로/앞으로·재생·읽기 속도·기기 목소리·타이머와, 그 편에 있는 음성만 고르는 단추(🎙️ 육성본 / 🤖 녹음본 / 📱 TTS)가 있다.
-월명동(`stones/`)과 말씀(`malsseum/`)에는 아직 없다.
+2026-10-15 월명동(`stones/`)과 말씀(`malsseum/`)에도 같은 시트를 적용했다. 말씀은 동일한 재생 상태 함수를, 월명동은 기존 readSession/readQueue/recordedPlayer를 어댑터로 사용한다. 두 말씀 HTML은 함께 갱신한다. 테스트는 `tests/player-sheet.e2e.cjs`다.
 
 - 시트 코드는 `index.html` 의 `/* ===== 듣기 플레이어 시트 =====` 한 곳에 있다. 재생 막대(`#seekWrap`)는 시트 안으로 옮겼고 id 는 그대로다.
 - `sourceKey(s)`: 지금 편이 어느 음성으로 나오는지(`human`/`tts`/`device`). `availableSources(s)`: 있는 것만. 고르면 `SaSettings` 의 `audioFirst` 로 저장된다.
