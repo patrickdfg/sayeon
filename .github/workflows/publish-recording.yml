@@ -1,0 +1,56 @@
+name: 성령사연 육성 녹음 등록
+
+on:
+  push:
+    branches: [main]
+    paths: ['recording-upload/*.m4a']
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: work-upload-main
+  cancel-in-progress: false
+
+env:
+  SAYEON_PASS: ${{ secrets.SAYEON_PASS }}
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 도구 설치
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+          python -m pip install --disable-pip-version-check numpy faster-whisper==1.2.1 cryptography==46.0.3 "av<19"
+      - name: 잡음 제거·음량 조절·육성 연결·문단 시간표
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: python tools/publish_recording.py
+      - name: 결과 저장
+        run: |
+          git config user.name "sayeon-publisher[bot]"
+          git config user.email "sayeon-publisher[bot]@users.noreply.github.com"
+          git add audio sayeon.json.enc recording-upload
+          git commit -m "성령사연 육성 등록·잡음 제거·음량 조절·문단 동기화"
+          git pull --rebase origin main
+          git push origin main
+      - name: GitHub Pages 다시 배포
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail-with-body --retry 3 -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/builds"
