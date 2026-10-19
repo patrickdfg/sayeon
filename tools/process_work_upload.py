@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """ChatGPT Work가 넣은 작업표를 성령사연 데이터와 TTS로 변환한다."""
 import asyncio
+import datetime
 import glob
 import html
 import io
@@ -84,6 +85,8 @@ def load_job(path):
     return {
         'no': number,
         'title': clean_line(job.get('title') or '성령 사연 %d' % number).strip(),
+        # 올린 날짜(한국 시각) — 화면에 작게 보인다
+        'date': datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime('%Y-%m-%d'),
         'paragraphs': paragraphs,
     }, bool(job.get('replace')), bool(job.get('dry_run'))
 
@@ -103,6 +106,8 @@ def install_entry(entry, replace):
             audio_path = os.path.join(REPO, path.replace('/', os.sep))
             if os.path.exists(audio_path):
                 os.remove(audio_path)
+        if old.get('date'):
+            entry['date'] = old['date']   # 교체해도 처음 올린 날짜를 지킨다
         data[matches[0]] = entry
     else:
         data.append(entry)

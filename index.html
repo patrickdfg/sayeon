@@ -201,6 +201,8 @@
   .ps-pop button.on { background: color-mix(in srgb, var(--green) 28%, transparent); }
   .ps-pop button.on::after { content: " ✓"; }
   .card-body { padding: 20px 2px 24px; }
+  .updt { opacity: .5; font-size: 12.5px; margin-bottom: 8px; }
+  .hit .hdate { float: right; opacity: .5; font-size: 12px; margin-left: 10px; }
   .sub { opacity: .6; font-style: italic; font-size: 15px; margin-bottom: 14px; line-height: 1.7; }
   .linkbtn {
     display: inline-block; background: var(--panel); color: var(--text);
@@ -227,10 +229,10 @@
   }
 
   /* 하이라이트 (문단을 드래그해서 칠하고, 칠한 부분을 다시 누르면 지워진다) */
-  mark.hl{ cursor:pointer; border-radius:3px; padding:.05em .1em; color:#2a2823; }
-  mark.hl-1{ background:#ffe08a; }
-  mark.hl-2{ background:#9fe0b8; }
-  mark.hl-3{ background:#a7c8f5; }
+  mark.hl{ cursor:pointer; border-radius:3px; padding:.05em .1em; color:inherit; }
+  mark.hl-1{ background:rgba(255,224,138,.35); }
+  mark.hl-2{ background:rgba(159,224,184,.35); }
+  mark.hl-3{ background:rgba(167,200,245,.35); }
   .hl-toolbar{
     position:fixed; z-index:120; display:none; align-items:center; gap:6px;
     background:var(--bg); border:1px solid var(--panel); border-radius:999px;
@@ -477,6 +479,7 @@
       </div>
     </div>
     <div class="card-body">
+      <div class="updt" id="cdate" style="display:none"></div>
       <div class="sub" id="csub"></div>
       <a class="linkbtn" id="clink" target="_blank" rel="noopener noreferrer" style="display:none"></a>
       <div id="body"></div>
@@ -828,6 +831,13 @@ function render(keepSpeaking) {
   updateSpeakBtn();
   $("total").textContent = currentYear + "년 · 총 " + SAYEON.length + "개 항목";
   $("ctitle").textContent = s.title || "";
+  var cd = $("cdate");   // 올린 날짜(있는 편만) — 작게 보인다
+  if (s.date && /^\d{4}-\d{2}-\d{2}$/.test(s.date)) {
+    cd.textContent = s.date.replace(/-/g, ".") + " 업로드";
+    cd.style.display = "";
+  } else {
+    cd.style.display = "none";
+  }
   var sub = $("csub");
   sub.innerHTML = "";
   if (s.subtitle) {
@@ -1810,7 +1820,13 @@ function buildList() {
   for (var i = 0; i < SAYEON.length; i++) {
     var btn = document.createElement("button");
     btn.className = "hit";
-    btn.textContent = fullTitle(SAYEON[i], i);
+    if (SAYEON[i].date && /^\d{4}-\d{2}-\d{2}$/.test(SAYEON[i].date)) {
+      var hd = document.createElement("span");   // 올린 날짜(있는 편만) — 오른쪽에 작게
+      hd.className = "hdate";
+      hd.textContent = SAYEON[i].date.slice(5).replace("-", "/");
+      btn.appendChild(hd);
+    }
+    btn.appendChild(document.createTextNode(fullTitle(SAYEON[i], i)));
     (function (t) { btn.onclick = function () { idx = t; closeAll(); render(); }; })(i);
     box.appendChild(btn);
   }
