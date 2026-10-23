@@ -58,7 +58,12 @@ def main():
         rel = 'audio/%d.m4a' % no
         shutil.copyfile(REPO / source, REPO / rel)
         targets.append((source, rel, by_no[no]))
-    if clean_voice.main([rel for _, rel, _ in targets]):
+    # 이미 음량만 조정한 육성은 추가적인 잡음 제거·목소리 변형 없이 보존한다.
+    commit_message = subprocess.run(
+        ['git', 'log', '-1', '--format=%B', os.environ['AFTER']],
+        cwd=REPO, check=True, capture_output=True, text=True).stdout
+    volume_only = '[소리크기]' in commit_message
+    if not volume_only and clean_voice.main([rel for _, rel, _ in targets]):
         raise RuntimeError('잡음 제거 검사 실패')
 
     from faster_whisper import WhisperModel
