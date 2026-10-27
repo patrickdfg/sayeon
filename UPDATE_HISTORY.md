@@ -1,3 +1,7 @@
+## 2026-10-27 성령말씀 193 원고 등록
+- 사용자가 붙여 넣은 원고(13문단)를 `work-upload/193.json` 작업표로 올렸다. 자동 게시(`work-upload.yml`)가 글 추가·현수 음성·문단 시간표·올린 날짜를 이어서 처리한다.
+- 줄 앞뒤 공백만 정리하고 글자는 고치지 않았다(따옴표 “ ” ‘ ’ 도 그대로).
+
 ## 2026-10-26 Claude 가 자주 쓰는 명령을 묻지 않고 실행하도록 허용 규칙 추가
 - 사용자 요청: 권한 허용을 매번 묻지 않게. 저장소 `.claude/settings.json` 의 `permissions.allow` 에 git·node·python·ffmpeg·파일 보기/복사 같은 명령과 Actions 실행·예약 도구(`mcp__github__actions_*`, `send_later`)를 넣었다.
 - 막아 둔 것(`deny`) — `git push --force`/`-f`, `git reset --hard`, `rm -rf`. 되돌릴 수 없는 일은 허용 목록에 있어도 계속 막힌다.
