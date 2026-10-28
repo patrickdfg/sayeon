@@ -228,6 +228,11 @@
     font-size: var(--size); line-height: var(--lh);
   }
 
+  /* 글 맨 아래 붙는 사진(붓글씨 등) — 사진도 잠겨 있어 열린 뒤에 풀어서 채운다 */
+  .pics { margin: 26px 0 4px; display: flex; flex-direction: column; gap: 12px; }
+  .pics img { display: block; width: 100%; height: auto; border-radius: 8px; background: #fff; aspect-ratio: 1.4; object-fit: contain; }
+  .pics img.on { aspect-ratio: auto; }
+
   /* 하이라이트 (문단을 드래그해서 칠하고, 칠한 부분을 다시 누르면 지워진다) */
   mark.hl{ cursor:pointer; border-radius:3px; padding:.05em .1em; color:inherit; }
   mark.hl-1{ background:rgba(255,224,138,.35); }
@@ -903,6 +908,20 @@ function render(keepSpeaking) {
     qb.setAttribute("data-pi", -1);
     qb.innerHTML = renderTextWithHighlights('"' + s.quote + '"', hls.filter(function(h){ return h.pi === -1; }));
     body.appendChild(qb);
+  }
+
+  if (s.images && s.images.length) {   // 글 맨 아래 사진 — 경로는 img/ 아래 .jpg 만 받는다
+    var pics = document.createElement("div");
+    pics.className = "pics";
+    s.images.forEach(function (src) {
+      if (!/^img\/[\w.-]+\.jpg$/.test(String(src))) return;
+      var im = document.createElement("img");
+      im.alt = "";
+      pics.appendChild(im);
+      SaCrypt.blobURL(src).then(function (u) { im.src = u; im.className = "on"; })
+        .catch(function () { im.alt = "사진을 불러오지 못했습니다"; });
+    });
+    if (pics.firstChild) body.appendChild(pics);
   }
 
   var pv = $("prev"), nx = $("next");

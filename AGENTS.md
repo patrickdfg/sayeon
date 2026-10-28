@@ -393,6 +393,13 @@ python make_tts.py 159             # 한 편 (여러 편은 번호를 나열, �
   월명동도 `stones/stones.json` 원본을 그대로 받아 쓴다. 따로 만들어 둘
   검색용 파일은 없다.
 
+- **성령사연·성령말씀 글 맨 아래 사진(2026-10-28, 195편 붓글씨 두 장).** 편 항목에
+  `"images": ["img/195-1.jpg", "img/195-2.jpg"]` 를 넣으면 `index.html` 의 `render()` 가 글
+  맨 아래(`.pics`)에 붙인다. 사진 파일은 잠가서 `img/195-1.jpg.enc` 로 올린다
+  (`crypt.seal(바이트)`, 월명동 `stones/img/*.enc` 와 같은 방식). 경로는 `img/<이름>.jpg`
+  꼴만 받는다. 글은 `work-upload` 로 먼저 올리고, 게시가 끝난 뒤 `images` 를 로컬에서 넣어
+  `sayeon.json.enc` 를 다시 잠가 올린다(작업표는 `images` 를 받지 않는다).
+
 - **월명동은 글과 사진을 파일로 나눠 두었다.** `stones/index.html` 은 화면 코드만
   가진 80KB 짜리 평범한 파일이고, 이야기는 `stones/stones.json`(200KB),
   사진은 `stones/img/<번호>-<순서>.jpg`(75장, 7.8MB)에 있다.
