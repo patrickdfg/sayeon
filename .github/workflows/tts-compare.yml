@@ -8,14 +8,18 @@ on:
   workflow_dispatch:
     inputs:
       engine:
-        description: 시험할 음성 (Azure는 무료 F0 연결 후 선택)
+        description: 시험할 음성 (Azure는 무료 F0, Gemini는 GEMINI_API_KEY 연결 후 선택)
         type: choice
-        options: [melo, azure, both]
+        options: [melo, azure, gemini, both]
         default: melo
       story:
         description: 성령사연 번호 (비우면 비교 예문)
         type: string
         default: ""
+      voice:
+        description: Gemini 목소리 이름 (Charon, Kore, Puck 등)
+        type: string
+        default: Charon
 permissions:
   contents: read
 jobs:
@@ -78,5 +82,33 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: azure-hyunsu-sample
+          path: tts-samples/
+          retention-days: 14
+  gemini:
+    if: github.event_name == 'workflow_dispatch' && inputs.engine == 'gemini'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+      - run: python -m pip install cryptography
+      - name: Gemini 샘플 생성
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SAYEON_PASS: ${{ secrets.SAYEON_PASS }}
+          STORY: ${{ inputs.story }}
+          VOICE: ${{ inputs.voice }}
+        run: |
+          if [ -n "$STORY" ]; then
+            python tools/tts_compare.py gemini --voice "$VOICE" --story "$STORY"
+          else
+            python tools/tts_compare.py gemini --voice "$VOICE"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gemini-${{ inputs.voice }}-sample
           path: tts-samples/
           retention-days: 14

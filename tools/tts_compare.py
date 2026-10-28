@@ -1,11 +1,15 @@
 """Isolated, public test text: never changes published sermon data or audio."""
 import argparse
+import base64
+import io
 import json
 import os
 from pathlib import Path
 import subprocess
 import time
+import urllib.error
 import urllib.request
+import wave
 from xml.sax.saxutils import escape
 
 PARAGRAPHS = [
@@ -17,7 +21,8 @@ PARAGRAPHS = [
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('engine', choices=['melo', 'azure'])
+    parser.add_argument('engine', choices=['melo', 'azure', 'gemini'])
+    parser.add_argument('--voice', default='Charon', help='Gemini voice name')
     parser.add_argument('--output', default='tts-samples')
     parser.add_argument('--story', type=int, help='2026 story number')
     args = parser.parse_args()
@@ -58,6 +63,49 @@ def main():
         wav = out / (f'melo-sayeon-{args.story}.wav' if args.story else 'melo-korean.wav')
         sf.write(wav, np.concatenate(parts), sr)
         (out / 'melo-paragraph-times.json').write_text(json.dumps(times), encoding='utf-8')
+    elif args.engine == 'gemini':
+        key = os.environ.get('GEMINI_API_KEY')
+        if not key:
+            raise SystemExit('Set GEMINI_API_KEY in repository secrets; never paste keys into source.')
+        frames, times, position, sr = [], [], 0, 24000
+        for paragraph in paragraphs:
+            body = json.dumps({
+                'model': 'gemini-3.8-flash-tts',
+                'input': [{'type': 'user_input', 'content': [{
+                    'type': 'text', 'text': paragraph,
+                    'annotations': [{'type': 'speech_metadata', 'style': '차분하고 따뜻한 목소리로 천천히 또박또박 낭독'}],
+                }]}],
+                'response_format': {'type': 'audio'},
+                'generation_config': {'speech_config': [{'voice': args.voice}]},
+            }).encode('utf-8')
+            req = urllib.request.Request(
+                'https://generativelanguage.googleapis.com/v1beta/interactions',
+                data=body, headers={'x-goog-api-key': key, 'Content-Type': 'application/json'})
+            for attempt in range(4):
+                try:
+                    with urllib.request.urlopen(req, timeout=180) as response:
+                        result = json.load(response)
+                    break
+                except urllib.error.HTTPError as error:
+                    # Free tier allows few requests per minute; wait instead of failing the whole story.
+                    if error.code != 429 or attempt == 3:
+                        raise
+                    time.sleep(30)
+            audio = [c for step in result['steps'] if step.get('type') == 'model_output'
+                     for c in step.get('content', []) if c.get('type') == 'audio'][-1]
+            with wave.open(io.BytesIO(base64.b64decode(audio['data']))) as part:
+                sr = part.getframerate()
+                pcm = part.readframes(part.getnframes())
+            times.append(round(position / sr, 3))
+            frames.append(pcm + b'\0' * (sr // 2 * 2))
+            position += len(frames[-1]) // 2
+        wav = out / (f'gemini-{args.voice}-{args.story}.wav' if args.story else f'gemini-{args.voice}.wav')
+        with wave.open(str(wav), 'wb') as whole:
+            whole.setnchannels(1)
+            whole.setsampwidth(2)
+            whole.setframerate(sr)
+            whole.writeframes(b''.join(frames))
+        (out / 'gemini-paragraph-times.json').write_text(json.dumps(times), encoding='utf-8')
     else:
         key = os.environ.get('AZURE_SPEECH_KEY')
         region = os.environ.get('AZURE_SPEECH_REGION')
