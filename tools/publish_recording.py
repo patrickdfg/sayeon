@@ -68,6 +68,7 @@ def main():
 
     from faster_whisper import WhisperModel
     model = WhisperModel('base', device='cpu', compute_type='int8', cpu_threads=4)
+    failed, done = [], []
     for source, rel, entry in targets:
         audio = REPO / rel
         lufs = measure(audio)
@@ -84,24 +85,41 @@ def main():
                 times != sorted(times) or
                 not all(0 <= t < duration for t in times) or
                 any(b <= a for a, b in zip(times, times[1:]))):
-            raise ValueError('%d편 문단 시간표 검사 실패' % entry['no'])
+            # 한 편이 어긋나도 나머지는 올린다. 어긋난 편은 이유를 찍고 올림 폴더에 그대로 남긴다.
+            print('::error::%d편 문단 시간표 검사 실패 — 이 편만 건너뜁니다' % entry['no'], flush=True)
+            print('  문단 %d, 시간표 %s, 길이 %.1f초, 받아쓴 구간 %d개' % (
+                len(entry['paragraphs']), len(times or []), duration, len(segments)), flush=True)
+            if times:
+                ties = [i for i, (a, b) in enumerate(zip(times, times[1:])) if b <= a]
+                print('  시각이 겹치거나 거꾸로인 문단: %s' % ties, flush=True)
+                print('  시간표: %s' % times, flush=True)
+            for seg in segments[:3] + segments[-3:]:
+                print('  구간 %.1f~%.1f %s' % (seg['s'], seg['e'], seg['t'][:60]), flush=True)
+            failed.append(entry['no'])
+            audio.unlink()
+            continue
         entry['audio'] = rel
+        done.append((source, rel, entry))
         sync[Path(rel).name] = times
         print('%d편: %.1f초, %.1f LUFS, 문단 %d, 육성 %s' %
               (entry['no'], duration, lufs, len(times), rel), flush=True)
 
     # 육성 경로와 해당 파일 시간표 외에 기존 자료가 바뀌지 않았는지 검사한다.
+    if not done:
+        raise ValueError('시간표를 맞춘 편이 없어 멈춥니다: %s' % failed)
     expected = copy.deepcopy(before)
-    for _, rel, entry in targets:
+    for _, rel, entry in done:
         next(e for e in expected if e['no'] == entry['no'])['audio'] = rel
     assert data == expected
     assert all(sync[k] == v for k, v in original_sync.items()
-               if k not in {Path(rel).name for _, rel, _ in targets})
+               if k not in {Path(rel).name for _, rel, _ in done})
     crypt.write_json(data_path, data)
     sync_path.write_text(json.dumps(sync, ensure_ascii=False, separators=(',', ':')),
                          encoding='utf-8')
-    for source, _, _ in targets:
+    for source, _, _ in done:
         (REPO / source).unlink()
+    if failed:
+        print('::warning::시간표 검사에 걸려 올리지 못한 편: %s (올림 폴더에 남겨 둠)' % failed, flush=True)
 
 
 if __name__ == '__main__':
