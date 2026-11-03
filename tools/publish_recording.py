@@ -71,7 +71,7 @@ def main():
     for source, rel, entry in targets:
         audio = REPO / rel
         lufs = measure(audio)
-        if not -19.4 <= lufs <= -17.4:
+        if not -19.4 <= lufs <= -15.0:   # -18.4 기준(-19.4~-17.4)과 2026-11 부터 시험 중인 -16 기준을 모두 받는다
             raise ValueError('음량 기준 불일치: %.1f LUFS' % lufs)
         segments, _ = model.transcribe(
             str(audio), language='ko', vad_filter=True,
