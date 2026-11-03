@@ -63,7 +63,9 @@ def align(entry, segs):
                 prev = (i, j)
             else:
                 if prev is None:
-                    return ttime[min(j, len(ttime) - 1)]
+                    # 첫 문단이 첫 닻보다 앞이면(녹음 머리에 "성령 말씀 198, 성령이 말합니다" 같은 인사가 있고
+                    # 첫 문단이 짧아 닻이 못 되는 경우) 말이 시작한 시각을 준다. 안 그러면 첫·둘째 문단이 같은 시각이 된다.
+                    return ttime[0] if oi == 0 else ttime[min(j, len(ttime) - 1)]
                 # 앞뒤 닻 사이를 비례로 나눈다
                 span_o = i - prev[0]
                 r = (oi - prev[0]) / span_o if span_o else 0
