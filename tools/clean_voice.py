@@ -84,7 +84,7 @@ def clean(rel, log):
             '-c:a', 'pcm_s16le', wav)
         run(DF_BIN, '-D', '--pf', '-o', os.path.join(tmp, 'df'), wav)
         out = os.path.join(tmp, 'out' + os.path.splitext(src)[1])
-        codec = ['-c:a', 'aac', '-b:a', '128k'] if src.endswith('.m4a') else ['-c:a', 'libmp3lame', '-b:a', '128k']
+        codec = ['-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart'] if src.endswith('.m4a') else ['-c:a', 'libmp3lame', '-b:a', '128k']
         run('ffmpeg', '-v', 'error', '-y', '-i', os.path.join(tmp, 'df', 'in.wav'), '-af', POST,
             '-ar', '48000', *codec, out)
 

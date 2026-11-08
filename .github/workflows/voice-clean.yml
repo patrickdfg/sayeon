@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   clean:
-    if: github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[소리크기]')
+    if: github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[소리크기]') && !contains(github.event.head_commit.message, '[파일정리]')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:

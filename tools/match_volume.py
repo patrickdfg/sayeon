@@ -96,7 +96,7 @@ def fix(path):
           % (TARGET_LUFS, TARGET_TP, TARGET_LRA, st['input_i'], st['input_tp'],
              st['input_lra'], st['input_thresh'], st['target_offset']))
     ext = os.path.splitext(path)[1].lower()
-    codec = (['-c:a', 'aac'] if ext == '.m4a' else ['-c:a', 'libmp3lame'])
+    codec = (['-c:a', 'aac', '-movflags', '+faststart'] if ext == '.m4a' else ['-c:a', 'libmp3lame'])  # m4a 는 재생 정보를 앞에 둔다
     tmp = tempfile.mktemp(suffix=ext)
     subprocess.run([FF, '-hide_banner', '-loglevel', 'error', '-y', '-i', path,
                     '-vn', '-af', af, '-b:a', '%dk' % min(kbps, 192), *codec, tmp], check=True)

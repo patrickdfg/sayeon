@@ -57,7 +57,7 @@ def make(src, dst, ref=None, ceil=None):
         gain += TARGET - i1
     ext = dst.lower().rsplit('.', 1)[-1]
     kbps = min(info(ref or src)[1], 192)
-    codec = ['-c:a', 'aac'] if ext == 'm4a' else ['-c:a', 'libmp3lame']
+    codec = ['-c:a', 'aac', '-movflags', '+faststart'] if ext == 'm4a' else ['-c:a', 'libmp3lame']  # m4a 는 재생 정보를 앞에 둔다
     # 인코딩을 거치면 잰 값이 조금 달라지므로, 결과를 다시 재서 0.1 안으로 들 때까지 고친다
     for _ in range(4):
         run(['-y', '-i', src, '-vn', '-af', chain(gain), '-b:a', '%dk' % kbps] + codec + [dst])
