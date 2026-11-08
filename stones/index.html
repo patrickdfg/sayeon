@@ -1497,10 +1497,62 @@ function updateRecordedHighlight(){
     catch(e){ nodes[section].scrollIntoView(); }
   }
 }
+// ===== 음성 파일이 끊겼을 때 다시 받기 (2026-11-08, 성령말씀·말씀과 같은 방식) =====
+// 받다가 오류가 나거나 15초 넘게 멈춰 있으면 끊긴 곳 1초 앞부터 3번까지 다시 받는다.
+// 3번 다 실패하면 giveUp(예전처럼 멈춤)을 부른다. 기본 듣기와 가이드 녹음이 따로 하나씩 쓴다.
+function makeAudioRetry(p, rate, giveUp){
+  const st = {on:false, src:'', n:0, wait:false, lastT:0, move:0, resumeT:0};
+  function play(){
+    const r = p.play();
+    if(r && r.catch) r.catch(e => {
+      if(e && e.name === 'AbortError') return;                              // 새 파일로 바꾸느라 끊긴 것은 괜찮다
+      if(e && e.name === 'NotAllowedError'){ st.on = false; giveUp(); return; }  // 브라우저가 막음 — 다시 누르게
+      retry();
+    });
+  }
+  function retry(){
+    if(!st.on || st.wait) return;                 // 오류와 재생 실패가 한 번에 같이 오므로 한 번만 센다
+    if(st.n >= 3){ st.on = false; giveUp(); return; }
+    st.n++; st.wait = true;
+    const t = Math.max(0, (p.currentTime || st.lastT) - 1);
+    setTimeout(() => {
+      st.wait = false;
+      if(!st.on) return;
+      st.resumeT = t;
+      p.src = st.src;
+      p.playbackRate = rate();                      // 새로 받으면 속도가 1배로 돌아가므로 다시 맞춘다
+      try{ p.currentTime = t; }catch(e){}
+      st.move = Date.now();
+      play();
+    }, 1500 * st.n);
+  }
+  p.addEventListener('error', retry);
+  p.addEventListener('timeupdate', () => {
+    if(p.currentTime !== st.lastT){
+      st.lastT = p.currentTime; st.move = Date.now();
+      if(st.n && !st.wait && st.lastT > st.resumeT + 3) st.n = 0;   // 다시 3초 넘게 잘 나오면 횟수를 처음으로
+    }
+  });
+  setInterval(() => {
+    if(!st.on || p.paused || p.ended) return;
+    if(Date.now() - st.move > 15000){ st.move = Date.now(); retry(); }
+  }, 3000);
+  return {
+    start(src, t){
+      st.src = src; st.on = true; st.n = 0; st.wait = false;
+      st.lastT = st.resumeT = t || 0; st.move = Date.now();
+      p.src = src; p.playbackRate = rate(); p.currentTime = t || 0;
+      play();
+    },
+    stop(){ st.on = false; }
+  };
+}
+var recRetry = makeAudioRetry(recordedPlayer, () => recRate, () => { if(isReading) stopReading(); });
 recordedPlayer.addEventListener('timeupdate', updateSeekUI);
 recordedPlayer.addEventListener('timeupdate', updateRecordedHighlight);
 recordedPlayer.addEventListener('loadedmetadata', updateSeekUI);
 recordedPlayer.addEventListener('ended', () => {
+  if(recRetry) recRetry.stop();
   if(!isReading) return;
   if(readAutoMode === 'repeat'){
     setTimeout(() => { if(isReading) beginReadCurrent(); }, 700);
@@ -1514,12 +1566,12 @@ recordedPlayer.addEventListener('ended', () => {
     stopReading();
   }
 });
-recordedPlayer.addEventListener('error', () => { if(isReading) stopReading(); });
 
 function stopReading(keepSheet){
   const hold = keepSheet === true || sheetHold;
   readSession++;
   isReading = false;
+  if(recRetry) recRetry.stop();
   releaseWakeLock();
   readQueue = [];
   readQueueIndex = 0;
@@ -1596,11 +1648,9 @@ function beginReadCurrent(resume){
   updateMediaSession(true);
   const recordedPath = audioFor(DATA[current]);
   if(recordedPath){
-    recordedPlayer.src = recordedPath;
-    recordedPlayer.playbackRate = recRate;   // 녹음은 따로 기억한 녹음 속도(기본 100%)를 따른다(소리 높낮이는 그대로)
-    recordedPlayer.currentTime = pendingStart || 0;
+    // 녹음은 따로 기억한 녹음 속도(recRate, 기본 100%)를 따른다(소리 높낮이는 그대로)
+    recRetry.start(recordedPath, pendingStart || 0);
     pendingStart = 0;
-    recordedPlayer.play().catch(() => stopReading());
     return;
   }
   const silentAnchor = document.getElementById('silentAnchor');
@@ -1613,6 +1663,7 @@ function beginReadCurrent(resume){
 const GUIDE_AUDIO = {"1":"audio/1-guide.mp3","2":"audio/2-guide.mp3","4":"audio/4-guide.mp3","7":"audio/7-guide.mp3","9":"audio/9-guide.mp3","13":"audio/13-guide.mp3","17":"audio/17-guide.mp3","18":"audio/18-guide.mp3","23":"audio/23-guide.mp3","30":"audio/30-guide.mp3","33":"audio/33-guide.mp3","44":"audio/44-guide.mp3","45":"audio/45-guide.mp3","65":"audio/65-guide.mp3","66":"audio/66-guide.mp3","68":"audio/68-guide.mp3","72":"audio/72-guide.mp3","101":"audio/101-guide.mp3","102":"audio/102-guide.mp3","103":"audio/103-guide.mp3","104":"audio/104-guide.mp3","105":"audio/105-guide.mp3","106":"audio/106-guide.mp3"};
 const guidePlayer = new Audio();
 guidePlayer.preload = 'none';
+var guideRetry = makeAudioRetry(guidePlayer, () => 1, () => stopGuide());
 let guideDragging = false;
 function guideLineHtml(num){
   const path = GUIDE_AUDIO[String(num)];
@@ -1644,6 +1695,7 @@ function updateGuideUI(){
   }
 }
 function stopGuide(){
+  if(guideRetry) guideRetry.stop();
   guidePlayer.pause();
   if(guidePlayer.currentSrc) guidePlayer.currentTime = 0;
   updateGuideUI();
@@ -1653,15 +1705,14 @@ function toggleGuide(){
   if(!path) return;
   if(!guidePlayer.paused){ stopGuide(); return; }
   stopReading();                       // 기본 듣기가 돌고 있으면 멈춘다
-  if(!guidePlayer.src || !guidePlayer.src.endsWith(path)) guidePlayer.src = path;
-  guidePlayer.play().catch(() => { stopGuide(); });
+  guideRetry.start(path, 0);
   updateGuideUI();
 }
 guidePlayer.addEventListener('timeupdate', updateGuideUI);
 guidePlayer.addEventListener('loadedmetadata', updateGuideUI);
 guidePlayer.addEventListener('play', updateGuideUI);
 guidePlayer.addEventListener('pause', updateGuideUI);
-guidePlayer.addEventListener('ended', () => { guidePlayer.currentTime = 0; updateGuideUI(); });
+guidePlayer.addEventListener('ended', () => { guideRetry.stop(); guidePlayer.currentTime = 0; updateGuideUI(); });
 els.card.addEventListener('click', e => { if(e.target && e.target.id === 'guideBtn') toggleGuide(); });
 document.addEventListener('input', e => { if(e.target && e.target.id === 'guideRange') guideDragging = true; });
 document.addEventListener('change', e => {

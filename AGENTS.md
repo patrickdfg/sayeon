@@ -256,6 +256,7 @@ python make_tts.py 159             # 한 편 (여러 편은 번호를 나열, �
 - **다시 받기**: `index.html` 의 `audioRetryOrStop()`. 받다가 오류가 나거나 15초 넘게 멈춰 있으면
   끊긴 곳 1초 앞부터 3번까지 다시 받는다(1.5·3·4.5초 뒤). 3번 다 실패해야 예전처럼 멈추거나 다음 편으로 간다.
   브라우저가 재생을 막으면(NotAllowedError) 일시정지 상태로 두어 다시 누르게 한다.
+- 말씀 화면(`malsseum/index.html`, 별도 저장소 사본도)과 월명동(`stones/index.html` 의 `makeAudioRetry()`, 기본 듣기·가이드 녹음 둘 다)도 같은 방식이다.
 - **m4a 앞정리**: 육성 m4a 70개 중 67개가 재생 정보(moov)를 파일 끝에 두고 있어 휴대폰이 끝을 따로 받아야 시작했다.
   `-c copy -movflags +faststart` 로 소리는 그대로 두고 앞으로 옮겼다(소리 지문 같음, 길이 같음 — 시간표 그대로).
   `match_volume.py`·`clean_voice.py`·`loud16.py` 도 m4a 를 낼 때 `+faststart` 를 붙인다.
