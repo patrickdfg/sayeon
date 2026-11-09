@@ -44,31 +44,40 @@ def info(path):
     return sec, int(b.group(1)) if b else 128
 
 
-def make(src, dst, ref=None, ceil=None):
+def make(src, dst, ref=None, ceil=None, kbps=None, mono48=False, peak_max=None):
+    """src → dst. kbps 를 주면 그 비트레이트로, mono48 이면 모노 48kHz 로 낸다(육성 m4a 기준).
+    peak_max(dBFS) 를 주면 인코딩한 결과의 꼭대기가 그 값을 넘을 때 리미터 한도를 낮춰 다시 만든다 —
+    낮은 비트레이트로 인코딩하면 꼭대기가 1~2dB 튀어 0 을 넘을 수 있기 때문이다."""
     global CEIL
     if ceil is not None:
         CEIL = ceil
     i0, p0 = measure(src)
     gain = TARGET - i0
-    for _ in range(6):
-        i1, _p = measure(src, gain)
-        if abs(i1 - TARGET) < 0.05:
-            break
-        gain += TARGET - i1
     ext = dst.lower().rsplit('.', 1)[-1]
-    kbps = min(info(ref or src)[1], 192)
+    rate = kbps or min(info(ref or src)[1], 192)
     codec = ['-c:a', 'aac', '-movflags', '+faststart'] if ext == 'm4a' else ['-c:a', 'libmp3lame']  # m4a 는 재생 정보를 앞에 둔다
-    # 인코딩을 거치면 잰 값이 조금 달라지므로, 결과를 다시 재서 0.1 안으로 들 때까지 고친다
-    for _ in range(4):
-        run(['-y', '-i', src, '-vn', '-af', chain(gain), '-b:a', '%dk' % kbps] + codec + [dst])
-        i2, p2 = measure(dst)
-        if abs(i2 - TARGET) <= 0.1:
+    if mono48:
+        codec = ['-ac', '1', '-ar', '48000'] + codec
+    for _attempt in range(6):
+        for _ in range(6):
+            i1, _p = measure(src, gain)
+            if abs(i1 - TARGET) < 0.05:
+                break
+            gain += TARGET - i1
+        # 인코딩을 거치면 잰 값이 조금 달라지므로, 결과를 다시 재서 0.1 안으로 들 때까지 고친다
+        for _ in range(4):
+            run(['-y', '-i', src, '-vn', '-af', chain(gain), '-b:a', '%dk' % rate] + codec + [dst])
+            i2, p2 = measure(dst)
+            if abs(i2 - TARGET) <= 0.1:
+                break
+            gain += TARGET - i2
+        if peak_max is None or p2 <= peak_max:
             break
-        gain += TARGET - i2
+        CEIL -= (p2 - peak_max) + 0.2
     sec0, sec1 = info(ref or src)[0], info(dst)[0]
     if abs(sec1 - sec0) > 0.3:
         raise SystemExit('길이가 %.2f초 바뀌어 멈춥니다: %s' % (sec1 - sec0, dst))
-    return {'전': (i0, p0), '키운 값(dB)': round(gain, 2), '후': (i2, p2), '길이': (sec0, sec1)}
+    return {'전': (i0, p0), '키운 값(dB)': round(gain, 2), '후': (i2, p2), '한도': round(CEIL, 1), '길이': (sec0, sec1)}
 
 
 if __name__ == '__main__':
