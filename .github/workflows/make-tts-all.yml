@@ -59,6 +59,10 @@ jobs:
             COUNT=$(python -c "import io,json;print(json.load(io.open('work-upload/tts/request.json',encoding='utf-8')).get('count',0))")
           fi
           echo "count=${COUNT:-0}" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "push" ] && [ -f work-upload/tts/request.json ]; then
+            NUMBER=$(python -c "import json;print(json.load(open('work-upload/tts/request.json')).get('number',''))")
+          fi
+          echo "number=${NUMBER:-}" >> "$GITHUB_OUTPUT"
           python - <<'PY'
           import sys, os
           sys.path.insert(0, 'tools')
@@ -85,6 +89,8 @@ jobs:
           for try in 1 2 3; do
             if [ "${{ github.event_name }}" = "schedule" ]; then
               ARGS="${{ steps.plan.outputs.numbers }}"
+            elif [ -n "${{ steps.plan.outputs.number }}" ]; then
+              ARGS="${{ steps.plan.outputs.number }}"
             else
               ARGS="--all --limit ${{ steps.plan.outputs.count }}"
             fi
