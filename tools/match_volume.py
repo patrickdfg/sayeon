@@ -7,8 +7,7 @@
     python tools/match_volume.py --check         # 재 보기만 하고 바꾸지 않는다
 
 녹음마다 소리 크기가 제각각이라, 현수 음성을 듣다가 육성으로 넘어가면 갑자기 작아졌다.
-현수 음성이 모두 -18.4 LUFS 쯤이라 육성도 거기에 맞춘다(2026-10-14 기준 육성은 가운데가
--24.7, 작은 것은 -32.2 까지 있었다).
+새로 처리하는 육성 녹음은 -16 LUFS 로 맞춘다. 기존 녹음은 별도 요청 없이 일괄 변경하지 않는다.
 
 - **길이가 바뀌지 않는다.** loudnorm 은 소리 크기만 손대므로 `audio/sync.json` 문단
   시간표를 다시 만들 필요가 없다. 끝나고 길이를 검사해 0.3초 넘게 어긋나면 되돌린다.
@@ -28,11 +27,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import crypt
 
 REPO = crypt.REPO
-TARGET_LUFS = -18.4      # 현수 음성의 가운데값. clean_voice.py 도 같은 값을 쓴다
-TARGET_TP = -1.5         # 가장 큰 순간에 여유를 둬 찌그러지지 않게
+TARGET_LUFS = -16.0      # 새 음성 기본값. clean_voice.py 도 같은 값을 쓴다
+TARGET_TP = -2.0         # 최대 피크 제한
 TARGET_LRA = 11
 NEAR = 1.0               # 이만큼 안에 들면 이미 맞는 것으로 본다
-# 2026-11-01 -16 LUFS 로 시험해 올린 최근 일주일치(tools/loud16.py). 여기 든 편은 -18.4 로 되돌리지 않는다
+# 2026-11-01 -16 LUFS 로 시험해 올린 최근 일주일치(tools/loud16.py). 기존 파일 재처리 방지
 KEEP_16 = {'%d.m4a' % n for n in range(192, 200)}
 
 
