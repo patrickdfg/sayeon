@@ -1,3 +1,6 @@
+## 2026-11-15 스킬을 Claude Code 에 등록
+- `skills/seongnyeong-sayeon-upload/` 를 `.claude/skills/seongnyeong-sayeon-upload/` 로 복사해 이 저장소에서 연 Claude Code 가 스킬로 읽게 했다. 두 곳은 같은 내용이며 고칠 때 함께 고친다. 계정 설정(claude.ai)에는 올리지 않았다.
+
 ## 2026-11-15 올리기 전체를 스킬로 (다른 AI 용)
 - 기존 `skills/seongnyeong-sayeon-upload/` 를 확장해 글 등록(성령 말씀 N)·육성 m4a(`[원본]`/`[소리크기]`)·수요주일 말씀(`mal-upload`)·-16 LUFS 규칙·배포 확인을 한 스킬에 담았다. 상세는 `references/`, ChatGPT 등용 요약본은 `chatgpt-instructions.md`(약 3천 자).
 - `validate_job.py` 가 제목 `성령 말씀 N` 도 받고(예전엔 `성령 사연 N` 만), `dry_run` 항목을 허용한다. `scripts/check_audio.py` 로 -16 LUFS·꼭대기를 잰다.

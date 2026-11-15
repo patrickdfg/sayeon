@@ -69,7 +69,8 @@ gh run list --repo patrickdfg/sayeon --limit 3      # 배포 끝났는지
 
 `skills/seongnyeong-sayeon-upload/` 에 올리기 전체(글 등록·육성·말씀·-16 규칙·확인)를 스킬로 담았다.
 `SKILL.md` 가 본문, `references/` 가 상세, `scripts/validate_job.py`(작업표 검사)·`check_audio.py`(-16 측정), `chatgpt-instructions.md` 가 ChatGPT 등에 붙여 넣는 요약본이다.
-올리기 절차를 고치면 이 스킬도 같이 고친다.
+Claude Code 에는 `.claude/skills/seongnyeong-sayeon-upload/` 로도 복사해 등록해 두었다(`/seongnyeong-sayeon-upload` 로 부른다).
+**올리기 절차를 고치면 `skills/` 와 `.claude/skills/` 두 곳을 같이 고친다**(복사본이라 한쪽만 고치면 어긋난다).
 
 ## 모바일 Work에서 성령사연 자동 게시
 
