@@ -50,6 +50,12 @@ jobs:
         continue-on-error: true
         run: python tools/publish_azure.py ${{ steps.process.outputs.tts_failed_no }}
 
+      # 자동 게시가 만든 현수 음성은 -18.4 LUFS 다. 성령말씀 음성은 -16 LUFS 로 맞춘다(2026-11, AGENTS.md).
+      # 새로 생긴 audio/*.mp3 만 고치고, 못 맞춰도 게시는 막지 않는다.
+      - name: 현수 음성 -16 LUFS 로 맞추기
+        continue-on-error: true
+        run: python tools/loud16.py --fix-new
+
       - name: 결과 검사
         run: |
           python -m unittest tools/test_work_pipeline.py

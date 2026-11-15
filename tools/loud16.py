@@ -6,7 +6,10 @@ match_volume.py 는 -18.4 로 맞추지만 이미 꼭대기가 0 근처인 녹�
 원본은 건드리지 않고 두 번째 경로에 새로 쓴다. 길이가 0.3초 넘게 바뀌면 멈춘다.
 
   python tools/loud16.py 원본 결과 [비교할_길이_파일]
+  python tools/loud16.py --fix 파일...   # 제자리에서 -16 으로 맞춘다(이미 맞으면 그대로)
+  python tools/loud16.py --fix-new        # 아직 커밋 안 된 audio/*.mp3 만 맞춘다(자동 게시 일꾼이 쓴다)
 """
+import os
 import re
 import shutil
 import subprocess
@@ -14,7 +17,21 @@ import sys
 
 TARGET = -16.0     # 목표 소리 크기(LUFS)
 CEIL = -2.0        # 꼭대기 한도(dBFS). 인코딩 뒤 조금 넘는 몫을 남긴다
-FF = shutil.which('ffmpeg') or 'ffmpeg'
+
+
+def _ffmpeg():
+    """저장소 일꾼에는 ffmpeg 가 깔려 있고, 없으면 파이썬 꾸러미(imageio-ffmpeg)의 것을 쓴다."""
+    found = shutil.which('ffmpeg')
+    if found:
+        return found
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return 'ffmpeg'
+
+
+FF = _ffmpeg()
 
 
 def run(args):
@@ -80,6 +97,45 @@ def make(src, dst, ref=None, ceil=None, kbps=None, mono48=False, peak_max=None):
     return {'전': (i0, p0), '키운 값(dB)': round(gain, 2), '후': (i2, p2), '한도': round(CEIL, 1), '길이': (sec0, sec1)}
 
 
+def fix_inplace(path, tol=0.3, **kw):
+    """path 를 제자리에서 -16 LUFS 로 맞춘다. 이미 ±tol 안이면 건드리지 않고 None 을 돌려준다."""
+    before, _peak = measure(path)
+    if abs(before - TARGET) <= tol:
+        return None
+    ext = path.lower().rsplit('.', 1)[-1]
+    tmp = path + '.l16.' + ext
+    try:
+        result = make(path, tmp, peak_max=-1.0, **kw)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+    return result
+
+
+def new_mp3s():
+    """아직 커밋하지 않은 audio/*.mp3 (새로 만들었거나 바뀐 것)."""
+    out = subprocess.run(['git', 'status', '--porcelain', '--untracked-files=all', '--', 'audio'],
+                         capture_output=True, text=True, errors='replace').stdout
+    paths = []
+    for line in out.splitlines():
+        name = line[3:].strip().strip('"')
+        if name.lower().endswith('.mp3') and os.path.exists(name):
+            paths.append(name)
+    return paths
+
+
 if __name__ == '__main__':
-    r = make(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)
-    print(r)
+    args = sys.argv[1:]
+    if args and args[0] in ('--fix', '--fix-new'):
+        files = new_mp3s() if args[0] == '--fix-new' else args[1:]
+        if not files:
+            print('맞출 파일이 없습니다.')
+        for f in files:
+            try:
+                r = fix_inplace(f)
+                print('%s: %s' % (f, '이미 맞음' if r is None else '%.1f → %.1f LUFS' % (r['전'][0], r['후'][0])))
+            except SystemExit as e:        # 길이가 바뀌는 등 — 원본을 그대로 두고 알린다
+                print('::warning::%s 는 맞추지 못했습니다(%s)' % (f, e))
+    else:
+        print(make(args[0], args[1], args[2] if len(args) > 2 else None))

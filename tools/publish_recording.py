@@ -11,6 +11,7 @@ import subprocess
 import align
 import clean_voice
 import crypt
+import loud16
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -39,6 +40,15 @@ def measure(path):
     return float(values[-1])
 
 
+def prepare_raw(source, dest):
+    """원본 녹음을 육성 기준(-16 LUFS, 64kbps 모노 48kHz, 꼭대기 -1.0 dBFS 이하)으로 만들어 dest 에 쓴다.
+    소리를 바꾸는 일은 음량뿐이다. 길이가 0.3초 넘게 바뀌면 loud16 이 멈춘다."""
+    loud16.CEIL = -2.0
+    result = loud16.make(str(source), str(dest), None, kbps=64, mono48=True, peak_max=-1.0)
+    print('원본 보정 %s: %.1f → %.1f LUFS, 꼭대기 %.1f dBFS, 길이 %.2f초' % (
+        Path(source).name, result['전'][0], result['후'][0], result['후'][1], result['길이'][1]), flush=True)
+
+
 def main():
     files = incoming(os.environ.get('BEFORE', ''), os.environ['AFTER'])
     if not files:
@@ -50,19 +60,26 @@ def main():
     sync_path = REPO / 'audio/sync.json'
     sync = json.loads(sync_path.read_text(encoding='utf-8'))
     original_sync = copy.deepcopy(sync)
+    # 커밋 글의 표시로 어떻게 다룰지 정한다.
+    #  [소리크기] 이미 음량을 맞춰 올린 육성 — 잡음 제거·목소리 변형 없이 그대로 쓴다.
+    #  [원본]     앱(/sayeon/upload/)이 올린 원본 — 잡음 제거 없이 음량만 -16 LUFS·64kbps 모노로 맞춰 쓴다.
+    #  표시 없음  예전 방식 — 잡음 제거(clean_voice)까지 한다.
+    commit_message = subprocess.run(
+        ['git', 'log', '-1', '--format=%B', os.environ['AFTER']],
+        cwd=REPO, check=True, capture_output=True, text=True).stdout
+    raw = '[원본]' in commit_message
+    volume_only = raw or '[소리크기]' in commit_message
     targets = []
     for source in files:
         no = int(Path(source).stem)
         if no not in by_no:
             raise ValueError('%d편 원고가 없습니다.' % no)
         rel = 'audio/%d.m4a' % no
-        shutil.copyfile(REPO / source, REPO / rel)
+        if raw:
+            prepare_raw(REPO / source, REPO / rel)
+        else:
+            shutil.copyfile(REPO / source, REPO / rel)
         targets.append((source, rel, by_no[no]))
-    # 이미 음량만 조정한 육성은 추가적인 잡음 제거·목소리 변형 없이 보존한다.
-    commit_message = subprocess.run(
-        ['git', 'log', '-1', '--format=%B', os.environ['AFTER']],
-        cwd=REPO, check=True, capture_output=True, text=True).stdout
-    volume_only = '[소리크기]' in commit_message
     if not volume_only and clean_voice.main([rel for _, rel, _ in targets]):
         raise RuntimeError('잡음 제거 검사 실패')
 
