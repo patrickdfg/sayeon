@@ -65,6 +65,12 @@ JSON 항목에 `"audio": "audio/22.m4a"` 처럼 적어 두면 그 편은 그 파
 gh run list --repo patrickdfg/sayeon --limit 3      # 배포 끝났는지
 ```
 
+## 스킬 — 다른 AI 에서 올리기 (2026-11-15)
+
+`skills/seongnyeong-sayeon-upload/` 에 올리기 전체(글 등록·육성·말씀·-16 규칙·확인)를 스킬로 담았다.
+`SKILL.md` 가 본문, `references/` 가 상세, `scripts/validate_job.py`(작업표 검사)·`check_audio.py`(-16 측정), `chatgpt-instructions.md` 가 ChatGPT 등에 붙여 넣는 요약본이다.
+올리기 절차를 고치면 이 스킬도 같이 고친다.
+
 ## 모바일 Work에서 성령사연 자동 게시
 
 ChatGPT Work가 `work-upload/<편번호>.json` 작업표를 main에 올리면

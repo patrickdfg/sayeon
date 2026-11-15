@@ -1,6 +1,6 @@
 interface:
-  display_name: "성령 사연 업로드"
-  short_description: "원고 작업표 게시부터 자동 배포 확인까지 안전하게 처리"
-  default_prompt: "Use $seongnyeong-sayeon-upload to upload the provided 성령 사연 manuscript and verify the automated deployment."
+  display_name: "성령말씀 올리기"
+  short_description: "성령말씀 원고·육성·수요주일 말씀을 올리고 소리 -16, 배포까지 확인"
+  default_prompt: "Use $seongnyeong-sayeon-upload to upload the provided 성령 말씀 manuscript, recording, or 말씀 files and verify the automated deployment."
 policy:
   allow_implicit_invocation: true

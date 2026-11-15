@@ -31,7 +31,7 @@ def validate(path: pathlib.Path, allow_replace: bool) -> dict:
     if missing:
         fail("필수 항목이 없습니다: " + ", ".join(missing))
 
-    allowed = required | {"replace"}
+    allowed = required | {"replace", "dry_run"}
     unknown = sorted(set(job) - allowed)
     if unknown:
         fail("알 수 없는 항목이 있습니다: " + ", ".join(unknown))
@@ -43,9 +43,9 @@ def validate(path: pathlib.Path, allow_replace: bool) -> dict:
     if isinstance(job["no"], bool) or not isinstance(job["no"], int) or job["no"] <= 0:
         fail("no는 양의 정수여야 합니다.")
 
-    expected_title = f'성령 사연 {job["no"]}'
-    if job["title"] != expected_title:
-        fail(f'title은 "{expected_title}"이어야 합니다.')
+    expected_titles = (f'성령 말씀 {job["no"]}', f'성령 사연 {job["no"]}')
+    if job["title"] not in expected_titles:
+        fail('title은 "%s" 또는 "%s"이어야 합니다.' % expected_titles)
 
     content = job["content"]
     if not isinstance(content, str) or not content.strip():
