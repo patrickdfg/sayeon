@@ -87,7 +87,7 @@ ChatGPT Work가 `work-upload/<편번호>.json` 작업표를 main에 올리면
   커밋 글의 **`[원본]`** 표시를 보고 `publish-recording.yml` → `tools/publish_recording.py` 의 `prepare_raw()` 가 **잡음은 그대로 두고 음량만** -16 LUFS·64kbps 모노 48kHz·꼭대기 -1.0 dBFS 이하로 맞춘 뒤 원고에 연결하고 문단 시간표를 만든다.
   이미 있는 편에는 원고 칸을 비우고 녹음만 골라 붙일 수 있다(이미 육성이 있으면 바꿀지 묻는다). 표시 세 가지 — `[소리크기]`(이미 맞춘 파일, 그대로), `[원본]`(음량만 맞춤), 없음(예전 방식: 잡음 제거까지).
 - **현수 음성 -16 자동(2026-11-15)**: `work-upload.yml` 이 글을 게시한 뒤 새로 생긴 `audio/*.mp3` 를 `python tools/loud16.py --fix-new` 로 -16 LUFS 에 맞춘다(실패해도 게시는 막지 않는다).
-  `loud16.py` 는 `--fix 파일…`(제자리 보정)도 받는다. 말씀 탭(malsseum)의 mp3 는 아직 이 보정을 하지 않는다 — 보낸 녹음 크기 그대로 올라간다.
+  `loud16.py` 는 `--fix 파일…`(제자리 보정)도 받는다. 말씀 탭(malsseum)의 mp3 도 `mal-upload` 처리(`process_mal_upload.py` 의 `normalize()`)가 올릴 때 -16 으로 맞춘다(2026-11-15).
 - 제목 줄(`2026년 성령 사연|말씀 <번호>`)은 `process_work_upload.py` 와 화면이 같은 규칙으로 뺀다. 한쪽을 고치면 다른 쪽도 맞춘다.
 - '말씀' 탭(2026-10-09): 한글(.hwp)과 mp3 를 `malsseum` 저장소 `mal-upload/<묶음>/` 에 올린다(녹음은 6MB 조각). 처리는 그 저장소의
   `mal-upload.yml`·`tools/process_mal_upload.py` 가 한다(자세한 것은 malsseum `AGENTS.md`). 그래서 토큰은 sayeon·malsseum 둘 다 골라야 한다.
