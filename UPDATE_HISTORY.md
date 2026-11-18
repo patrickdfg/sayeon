@@ -1,3 +1,8 @@
+## 2026-11-18 성령 말씀 214편 육성 올리기 (소리 -16 LUFS)
+- 사용자가 보낸 214편 육성(5분 20초 m4a)을 볼륨만 -26.6 → -16.0 LUFS 로 올렸다(잡음 제거 없음). 64kbps 모노 48kHz, 샘플 꼭대기 -1.2·참 꼭대기 -0.6 dBFS, 길이 320.02초 그대로. `tools/loud16.py` 사용, 원본에서 새로 만들었다.
+- `recording-upload/214.m4a` 로 올리고 커밋 글에 `[소리크기]` 를 적어 잡음 제거가 돌지 않게 했다. 문단 시간표는 `publish-recording.yml` 이 만든다. 소리는 듣지 못했고 수치로만 확인했다.
+- 스킬 `check_audio.py` 가 샘플 꼭대기(-1.0 이하)와 참 꼭대기(0 미만)를 따로 재도록 고쳤다(예전엔 둘 중 큰 값으로 판정해 맞는 파일을 '어긋남'으로 보았다). `.claude/skills` 복사본도 같이 고쳤다.
+
 ## 2026-11-15 스킬을 Claude Code 에 등록
 - `skills/seongnyeong-sayeon-upload/` 를 `.claude/skills/seongnyeong-sayeon-upload/` 로 복사해 이 저장소에서 연 Claude Code 가 스킬로 읽게 했다. 두 곳은 같은 내용이며 고칠 때 함께 고친다. 계정 설정(claude.ai)에는 올리지 않았다.
 

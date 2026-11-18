@@ -16,10 +16,11 @@ def measure(path):
     text = proc.stderr
     loud = re.findall(r"^\s+I:\s*(-?[0-9.]+) LUFS", text, re.M)
     peaks = re.findall(r"^\s+Peak:\s*(-?[0-9.]+|-inf) dBFS", text, re.M)
-    if proc.returncode != 0 or not loud:
+    if proc.returncode != 0 or not loud or len(peaks) < 2:
         raise RuntimeError("측정 실패: " + (text.strip().splitlines() or ["ffmpeg 출력 없음"])[-1])
-    peak = max(float("-inf") if p == "-inf" else float(p) for p in peaks) if peaks else float("nan")
-    return float(loud[-1]), peak
+    num = lambda p: float("-inf") if p == "-inf" else float(p)
+    # 앞이 샘플 꼭대기(loud16.py 가 -1.0 이하로 맞추는 값), 뒤가 참 꼭대기(0 미만이어야 함)
+    return float(loud[-1]), num(peaks[-2]), num(peaks[-1])
 
 
 def main():
@@ -32,12 +33,13 @@ def main():
     bad = 0
     for path in args.files:
         try:
-            lufs, peak = measure(path)
+            lufs, peak, true_peak = measure(path)
         except (OSError, RuntimeError) as error:
             print("%s  %s" % (path, error)); bad += 1; continue
-        ok = abs(lufs - args.target) <= args.tol and peak <= args.peak_max
+        ok = abs(lufs - args.target) <= args.tol and peak <= args.peak_max and true_peak < 0
         bad += 0 if ok else 1
-        print("%s  %.1f LUFS  꼭대기 %.1f dBFS  %s" % (path, lufs, peak, "맞음" if ok else "어긋남"))
+        print("%s  %.1f LUFS  샘플 꼭대기 %.1f  참 꼭대기 %.1f dBFS  %s"
+              % (path, lufs, peak, true_peak, "맞음" if ok else "어긋남"))
     return 1 if bad else 0
 
 
