@@ -44,7 +44,7 @@ description: 성령말씀(성령 사연) 원고 등록, 육성 녹음(m4a) 올�
    붙여넣은 글은 줄바꿈이 뭉개질 수 있다. PDF 로 받으면 원래 줄 나눔이 보이니 그쪽이 정확하다(쪽이 바뀌는 곳의 문단 경계는 `references/recording.md` 의 '쪽 경계').
 4. `python skills/seongnyeong-sayeon-upload/scripts/validate_job.py work-upload/N.json` 로 검사한다.
 5. 새 파일로 main 에 커밋·푸시한다. 커밋 글 예 `성령 말씀 213편 원고 등록`.
-6. 로봇(`work-upload.yml`)이 이어서 한다 — 글 추가 → 현수 목소리 `audio/N.mp3` → **-16 LUFS 자동** → 문단 시간표 → Pages 재배포. 작업표는 처리 뒤 지워진다.
+6. 로봇(`work-upload.yml`)이 이어서 한다 — 글 추가 → 현수 목소리 `audio/N.mp3` → **-16 LUFS 자동** → 문단 시간표 → Pages 재배포 → **새 사연 알림 자동 발송**(마지막 단계, 사용자 기기에 실제로 나간다). 작업표는 처리 뒤 지워진다.
 7. 확인. 워크플로 success, 작업표 삭제, `audio/N.mp3` 생김, Pages 배포 success. 실패하면 핵심 로그 원인만 보고하고 우회하지 않는다.
 
 - 글 아래 사진(`images`)은 작업표가 받지 않는다. 게시 뒤 로컬에서 따로 넣는다(저장소 `AGENTS.md` '글 맨 아래 사진').
